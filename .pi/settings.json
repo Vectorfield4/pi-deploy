@@ -1,0 +1,26 @@
+{
+  "defaultProvider": "openai",
+  "defaultModel": "deepseek-chat",
+  "defaultProjectTrust": "always",
+  "theme": "dark",
+  "compaction": {
+    "enabled": true,
+    "reserveTokens": 16384,
+    "keepRecentTokens": 20000
+  },
+  "retry": {
+    "enabled": true,
+    "maxRetries": 3,
+    "baseDelayMs": 2000
+  },
+  "packages": [
+    "pi-subagents",
+    "pi-true-queue",
+    "pi-mcp-adapter",
+    "pi-context-cap",
+    "@bytesbrains/pi-telegram-bridge",
+    "ping-a-human-pi",
+    "pi-memory",
+    "@upstash/context7-pi"
+  ]
+}

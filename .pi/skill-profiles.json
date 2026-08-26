@@ -1,0 +1,47 @@
+{
+  "$schema": "Skill profile mapping for pi-deploy agents",
+  "profiles": {
+    "orchestrator": {
+      "description": "Plans and decomposes tasks, delegates to subagents",
+      "model": "deepseek-reasoner",
+      "skills": [
+        "orchestrate-task",
+        "prioritize-tasks",
+        "intent-router",
+        "project-discover"
+      ]
+    },
+    "coder": {
+      "description": "Implements code, UI components, content, integrations",
+      "model": "deepseek-chat",
+      "skills": [
+        "execute-task",
+        "create-pr",
+        "project-init",
+        "setup-ci",
+        "ui-architect",
+        "ui-implementer",
+        "content-strategist",
+        "integration-specialist",
+        "technical-planner",
+        "narrative-designer",
+        "simple-task-executor",
+        "threejs-scene-builder"
+      ]
+    },
+    "qa": {
+      "description": "Reviews code, merges PRs, manages releases and deploys",
+      "model": "deepseek-reasoner",
+      "skills": [
+        "execute-qa-task",
+        "review-and-merge",
+        "release-to-main",
+        "deploy-vercel",
+        "deploy-ftp",
+        "pr-judge",
+        "resolve-merge-conflict",
+        "cleanup-branch"
+      ]
+    }
+  }
+}

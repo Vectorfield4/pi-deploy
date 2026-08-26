@@ -1,0 +1,126 @@
+services:
+  pi:
+    build:
+      context: .
+      dockerfile: Dockerfile.pi
+    container_name: pi-agent
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./workspace:/workspace
+      - pi-agent-home:/root/.pi/agent
+      - ./AGENTS.md:/workspace/AGENTS.md:ro
+      - ./.pi:/workspace/.pi
+    depends_on:
+      memory-db:
+        condition: service_healthy
+      embedding:
+        condition: service_healthy
+      dense-mem:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'node.*pi' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  memory-db:
+    image: pgvector/pgvector:0.8.2-pg18-trixie
+    container_name: pi-memory-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: densemem
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: densemem
+    volumes:
+      - memory-db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"densemem\" -d \"densemem\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  embedding:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-latest
+    container_name: pi-embedding
+    restart: unless-stopped
+    command: >
+      --model-id sentence-transformers/all-MiniLM-L6-v2
+      --port 8080
+      --max-batch-tokens 8192
+      --max-client-batch-size 32
+    ports:
+      - "127.0.0.1:8081:8080"
+    volumes:
+      - embedding-cache:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  dense-mem:
+    image: ghcr.io/markhuangai/dense-mem:latest
+    container_name: pi-dense-mem
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "-c", "exec /app/docker-entrypoint.sh \"$@\"", "--"]
+    command: ["/app/server"]
+    environment:
+      LOG_LEVEL: info
+      CONTROL_HTTP_ADDR: ":8090"
+      CONTROL_PORTAL_TOKEN: ${CONTROL_PORTAL_TOKEN}
+      POSTGRES_USER: densemem
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: densemem
+      POSTGRES_HOST: memory-db
+      POSTGRES_PORT: "5432"
+      POSTGRES_SSLMODE: disable
+      REDIS_ADDR: ""
+      DISTRIBUTED_COORDINATION_REQUIRED: "false"
+      AI_API_URL: http://embedding:8080/v1
+      AI_API_KEY: tei
+      AI_API_EMBEDDING_MODEL: all-MiniLM-L6-v2
+      AI_API_EMBEDDING_DIMENSIONS: "384"
+      AI_VERIFIER_API_URL: ${AI_VERIFIER_API_URL}
+      AI_VERIFIER_API_KEY: ${AI_VERIFIER_API_KEY}
+      AI_VERIFIER_MODEL: ${AI_VERIFIER_MODEL}
+      AI_VERIFIER_MAX_INPUT_TOKENS: "64000"
+      AI_VERIFIER_MAX_OUTPUT_TOKENS: "8192"
+    ports:
+      - "127.0.0.1:8090:8090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      memory-db:
+        condition: service_healthy
+      embedding:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  pi-agent-home:
+  memory-db-data:
+  embedding-cache:

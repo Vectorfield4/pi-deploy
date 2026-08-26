@@ -1,0 +1,25 @@
+name: compose-validation
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Shell syntax check
+        run: |
+          for s in scripts/*.sh; do
+            bash -n "$s" || exit 1
+          done
+
+      - name: Create dummy .env
+        run: |
+          cp .env.example .env
+          sed -i 's/^.*=$/x/' .env
+
+      - name: Validate compose config
+        run: docker compose config -q
