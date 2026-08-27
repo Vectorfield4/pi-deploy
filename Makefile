@@ -1,7 +1,12 @@
 .PHONY: init up down logs setup restart backup install-packages update-skills
 
 init:
-	@test -f .env || cp .env.example .env
+	@if [ ! -f .env ]; then cp .env.example .env; else \
+	  # Merge: add keys from .env.example that are missing in .env
+	  grep -E '^[A-Z_]+=' .env.example | while IFS= read -r line; do \
+	    key=$$(echo "$$line" | cut -d= -f1); \
+	    if ! grep -q "^$$key=" .env 2>/dev/null; then echo "$$line" >> .env; fi; \
+	  done; fi
 	@test -d workspace || mkdir workspace
 	@test -d backups || mkdir backups
 
