@@ -1,8 +1,8 @@
 ---
 name: qa
 description: "Manages releases and deploys. Hands PR review off to the reviewer subagent. Blocks for HITL approval on releases and FTP deploys. Runs memory-gc after each QA iteration."
-model: deepseek-reasoner
-thinking: high
+model: deepseek/deepseek-v4-flash
+thinking: off
 systemPromptMode: replace
 inheritProjectContext: false
 tools: read, bash, grep, find, ls, edit, write, subagent, mcp

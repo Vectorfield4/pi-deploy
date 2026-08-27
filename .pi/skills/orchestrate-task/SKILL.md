@@ -15,9 +15,9 @@ description: "Breaks down complex development tasks into parallel sub-tasks for 
 
 ### 2. Detect Project Type
 Before decomposing, identify the project type:
-- **frontend**: package.json with React/Vue/Svelte/Angular → delegate to `frontender`
+- **frontend**: package.json with React/Vue/Svelte/Angular → `frontend-architect` (design) + `frontend-implementer` (code)
 - **backend**: package.json + Express/Fastify/Nest, or go.mod, requirements.txt, Cargo.toml → delegate to `coder`
-- **fullstack**: Monorepo or both frontend + backend markers → `frontender` for UI, `coder` for API
+- **fullstack**: Monorepo or both frontend + backend markers → `frontend-architect` + `frontend-implementer` for UI, `coder` for API
 - **CLI/lib**: package.json with bin/main, or Makefile + src/ → delegate to `coder`
 - **infra**: docker-compose.yml, Dockerfile, .github/workflows → delegate to `coder`
 - **content**: Markdown-heavy, no code → delegate to `coder`
@@ -100,8 +100,13 @@ This saves N-1 embedding calls per N-sub-task task. For a 3-component backend fe
 ### 5. Decompose the Task
 
 #### For frontend projects:
-- Delegate entire feature to `frontender` subagent
-- Frontender handles: ui-architect → ui-implementer → threejs-scene-builder → integration-specialist
+1. **Architecture phase** (Pro): delegate to `frontend-architect`
+   - Input: feature description, acceptance criteria, project context
+   - Output: `artifacts/design-spec.md` (Atomic Design structure, routes, state, data)
+2. **Implementation phase** (Flash): delegate to `frontend-implementer`
+   - Input: architecture spec, feature description, project context
+   - Output: working code, build passing, tests passing
+- Do NOT split into per-component sub-tasks — the architect creates a single spec, the implementer builds it all.
 - If fullstack: backend sub-tasks still go to `coder`
 
 #### For backend projects (Layered Architecture):
@@ -138,7 +143,10 @@ This saves N-1 embedding calls per N-sub-task task. For a 3-component backend fe
 - `feature/<task_id>-<sanitized_title>`
 
 ### 7. Delegate Sub-Tasks
-- Frontend features (full): create one worktree, then delegate the entire feature to one `frontender` subagent run. The frontender handles the full pipeline (architect → implement → 3D → integrate) inside a single worktree. Do not split frontend features into per-stage sub-tasks — that creates worktree races and the frontender's pipeline assumes a single branch.
+- Frontend features: two-phase delegation:
+  1. Delegate architecture to `frontend-architect` (Pro) — creates `artifacts/design-spec.md`
+  2. After architect completes, delegate implementation to `frontend-implementer` (Flash) — builds from spec
+  - Both work in the same worktree on the same branch. Do not create separate worktrees per phase.
 - Backend/infra/content tasks: split into per-component sub-tasks as before. Each `coder` subagent gets its own worktree.
 - Pass: description, acceptance_criteria, project context, branch name, rules_hash.
 - Also pass the batched `metadata.memory_context` and `metadata.anti_patterns` (from step 4.5) to each sub-task.

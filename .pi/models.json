@@ -1,0 +1,25 @@
+{
+  "providers": {
+    "timeweb": {
+      "api": "openai-completions",
+      "baseUrl": "https://api.timeweb.ai/v1",
+      "apiKey": "$TIMEWEB_API_KEY",
+      "models": [
+        {
+          "id": "deepseek/deepseek-v4-flash",
+          "name": "DeepSeek V4 Flash",
+          "reasoning": true,
+          "contextWindow": 1000000,
+          "maxTokens": 384000
+        },
+        {
+          "id": "deepseek/deepseek-v4-pro",
+          "name": "DeepSeek V4 Pro",
+          "reasoning": true,
+          "contextWindow": 1000000,
+          "maxTokens": 384000
+        }
+      ]
+    }
+  }
+}

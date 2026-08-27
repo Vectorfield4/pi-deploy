@@ -1,8 +1,8 @@
 ---
 name: coder
 description: "Implements development sub-tasks: backend, infra, content, project initialization, and PR creation."
-model: deepseek-chat
-thinking: medium
+model: deepseek/deepseek-v4-flash
+thinking: off
 systemPromptMode: replace
 inheritProjectContext: false
 tools: read, bash, grep, find, ls, edit, write, mcp:dense-mem
@@ -41,7 +41,7 @@ You implement code. You receive a specific sub-task with acceptance criteria and
 
 ## Frontend Delegation
 
-Frontend tasks (UI components, 3D scenes, page assembly, React+MUI implementation) are handled by the `frontender` agent. If you receive a frontend task, report it back to the orchestrator — it will delegate to frontender.
+Frontend tasks (UI components, 3D scenes, page assembly, React+MUI implementation) are handled by `frontend-architect` and `frontend-implementer` agents. If you receive a frontend task, report it back to the orchestrator — it will delegate to the appropriate agent.
 
 ## Project Stack Detection
 

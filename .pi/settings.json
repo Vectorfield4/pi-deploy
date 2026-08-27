@@ -1,6 +1,6 @@
 {
-  "defaultProvider": "openai",
-  "defaultModel": "deepseek-chat",
+  "defaultProvider": "timeweb",
+  "defaultModel": "deepseek/deepseek-v4-flash",
   "defaultProjectTrust": "prompt",
   "theme": "dark",
   "compaction": {

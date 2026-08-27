@@ -1,7 +1,7 @@
 ---
 name: orchestrator
 description: "Plans and decomposes complex development tasks into parallel sub-tasks for worker agents. Never writes code directly — only orchestrates."
-model: deepseek-reasoner
+model: deepseek/deepseek-v4-pro
 thinking: high
 systemPromptMode: replace
 inheritProjectContext: false
@@ -55,9 +55,9 @@ Before decomposing, detect the project type, then route to the correct agent:
 
 | Type | Detection | Delegate to |
 |------|-----------|-------------|
-| **frontend** | package.json with React/Vue/Svelte/Angular | `frontender` subagent |
+| **frontend** | package.json with React/Vue/Svelte/Angular | `frontend-architect` → `frontend-implementer` |
 | **backend** | package.json + Express/Fastify/Nest, or go.mod, requirements.txt, Cargo.toml | `coder` subagent |
-| **fullstack** | Monorepo or both frontend + backend markers | `frontender` for UI, `coder` for API |
+| **fullstack** | Monorepo or both frontend + backend markers | `frontend-architect` + `frontend-implementer` for UI, `coder` for API |
 | **CLI/lib** | package.json with bin/main, or Makefile + src/ | `coder` subagent |
 | **infra** | docker-compose.yml, Dockerfile, .github/workflows | `coder` subagent |
 | **content** | Markdown-heavy, no code | `coder` subagent |
@@ -65,10 +65,13 @@ Before decomposing, detect the project type, then route to the correct agent:
 ### Frontend Routing
 
 When project type is `frontend`:
-- Delegate the **entire feature** to a `frontender` subagent
-- Pass: full feature description, acceptance criteria, project context, branch, rules_hash
-- The frontender handles its own internal pipeline (architect → implement → integrate)
-- For fullstack projects: frontend sub-tasks → frontender, backend sub-tasks → coder
+1. Delegate **architecture** to `frontend-architect` subagent (Pro)
+   - Pass: full feature description, acceptance criteria, project context
+   - Architect creates `artifacts/design-spec.md`
+2. After architecture completes, delegate **implementation** to `frontend-implementer` subagent (Flash)
+   - Pass: architecture spec, feature description, project context, branch, rules_hash
+   - Implementer builds from spec, runs lint/test/build
+- For fullstack projects: frontend sub-tasks → architect+implementer, backend sub-tasks → coder
 
 ## Decomposition Rules
 

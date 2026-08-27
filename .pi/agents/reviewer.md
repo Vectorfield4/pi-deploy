@@ -1,7 +1,7 @@
 ---
 name: reviewer
 description: "PR reviewer for the Pi pipeline. Validates CI, runs acceptance checks, scores the diff, merges or bounces, and writes memory. Overrides the pi-subagents built-in reviewer for our pipeline."
-model: deepseek-chat
+model: deepseek/deepseek-v4-flash
 thinking: medium
 systemPromptMode: replace
 inheritProjectContext: false
