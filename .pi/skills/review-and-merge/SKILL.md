@@ -7,6 +7,10 @@ description: "Checks CI status, merges the PR to dev, and triggers Vercel stagin
 
 Verifies CI, merges to `dev`, deploys to Vercel staging.
 
+## Tunables
+- `CI_POLL_INTERVAL_S` (default 30): seconds between CI status checks.
+- `CI_TIMEOUT_S` (default 600): max seconds to wait for CI.
+
 ## Steps
 
 ### 1. Input
@@ -15,7 +19,7 @@ Verifies CI, merges to `dev`, deploys to Vercel staging.
 
 ### 2. Check CI status
 - `gh pr view <pr> --json statusCheckRollup`
-- If running → wait and retry every 30s (max 10 min)
+- If running → wait and retry every `${CI_POLL_INTERVAL_S}s` (max `${CI_TIMEOUT_S}s`)
 - If failed → bounce to coder with error log
 
 ### 3. Merge to dev

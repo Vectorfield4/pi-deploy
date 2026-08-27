@@ -4,7 +4,15 @@
       "url": "http://dense-mem:8090/mcp",
       "headers": {
         "Authorization": "Bearer ${DENSE_MEM_API_KEY}"
-      }
+      },
+      "directTools": [
+        "recall_memory",
+        "remember",
+        "trace_memory",
+        "retract_evidence",
+        "correct_relationship",
+        "get_submission_status"
+      ]
     }
   }
 }

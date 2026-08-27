@@ -11,7 +11,7 @@ Downloads latest release artifact from GitHub Releases and uploads to production
 
 ### 1. Find latest release
 - `gh release list --limit 1 --repo <repo>`
-- If no releases → block: "No GitHub Releases. Run /release first."
+- If no releases → block: "No GitHub Releases found. Create a release first."
 
 ### 2. Download release zip
 - `gh release view <tag> --json assets` → get `.zip` asset URL
@@ -22,11 +22,11 @@ Downloads latest release artifact from GitHub Releases and uploads to production
 - `mkdir -p /tmp/<project>-deploy && unzip /tmp/<project>-<tag>.zip -d /tmp/<project>-deploy`
 
 ### 4. Upload to FTP
-- Use `lftp` or `curl` with `FTP_HOST`, `FTP_USER`, `FTP_PASS` from environment
-- `lftp -u $FTP_USER,$FTP_PASS $FTP_HOST -e "mirror -R /tmp/<project>-deploy/ ./public; quit"`
+- `lftp -u $FTP_USER,$FTP_PASS $FTP_HOST -e "set cmd:parallel 5; mirror --reverse --delete --exclude '.git/' --exclude 'node_modules/' --exclude '.cache/' --exclude '*.map' /tmp/<project>-deploy/ ./public; quit"`
 
 ### 5. Cleanup
-- `rm -rf /tmp/<project>-<tag>.zip /tmp/<project>-deploy`
+- `rm -rf /tmp/<project>-<tag>.zip /tmp/<project>-deploy || true`
+- Cleanup is best-effort. A failed `rm` does not fail the deploy.
 
 ## Verification
 - Latest release found

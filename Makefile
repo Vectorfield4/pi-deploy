@@ -5,23 +5,22 @@ init:
 	@test -d workspace || mkdir workspace
 	@test -d backups || mkdir backups
 
+# Source of truth for the package list is .pi/settings.json `packages`.
+# This rule parses it and runs `pi install` for each entry. Idempotent.
 install-packages:
-	docker compose exec pi pi install npm:pi-subagents
-	docker compose exec pi pi install npm:pi-true-queue
-	docker compose exec pi pi install npm:pi-mcp-adapter
-	docker compose exec pi pi install npm:pi-context-cap
-	docker compose exec pi pi install npm:@bytesbrains/pi-telegram-bridge
-	docker compose exec pi pi install npm:ping-a-human-pi
-	docker compose exec pi pi install npm:pi-memory
-	docker compose exec pi pi install npm:@upstash/context7-pi
+	@packages=$$(node -e "console.log((JSON.parse(require('fs').readFileSync('.pi/settings.json','utf8')).packages||[]).join('\n'))"); \
+	if [ -z "$$packages" ]; then echo "No packages in .pi/settings.json"; exit 0; fi; \
+	echo "Installing $$(echo "$$packages" | wc -l) package(s)..."; \
+	for pkg in $$packages; do \
+		echo "  pi install $$pkg"; \
+		docker compose exec -T pi pi install $$pkg || exit 1; \
+	done
 
 update-skills:
 	docker compose restart pi
 
 setup: init
 	docker compose up -d memory-db embedding dense-mem
-	@echo "Waiting for dense-mem to be healthy..."
-	@sleep 30
 	docker compose up -d --build pi
 	bash scripts/memory-bootstrap.sh
 	$(MAKE) install-packages

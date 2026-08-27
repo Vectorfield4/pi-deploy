@@ -32,12 +32,22 @@ Run `npm install`. Retry on network errors.
 - Requires `VERCEL_TOKEN` in env.
 - `npx --yes vercel@latest link --yes --token "$VERCEL_TOKEN"`
 - If `VERCEL_ORG_ID` set → append `--scope "$VERCEL_ORG_ID"`
+- On failure → return error
 
-### 7. Commit and push
+### 7. Deploy to Vercel
+- `npx --yes vercel@latest deploy --prebuilt --token "$VERCEL_TOKEN"`
+- Retry on transient errors (timeout, 5xx)
+
+### 8. Verify Vercel project config
+- Read `/workspace/<project>/.vercel/project.json`
+- If missing → error: "Vercel not linked for project <project>"
+- Verify `.vercel/project.json` is committed to repo (no secrets stored)
+
+### 9. Commit and push
 Commit scaffold to main branch and push.
 
-### 8. Set up CI
+### 10. Set up CI
 Delegate to `setup-ci` subagent.
 
-### 9. Return
-Report: cloned repo, scaffolded files, deps installed, Vercel link status, CI status.
+### 11. Return
+Report: cloned repo, scaffolded files, deps installed, Vercel link status, deploy URL, CI status.

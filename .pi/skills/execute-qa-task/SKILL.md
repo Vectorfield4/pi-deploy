@@ -1,6 +1,6 @@
 ---
 name: execute-qa-task
-description: "Executes a single QA task — dispatches to review-and-merge, release-to-main, or deploy-ftp based on task type."
+description: "Executes a single QA task — dispatches to release-to-main, deploy-ftp/deploy-vercel, or the reviewer subagent based on task type."
 ---
 
 # Execute QA Task
@@ -11,39 +11,47 @@ description: "Executes a single QA task — dispatches to review-and-merge, rele
 - Extract `title`, `description`, `metadata`.
 
 ### 2. Dispatch by task type
-- **`type == "release"`** → delegate to `release-to-main` subagent
-- **`type == "deploy"`** → delegate to `deploy-ftp` subagent
-- **Otherwise** → continue with review
+- **`type == "release"`** → load and run `release-to-main`
+- **`type == "deploy"`** → load and run `deploy-ftp` (or `deploy-vercel` if target is staging)
+- **Otherwise (review task)** → continue with step 3
 
 ### 3. Load project rules
 - Recall rules from dense-mem by key, verify `rules_hash` matches.
 - Fallback: read from `/workspace/<project>/AGENTS.md`.
 
-### 4. Pre-merge acceptance criteria check
-- If `acceptance_criteria` mentions lint/test/build → run validation
-- If fails → bounce to coder without merging
+### 4. Delegate review to the reviewer subagent
+```
+subagent({ agent: "reviewer", task: <review task>, skill: "execute-review" })
+```
 
-### 5. Run the review pipeline
-- Delegate to `review-and-merge` subagent.
-- On success → delegate to `pr-judge` subagent for scoring.
+Pass: `project`, `branch`, `pr_number` (if known), `metadata.acceptance_criteria`, `metadata.review_iterations`, `metadata.exploration_triggered`.
 
-### 6. Handle result
+The reviewer runs the full PR pipeline and returns a structured result. This agent does not call `pr-judge`, `review-and-merge`, or `resolve-merge-conflict` directly anymore — those skills are owned by the reviewer.
 
-**SUCCESS:**
-- Complete with score summary
-- Memory decision (best-effort):
-  - Score ≥ 7 → store as verified pattern
-  - Score ≤ 4 → retract positive evidence, store anti-pattern
+### 5. Handle the reviewer's result
 
-**NEEDS_FIXES:**
-- Increment `review_iterations`
-- If `review_iterations >= 3` → trigger exploration (re-decompose)
-- Otherwise → bounce to coder with findings
+**decision: `merge`**
+- The reviewer already merged the PR and triggered Vercel staging.
+- Forward the staging URL (if any) to the user. Complete.
 
-**FAILURE:**
-- Block with error details
+**decision: `bounce`**
+- Forward `findings` to the orchestrator. The orchestrator routes back to coder.
+
+**decision: `explore`**
+- Forward `exploration_flag: true` and the summary. The orchestrator re-decomposes the task.
+- Do NOT bounce to coder a 4th time. Exploration is the only escalation.
+
+### 5.5. Run memory-gc
+After any successful review/release/deploy, load and run the `memory-gc` skill. It retires dense-mem evidence whose `valid_until` has passed. Best-effort, never blocks the flow. Do not check the return value. If it fails, the next QA iteration retries.
+
+For release and deploy tasks, memory-gc runs in addition to the dispatcher's own completion.
+
+### 6. Complete
+- Forward the result. No memory writes from this skill (reviewer owns them).
+- This skill is the dispatcher. It does not write rules, scores, or anti-patterns.
 
 ## Verification
-- Task status is done, blocked, or ready (bounced)
-- No task remains in intermediate state
-- Memory store fired at most once per task
+
+- Review tasks delegate to `reviewer` and propagate the result.
+- Release and deploy tasks still work via their own skills.
+- No memory writes happen here.

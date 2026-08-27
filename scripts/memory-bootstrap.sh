@@ -18,7 +18,12 @@ if [ -z "${CONTROL_PORTAL_TOKEN:-}" ]; then
 fi
 
 TOKEN="$CONTROL_PORTAL_TOKEN"
-PORT="${CONTROL_PORTAL_PORT:-8090}"
+# Read the host port from .env (matches docker-compose.yml mapping). Fall back to 8090.
+if [ -z "${DENSE_MEM_PORT:-}" ] && [ -f .env ]; then
+  DENSE_MEM_PORT="$(grep -E '^DENSE_MEM_PORT=' .env | cut -d= -f2)"
+fi
+DENSE_MEM_PORT="${DENSE_MEM_PORT:-8090}"
+PORT="$DENSE_MEM_PORT"
 BASE="http://127.0.0.1:${PORT}/control/api"
 AUTH="Authorization: Bearer ${TOKEN}"
 
@@ -92,7 +97,11 @@ fi
 
 # Write to .env
 if grep -q "^DENSE_MEM_API_KEY=" .env 2>/dev/null; then
-  sed -i "s|^DENSE_MEM_API_KEY=.*|DENSE_MEM_API_KEY=${API_KEY}|" .env
+  if sed --version 2>/dev/null | grep -q GNU; then
+    sed -i "s|^DENSE_MEM_API_KEY=.*|DENSE_MEM_API_KEY=${API_KEY}|" .env
+  else
+    sed -i '' "s|^DENSE_MEM_API_KEY=.*|DENSE_MEM_API_KEY=${API_KEY}|" .env
+  fi
 else
   echo "DENSE_MEM_API_KEY=${API_KEY}" >> .env
 fi

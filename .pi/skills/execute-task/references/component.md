@@ -8,7 +8,7 @@ Loaded by `execute-task` after project rules are loaded (see `references/memory.
    - `metadata.type == "refactoring"` → skip to **Refactoring path** below.
    - Otherwise → standard flow.
 
-## Standard flow (feature/bugfix/ui/content/integration)
+## Standard flow (feature/bugfix/content/integration)
 
 1. **Validate acceptance criteria**
    - Read `metadata.acceptance_criteria`. For each: does it trace to `description`? If invented → drop. If not verifiable via lint/test → note "manual review only".
@@ -16,36 +16,40 @@ Loaded by `execute-task` after project rules are loaded (see `references/memory.
 
 2. **Identify component type** — from `metadata.type`, else infer from `title`/`description`.
 
-3. **Recall experience (RAG)** — load `references/rag.md` if not loaded. Call `mcp_dense_mem_recall_memory(query="<concise goal>")`. On failure → continue without context.
+3. **Recall experience (RAG)** — load `references/rag.md` if not loaded.
+   - If `metadata.memory_context` is present and non-empty (orchestrator pre-batched): use it as context. Skip the recall call. Also read `metadata.anti_patterns` if present and apply as warnings.
+   - If `metadata.memory_context` is absent or empty: call `mcp__dense-mem__recall_memory(query="<concise goal> project:<project>")`. On failure → continue without context.
 
 4. **Fetch latest and rebase**
    ```
-   cd /workspace/<project>-{{ env.HERMES_KANBAN_TASK }}
+   cd /workspace/<project>-<task_id>
    git fetch origin <branch> && git rebase origin/<branch>
    ```
    If conflict → resolve via `resolve-merge-conflict` or abort and report.
 
-5. **Discover and invoke the right skill**
-   - Collect tags from `metadata.tags`, `metadata.type`, and title/description keywords.
-   - `skill_discover(tags)` → pick highest match.
-   - Load stack references based on skill type:
-     - UI/layout → `references/mui.md`, `references/react.md`
-     - 3D → `references/threejs-r3f.md`
-     - Animation → `references/gsap.md`
-     - State/forms → `references/zustand.md`, `references/react-hook-form.md`, `references/zod.md`
-     - Data → `references/tanstack-query.md`
-   - `skill_run(<discovered_skill>, project, branch, description, rules_context)`.
-   - Fallback: `skill_run(simple-task-executor, ...)` if no match.
+5. **Implement the component**
+   - Follow the skill instructions provided by the orchestrator for this task type.
+   - Use Context7 tools (`resolve-library-id` → `query-docs`) for up-to-date library docs.
+   - Note: frontend tasks (UI components, 3D scenes, page assembly) are delegated to the `frontender` agent by the orchestrator. If you receive a frontend task, report it back.
 
 6. **Quality check and commit**
    - Verify against judge rubric (see `execute-task` → Quality Targets). Fix deficient dimensions.
    - `git add . && git commit -m "Task #<task_id>: <description>" && git push origin <branch>`
-   - Push conflict → fetch → rebase → push. Load retry: `skill_view("create-pr", "references/retry.md")`.
+   - Push conflict → fetch → rebase → push. On persistent failure, apply the retry protocol.
 
 7. **Complete**
-   - Success: `kanban_complete --comment "Component implemented."` + store experience in E-pool (best-effort, don't block).
-   - Failure: `kanban_block --reason "<error>"`.
-   - Cleanup: `cd /workspace/<project> && git worktree remove --force /workspace/<project>-{{ env.HERMES_KANBAN_TASK }} 2>/dev/null || true`
+   - Success: store experience in memory (best-effort, don't block):
+     ```
+     mcp__dense-mem__remember({
+       evidence: [{
+         content: "project: <project>\ntype: <type>\ntags: project:<project>,<type>,<relevant-concepts>\nconfidence: medium\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<what was done, key decisions, patterns used — under 200 chars>",
+         source_type: "task_outcome"
+       }],
+       idempotency_key: "task:<project>:<type>:<task_id>"
+     })
+     ```
+   - Failure: return error details to the orchestrator.
+   - Cleanup: `cd /workspace/<project> && git worktree remove --force /workspace/<project>-<task_id> 2>/dev/null || true`
 
 ## Refactoring path (`metadata.type == "refactoring"`)
 

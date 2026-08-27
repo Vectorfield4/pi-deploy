@@ -1,15 +1,14 @@
 #!/bin/sh
 
 # Update the system
-apt -y update
-apt -y upgrade
+apt-get -y update
+apt-get -y upgrade
 
 # Install Docker
 curl -fsSL https://get.docker.com | sh
-usermod -aG docker root
 
 # Install Git, Make, unattended-upgrades
-apt -y install git make unattended-upgrades
+apt-get -y install git make unattended-upgrades
 cat > /etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
 APT::Periodic::Update-Package-Lists "1";
 APT::Periodic::Unattended-Upgrade "1";

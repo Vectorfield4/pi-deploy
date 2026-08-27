@@ -11,11 +11,11 @@ Scans `/workspace` for Git repos, reads context files, saves to memory.
 
 1. Run `ls /workspace` and get directories.
 2. For each directory, check for `.git` (skip worktrees where `.git` is a file).
-3. Read context files in priority: `.hermes.md` → `AGENTS.md` → `CLAUDE.md` → `.cursorrules`
+3. Read context files in priority: `AGENTS.md` → `CLAUDE.md` → `.cursorrules`
 4. Extract: tech stack, dev rules, env vars, validation commands.
-5. Save to memory via `mcp__dense-mem__remember` with key `project:<name>`.
+5. Save to memory with a structured `mcp__dense-mem__remember` call: `content: "project: <name>\ntype: project-meta\ntags: project-meta,<name>\n\n<stack>, <dev rules>, <env vars>, <validation commands>"`, `source_type: "manual"`, `idempotency_key: "project-meta:<name>:<git-hash>"`.
 6. Update periodically or on user command.
 
 ## Tools
 - `read`, `bash`, `grep`, `find`
-- `mcp__dense-mem__remember`
+- `mcp__dense-mem__remember` and `mcp__dense-mem__recall_memory` via `mcp:dense-mem` direct tool

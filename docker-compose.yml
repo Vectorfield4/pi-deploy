@@ -9,8 +9,7 @@ services:
     volumes:
       - ./workspace:/workspace
       - pi-agent-home:/root/.pi/agent
-      - ./AGENTS.md:/workspace/AGENTS.md:ro
-      - ./.pi:/workspace/.pi
+      - ./.pi:/workspace/.pi:ro
     depends_on:
       memory-db:
         condition: service_healthy
@@ -21,7 +20,7 @@ services:
     stdin_open: true
     tty: true
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'node.*pi' || exit 1"]
+      test: ["CMD-SHELL", "pgrep -x pi >/dev/null || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -54,7 +53,7 @@ services:
         max-file: "3"
 
   embedding:
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-latest
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.6.3
     container_name: pi-embedding
     restart: unless-stopped
     command: >
@@ -79,7 +78,7 @@ services:
         max-file: "3"
 
   dense-mem:
-    image: ghcr.io/markhuangai/dense-mem:latest
+    image: ghcr.io/markhuangai/dense-mem:0.9.1
     container_name: pi-dense-mem
     restart: unless-stopped
     entrypoint: ["/bin/sh", "-c", "exec /app/docker-entrypoint.sh \"$@\"", "--"]
@@ -106,7 +105,7 @@ services:
       AI_VERIFIER_MAX_INPUT_TOKENS: "64000"
       AI_VERIFIER_MAX_OUTPUT_TOKENS: "8192"
     ports:
-      - "127.0.0.1:8090:8090"
+      - "127.0.0.1:${DENSE_MEM_PORT:-8090}:8090"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

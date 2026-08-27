@@ -1,25 +1,64 @@
-# Project Rules via RAG (dense-mem E-pool)
+# Project Rules via dense-mem Memory
 
-Loaded by `execute-task` before component / PR flows. Project rules (AGENTS.md / SOUL.md sections) are cached in the RAG E-pool as tagged records and keyed by the project rules hash. The disk files remain the deterministic fallback.
+Loaded by `execute-task` before component / PR flows. Project rules from `AGENTS.md` (and `SOUL.md` if present) are cached in dense-mem as durable evidence, keyed by project and `rules_hash`. The disk files remain the deterministic source of truth.
+
+## dense-mem as the cache
+
+`remember` writes evidence with `idempotency_key` so retried writes are safe. `supersedes_evidence_ids` advances a record to a new content version without losing lineage. `recall_memory(query=...)` is evidence-first and support-path gated: only active evidence with eligible support returns.
+
+We do not invent tags or filter parameters that don't exist in the API. Tags are encoded in the content (see schema below). Filtering happens in the query string.
 
 ## Load procedure (for component / PR tasks)
 
-For each key in `rules_keys_needed`:
-- Recall the rule record: `mcp_dense_mem_recall_memory(query="project rules for <project>: <key>", filter={tags: ["project-rules:<project>", "rules:<key>"]} where the tool supports filters)`.
-- If found AND its `rules_hash` claim equals the metadata `rules_hash` → use it as authoritative.
-- If not found OR hash mismatch → read `/workspace/<project>/AGENTS.md` and `/workspace/<project>/SOUL.md` (if exist) and extract the section for this key directly. The disk fallback is deterministic and authoritative.
-- Do **not** store or replace rule records from the coder profile: rule records are owned by the orchestrator (dispatcher), which re-stores them on the next orchestration when the hash changes.
-- Block only if the rule is also missing on disk and cannot be extracted → `kanban_block`.
+For each `rules_key` in `metadata.rules_keys_needed` (default keys: `["ui-conventions", "api-standards", "testing-patterns", "build-deploy", "content-voice"]` chosen by project type in `orchestrate-task` step 3.5):
 
-## Record schema (E-pool, written by the orchestrator)
+1. `mcp__dense-mem__recall_memory(query="project-rules project:<project> key:<rules_key>")`.
+2. Parse the top result's `content` (see schema). Extract the first-line `rules_hash: <hash>`.
+3. If `rules_hash == metadata.rules_hash` → use it as authoritative.
+4. If hash mismatch or recall returns nothing → read `/workspace/<project>/AGENTS.md` and `/workspace/<project>/SOUL.md` (if present) directly and extract the section for this key. The disk fallback is deterministic and authoritative.
+5. Never write rule cache from the coder or frontender profile. Orchestrator owns the rule cache.
 
-**Index record**:
-`mcp_dense_mem_remember(evidence={"keys": ["ui-conventions", "api-standards", "testing-patterns"], "rules_hash": "a1b2c3d4..."}, tags=["project-rules:<project>", "rules-index"], confidence=high)`
+## Record schema (orchestrator writes, others recall)
 
-**Rule record**:
-`mcp_dense_mem_remember(evidence="<section content>", tags=["project-rules:<project>", "rules:<key>"], claims=[<rules_hash claim>], confidence=high)`
+Each rule is a single evidence item. Tags and hash live in the content as a structured prefix so dense-mem's embedding match finds them on `recall_memory(query=...)`:
 
-## Cache invalidation logic
+```
+mcp__dense-mem__remember({
+  evidence: [{
+    content: "rules_hash: a1b2c3d4\nkey: ui-conventions\nproject: my-app\ntags: project-rules,ui-conventions,my-app\n\n<actual section content from AGENTS.md>",
+    source_type: "manual"
+  }],
+  idempotency_key: "rules:my-app:ui-conventions:a1b2c3d4"
+})
+```
 
-- `rules_hash` in task metadata (set by the orchestrator) is authoritative.
-- If a recalled record's `rules_hash` != the current `rules_hash` → treat it as stale, fall back to disk, and let the orchestrator re-store on its next run.
+Notes:
+- `idempotency_key` is a function of `project + key + rules_hash`. Re-running with the same hash reuses the existing record. Re-running with a new hash creates a new record and supersedes the old one.
+- `source_type: "manual"` matches dense-mem's allowed values (`manual`, `task_outcome`, `review_outcome`, `tool_output`).
+- Tags are inside the content as a comma-separated list on the `tags:` line. They are not a real dense-mem field.
+- `confidence` is not a separate top-level field. If needed, embed it in the content: `confidence: high`.
+
+## Cache invalidation
+
+`metadata.rules_hash` (set by the orchestrator from `git rev-parse HEAD` of the project) is the authority.
+
+- A recalled record's `rules_hash` (first line of content) matches → fresh, use the cached content.
+- Hash mismatch → treat as stale. The orchestrator writes a new record with a new `idempotency_key` and lists the old evidence in `supersedes_evidence_ids` on the new submission.
+- Coder/frontender never supersede rules. They only read.
+
+## Supersession example
+
+When `AGENTS.md` changes and `git rev-parse HEAD` returns a new hash:
+
+```
+mcp__dense-mem__remember({
+  evidence: [{
+    content: "rules_hash: 9z9z9z9z\nkey: ui-conventions\nproject: my-app\ntags: project-rules,ui-conventions,my-app\n\n<new section content>",
+    source_type: "manual"
+  }],
+  supersedes_evidence_ids: ["<old-evidence-uuid-from-prior-batch>"],
+  idempotency_key: "rules:my-app:ui-conventions:9z9z9z9z"
+})
+```
+
+dense-mem appends a lifecycle event and the new record becomes active. The old record is retired for recall but preserved in lineage for traceability.

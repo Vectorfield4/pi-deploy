@@ -11,7 +11,7 @@ Triggered when intent = `question`. Answers questions using RAG recall.
 1. **Recall context (RAG)**
    - Call `mcp__dense-mem__recall_memory(query="<question>")`.
    - If a project is mentioned, also recall project-specific context:
-     `mcp__dense-mem__recall_memory(query="<question>", filter={tags: ["project:<project>"]})`.
+     `mcp__dense-mem__recall_memory(query="<question> project:<project>")`.
    - Graceful degradation: if MCP fails, answer from general knowledge.
 
 2. **Generate answer**

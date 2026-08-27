@@ -27,16 +27,7 @@
 2. On failure → classify the error output.
 3. If **transient** AND `attempt < max_retries`:
    - Calculate delay = `min(base_delay × 2^attempt, max_delay)` + random jitter (0–30%).
-   - `kanban_heartbeat` (keep the task alive during wait).
    - Wait delay seconds, then retry (increment attempt).
 4. If **permanent** OR `attempt >= max_retries`:
-   - `kanban_block --task <task_id> --reason "<error classification + last error output>"`.
-5. Log each retry attempt in the task comment for traceability.
-
-## Usage
-
-Before any external call, load this protocol:
-```
-skill_view("<skill-name>", "references/retry.md")
-```
-Then apply the algorithm to the command that follows.
+   - Report failure to the orchestrator with error classification and last error output.
+5. Log each retry attempt for traceability.

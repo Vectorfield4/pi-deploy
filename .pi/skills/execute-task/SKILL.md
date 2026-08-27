@@ -21,9 +21,8 @@ description: "Executes a single development sub-task (UI, content, integration),
 
 ## Conventions
 
-- Heartbeat before long operations
-- Failure → report error with details
-- Success → complete with summary
+- Failure → report error with details to the orchestrator
+- Success → return summary to the orchestrator
 - Workspace: `/workspace/<project>-<task_id>` (worktree)
 
 ## Quality Targets

@@ -10,6 +10,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
       - name: Shell syntax check
         run: |
           for s in scripts/*.sh; do
@@ -23,3 +28,48 @@ jobs:
 
       - name: Validate compose config
         run: docker compose config -q
+
+      - name: Validate JSON configs
+        run: |
+          for f in .pi/settings.json .pi/mcp.json; do
+            node -e "JSON.parse(require('fs').readFileSync('$f','utf8'))" || exit 1
+          done
+
+      - name: Validate agent frontmatter
+        run: |
+          for f in .pi/agents/*.md; do
+            node -e "
+              const fs = require('fs');
+              const c = fs.readFileSync('$f','utf8');
+              const m = c.match(/^---\n([\s\S]*?)\n---/);
+              if (!m) { console.error('No frontmatter in $f'); process.exit(1); }
+              // Lightweight YAML check: each top-level key must have a colon
+              const body = m[1];
+              const keys = body.split('\n').filter(l => /^[a-z]/.test(l));
+              for (const k of keys) {
+                if (!k.includes(':')) { console.error('Bad frontmatter line in $f: '+k); process.exit(1); }
+              }
+            " || exit 1
+          done
+
+      - name: Node version consistency
+        run: |
+          # Extract major versions from each source of truth. Fail if they disagree.
+          # We don't pin a specific Node version here; we only enforce that all four
+          # sources agree on the same major version. Bumping Node is a one-step change.
+          V1=$(grep -oE 'FROM node:[0-9]+' Dockerfile.pi | head -1 | grep -oE '[0-9]+')
+          V2=$(grep -oE "node-version: '?[0-9]+'?" .github/workflows/ci.yml | head -1 | grep -oE '[0-9]+')
+          V4=$(grep -oE 'Node [0-9]+' .pi/skills/setup-ci/SKILL.md | head -1 | grep -oE '[0-9]+')
+          V3=$(node -e "const j=JSON.parse(require('fs').readFileSync('.pi/skills/project-init/references/package.json','utf8')); const m=String(j.engines.node).match(/(\d+)/); console.log(m?m[1]:'')")
+
+          echo "Node major versions: Dockerfile=$V1 ci=$V2 package.json=$V3 setup-ci=$V4"
+
+          if [ -z "$V1" ] || [ -z "$V2" ] || [ -z "$V3" ] || [ -z "$V4" ]; then
+            echo "::error::Could not extract Node major version from one of the source files."
+            exit 1
+          fi
+
+          if [ "$V1" != "$V2" ] || [ "$V1" != "$V3" ] || [ "$V1" != "$V4" ]; then
+            echo "::error::Node version drift. Bump all four files together."
+            exit 1
+          fi

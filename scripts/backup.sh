@@ -5,8 +5,8 @@ BACKUP_DIR="./backups"
 mkdir -p "$BACKUP_DIR"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
-if [ -z "${POSTGRES_PASSWORD:-}" ]; then
-  echo "❌ POSTGRES_PASSWORD not set in .env."
+if [ -z "${POSTGRES_PASSWORD:-}" ] || [ -z "${POSTGRES_PASSWORD// }" ]; then
+  echo "❌ POSTGRES_PASSWORD not set or empty in .env."
   exit 1
 fi
 
