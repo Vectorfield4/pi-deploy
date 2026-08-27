@@ -96,6 +96,7 @@ make update-skills     # Restart Pi to pick up skill changes
 ### Universal (all project types)
 - intent-router — classifies natural language → task/question/feedback/deploy/etc.
 - orchestrate-task — decomposes tasks into parallel sub-tasks
+- release-approval-watch — orchestrator-side zero-token HITL: runs `/pr watch` for release PRs, re-delegates merge/release to QA on approval
 - prioritize-tasks — composite scoring for task ordering
 - execute-task — main task dispatcher (init/pr/review)
 - create-pr — commit, push, open PR
@@ -116,7 +117,7 @@ make update-skills     # Restart Pi to pick up skill changes
 
 ### QA (all project types)
 - execute-qa-task — main QA dispatcher (review/release/deploy). Delegates review tasks to the `reviewer` subagent. Calls `memory-gc` after each successful iteration.
-- release-to-main — dev→main PR, HITL approval, GitHub Release
+- release-to-main — two-phase: open dev→main PR (return URL), then merge + build + GitHub Release after approval
 - deploy-vercel — build and deploy to Vercel staging
 - deploy-ftp — download release zip, upload to production
 - memory-gc — retires dense-mem evidence whose `valid_until` has passed
@@ -143,8 +144,8 @@ React 19, Vite 7, TypeScript 5, MUI 7, Zustand 5, TanStack Query 5, React Router
 |---------|---------|
 | pi-subagents | Multi-agent orchestration (orchestrator/frontender/coder/qa/reviewer) |
 | pi-mcp-adapter | MCP client for dense-mem RAG server |
-| pi-monitor | Polls GitHub for PR approvals/comments (HITL) |
 | @bytesbrains/pi-telegram-bridge | Telegram ↔ Pi interactive session bridge |
-| ping-a-human-pi | Human-in-the-loop approval (HITL) |
+| ping-a-human-pi | Human-in-the-loop approval (HITL) for Telegram-only blocks (FTP deploys, destructive ops) |
 | pi-memory | Session memory persistence |
 | @upstash/context7-pi | Library docs lookup (Context7) |
+| @vectorfield/pi-prs | GitHub PR watch. Zero-token release HITL: main-session `/pr watch <url>` polls and wakes Pi on approval, without blocking Telegram |

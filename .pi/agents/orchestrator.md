@@ -11,6 +11,7 @@ skills:
   - prioritize-tasks
   - intent-router
   - project-discover
+  - release-approval-watch
 ---
 
 # Orchestrator Agent
@@ -84,6 +85,22 @@ When project type is `frontend`:
 ## Refactoring Tasks
 
 For refactoring: identify target files, read current code, plan targeted edits (not rewrites), preserve external behavior.
+
+## Release / Deploy Handling
+
+### Release (zero-token HITL)
+Load the `release-approval-watch` skill. High-level contract:
+
+1. On `release` intent → **confirm first** → delegate Phase A to `qa` (`release-to-main`).
+2. QA returns the release PR URL (it does not block).
+3. Run `/pr watch <release-pr-url>` on **this session** (do not delegate the watch — only the main session can run extension commands). Report the URL to the user.
+4. Finish the turn; `/pr watch` polls GitHub in the background without blocking Telegram.
+5. When the watch wakes this session on approval → delegate **Phase B** to `qa` (merge + build + GitHub Release). On requested changes → report feedback, do not merge.
+
+Full instructions in `release-approval-watch`. QA never polls for approval itself.
+
+### Deploy
+On `deploy` intent → **confirm first** → delegate to `qa` (Vercel staging auto, FTP production HITL via `ping-a-human-pi`).
 
 ## Memory
 
