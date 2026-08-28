@@ -9,7 +9,8 @@ RUN chmod +x /usr/local/bin/install-github-cli.sh \
   && /usr/local/bin/install-github-cli.sh \
   && rm /usr/local/bin/install-github-cli.sh
 
-RUN npm install -g @earendil-works/pi-coding-agent
+RUN npm install -g @earendil-works/pi-coding-agent \
+  && npm install -g @tobilu/qmd
 
 WORKDIR /workspace
 ENTRYPOINT ["pi", "-a"]

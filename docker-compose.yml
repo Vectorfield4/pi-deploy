@@ -9,7 +9,7 @@ services:
     volumes:
       - ./workspace:/workspace
       - pi-agent-home:/root/.pi/agent
-      - ./.pi:/workspace/.pi:ro
+      - ./.pi:/workspace/.pi
     depends_on:
       memory-db:
         condition: service_healthy
