@@ -208,64 +208,64 @@ fi
 
 # Dense-mem uses /credentials endpoint, not /profiles.
 # POST /control/api/teams/{team-id}/credentials creates a credential with an API key.
+# Note: dense-mem v2 only returns the key once, at creation; on CONFLICT (existing
+# credential) the API key is NOT retrievable again. So if DENSE_MEM_API_KEY is
+# already set in .env (loaded above), keep it and skip creation.
 
-extract_key() {
-  printf '%s' "$1" | sed -n 's/.*"api_key"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1
-}
+API_KEY="${DENSE_MEM_API_KEY:-}"
+KEY_REUSED=0
 
-# Attempt to create or fetch the credential
-RESPONSE=$(curl -s -w "\n%{http_code}" -X POST -H "$AUTH" -H "Content-Type: application/json" \
-  -d "{\"name\":\"${CREDS_NAME}\"}" "$BASE/teams/${TEAM_ID}/credentials" 2>/dev/null)
-HTTP_CODE=$(printf '%s' "$RESPONSE" | tail -n1)
-BODY=$(printf '%s' "$RESPONSE" | sed '$d')
-
-API_KEY=""
-if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
-  API_KEY=$(extract_key "$BODY")
-  info "Credential '${CREDS_NAME}' created, API key extracted"
-elif [ "$HTTP_CODE" = "409" ] || [ "$HTTP_CODE" = "400" ]; then
-  echo "Credential '${CREDS_NAME}' exists, fetching key..."
-  # Fetch all credentials for the team
-  CREDENTIALS=$(curl -fsS -H "$AUTH" "$BASE/teams/${TEAM_ID}/credentials" 2>/dev/null || echo "[]")
-  # Try to extract key by credential name
-  API_KEY=$(printf '%s' "$CREDENTIALS" | tr '\n' ' ' | sed -n 's/.*"name"[[:space:]]*:[[:space:]]*"'"${CREDS_NAME}"'[^}]*"api_key"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
-  if [ -n "$API_KEY" ]; then
-    info "Credential '${CREDS_NAME}' key extracted from existing credentials"
-  else
-    # Fallback: try to find any api_key in the credentials list
-    API_KEY=$(printf '%s' "$CREDENTIALS" | sed -n 's/.*"api_key"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
-    if [ -n "$API_KEY" ]; then
-      info "API key found via fallback pattern in existing credentials"
-    fi
-  fi
+if [ -n "$API_KEY" ]; then
+  info "DENSE_MEM_API_KEY already set in .env — reusing it"
+  KEY_REUSED=1
 else
-  echo "⚠️  Unexpected HTTP status: ${HTTP_CODE}. Response: $BODY"
-fi
+  extract_key() {
+    printf '%s' "$1" | sed -n 's/.*"api_key"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1
+  }
 
-if [ -z "$API_KEY" ]; then
-  die "Could not extract API key for credential '${CREDS_NAME}'. Response body: $BODY"
+  # Attempt to create the credential
+  RESPONSE=$(curl -s -w "\n%{http_code}" -X POST -H "$AUTH" -H "Content-Type: application/json" \
+    -d "{\"name\":\"${CREDS_NAME}\"}" "$BASE/teams/${TEAM_ID}/credentials" 2>/dev/null)
+  HTTP_CODE=$(printf '%s' "$RESPONSE" | tail -n1)
+  BODY=$(printf '%s' "$RESPONSE" | sed '$d')
+
+  API_KEY=""
+  if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
+    API_KEY=$(extract_key "$BODY")
+    info "Credential '${CREDS_NAME}' created, API key extracted"
+  elif [ "$HTTP_CODE" = "409" ] || [ "$HTTP_CODE" = "400" ]; then
+    die "Credential '${CREDS_NAME}' already exists but DENSE_MEM_API_KEY is not set in .env. Keys are shown once at creation and are not retrievable. Set DENSE_MEM_API_KEY in .env, or delete the credential and re-run."
+  else
+    echo "⚠️  Unexpected HTTP status: ${HTTP_CODE}. Response: $BODY"
+  fi
+
+  if [ -z "$API_KEY" ]; then
+    die "Could not extract API key for credential '${CREDS_NAME}'. Response body: $BODY"
+  fi
 fi
 
 ###############################################################################
 # Write API key to .env
 ###############################################################################
 
-# Back up .env before modifying
-if [ -f .env ]; then
-  cp .env ".env.bootstrap.bak$(date +%Y%m%d%H%M%S)"
-  info "Backed up .env to .env.bootstrap.bak*"
-fi
+# Back up .env before modifying (only when we created a fresh key)
+if [ "$KEY_REUSED" -ne 1 ]; then
+  if [ -f .env ]; then
+    cp .env ".env.bootstrap.bak$(date +%Y%m%d%H%M%S)"
+    info "Backed up .env to .env.bootstrap.bak*"
+  fi
 
-# Write/Update DENSE_MEM_API_KEY in .env using pre-detected SedCmd
-if grep -q "^DENSE_MEM_API_KEY=" .env 2>/dev/null; then
-  $SedCmd "s|^DENSE_MEM_API_KEY=.*|DENSE_MEM_API_KEY=${API_KEY}|" .env
-  info "Updated DENSE_MEM_API_KEY in .env"
-else
-  echo "DENSE_MEM_API_KEY=${API_KEY}" >> .env
-  info "Added DENSE_MEM_API_KEY to .env"
-fi
+  # Write/Update DENSE_MEM_API_KEY in .env using pre-detected SedCmd
+  if grep -q "^DENSE_MEM_API_KEY=" .env 2>/dev/null; then
+    $SedCmd "s|^DENSE_MEM_API_KEY=.*|DENSE_MEM_API_KEY=${API_KEY}|" .env
+    info "Updated DENSE_MEM_API_KEY in .env"
+  else
+    echo "DENSE_MEM_API_KEY=${API_KEY}" >> .env
+    info "Added DENSE_MEM_API_KEY to .env"
+  fi
 
-echo ""
-info "DENSE_MEM_API_KEY saved to .env"
+  echo ""
+  info "DENSE_MEM_API_KEY saved to .env"
+fi
 echo ""
 info "Restart Pi to pick up the new key: docker compose up -d --force-recreate pi"
