@@ -21,6 +21,14 @@
 
 set -eu
 
+# Load .env so generated values (CONTROL_PORTAL_TOKEN etc.) are visible
+if [ -f .env ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . ./.env
+  set +a
+fi
+
 ###############################################################################
 # Configuration — adjust these values as needed
 ###############################################################################
