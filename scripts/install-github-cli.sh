@@ -5,6 +5,10 @@
 # We use GitHub's own apt repo (not Debian's `gh` package) to get current releases.
 set -eu
 
+# --- Bootstrap: slim images ship without curl; it's needed to fetch the keyring.
+apt-get update
+apt-get install -y --no-install-recommends ca-certificates curl
+
 # --- Add the GitHub CLI apt repository -------------------------------------
 mkdir -p -m 755 /etc/apt/keyrings
 curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
@@ -16,5 +20,5 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubc
 # --- Install base packages + gh in one layer (keeps the image lean) --------
 apt-get update
 apt-get install -y --no-install-recommends \
-  bash ca-certificates git ripgrep curl make "lftp>=4.9.2" gh
+  bash git ripgrep make "lftp>=4.9.2" gh
 rm -rf /var/lib/apt/lists/*
