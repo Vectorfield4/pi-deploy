@@ -89,6 +89,7 @@ make restart           # Restart Pi agent
 make backup            # Backup databases
 make install-packages  # Install Pi packages inside container
 make update-skills     # Restart Pi to pick up skill changes
+make update            # git pull + rebuild/restart Pi (pull latest repo changes)
 ```
 
 ## Skills catalog

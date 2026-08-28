@@ -1,4 +1,4 @@
-.PHONY: init up down logs setup restart backup install-packages update-skills
+.PHONY: init up down logs setup restart backup install-packages update-skills update
 
 init:
 	@bash scripts/init.sh
@@ -14,6 +14,11 @@ up: init
 
 update-skills:
 	@docker compose restart pi
+
+update:
+	@git pull --ff-only
+	@docker compose build pi
+	@docker compose up -d --force-recreate pi
 
 restart:
 	@docker compose up -d --force-recreate pi
