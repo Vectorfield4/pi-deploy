@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "dense-mem": {
-      "url": "http://dense-mem:8090/mcp",
+      "url": "http://dense-mem:8080/mcp",
       "headers": {
         "Authorization": "Bearer ${DENSE_MEM_API_KEY}"
       },

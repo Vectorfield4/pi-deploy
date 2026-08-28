@@ -37,8 +37,8 @@ PORTAL_TIMEOUT="${PORTAL_TIMEOUT:-60}"   # seconds (was 60 in original, kept as 
 # Polling interval for portal health check
 PORTAL_INTERVAL="${PORTAL_INTERVAL:-2}"  # seconds between checks
 
-# Default dense-mem portal port if not set in .env
-DEFAULT_DENSE_MEM_PORT="${DEFAULT_DENSE_MEM_PORT:-8090}"
+# Default dense-mem control portal port if not set in .env
+DEFAULT_CONTROL_PORTAL_PORT="${DEFAULT_CONTROL_PORTAL_PORT:-8090}"
 
 ###############################################################################
 # Pre-detect sed flavor at script start (eliminates need for eval later)
@@ -100,10 +100,10 @@ resolve_control_portal_token() {
 
   # Method 2: Try curl-based API check against the control portal
   # If portal is up but token wasn't set, dense-mem may have a default
-  if [ -f .env ] && grep -q '^DENSE_MEM_PORT=' .env; then
-    DENSE_MEM_PORT="$(grep -E '^DENSE_MEM_PORT=' .env | cut -d= -f2)"
-    DENSE_MEM_PORT="${DENSE_MEM_PORT:-8090}"
-    PORT="$DENSE_MEM_PORT"
+  if [ -f .env ] && grep -q '^CONTROL_PORTAL_PORT=' .env; then
+    CONTROL_PORTAL_PORT="$(grep -E '^CONTROL_PORTAL_PORT=' .env | cut -d= -f2)"
+    CONTROL_PORTAL_PORT="${CONTROL_PORTAL_PORT:-8090}"
+    PORT="$CONTROL_PORTAL_PORT"
     BASE="http://127.0.0.1:${PORT}/control/api"
 
     # Check if portal is up without auth first (may reveal default token info)
@@ -134,12 +134,12 @@ if [ -z "${TOKEN}" ]; then
 See usage instructions above."
 fi
 
-# Read the host port from .env, fall back to default
+# Read the host control portal port from .env, fall back to default
 if [ -f .env ]; then
-  DENSE_MEM_PORT="$(grep -E '^DENSE_MEM_PORT=' .env | cut -d= -f2)"
+  CONTROL_PORTAL_PORT="$(grep -E '^CONTROL_PORTAL_PORT=' .env | cut -d= -f2)"
 fi
-DENSE_MEM_PORT="${DENSE_MEM_PORT:-$DEFAULT_DENSE_MEM_PORT}"
-PORT="$DENSE_MEM_PORT"
+CONTROL_PORTAL_PORT="${CONTROL_PORTAL_PORT:-$DEFAULT_CONTROL_PORTAL_PORT}"
+PORT="$CONTROL_PORTAL_PORT"
 BASE="http://127.0.0.1:${PORT}/control/api"
 AUTH="Authorization: Bearer ${TOKEN}"
 
