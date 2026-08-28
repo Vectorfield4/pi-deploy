@@ -20,5 +20,5 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubc
 # --- Install base packages + gh in one layer (keeps the image lean) --------
 apt-get update
 apt-get install -y --no-install-recommends \
-  bash git ripgrep make "lftp>=4.9.2" gh
+  bash git ripgrep make lftp gh
 rm -rf /var/lib/apt/lists/*
