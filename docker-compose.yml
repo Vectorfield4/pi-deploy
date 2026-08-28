@@ -10,6 +10,7 @@ services:
       - ./workspace:/workspace
       - pi-agent-home:/root/.pi/agent
       - ./.pi:/workspace/.pi
+      - ./.pi/models.json:/root/.pi/agent/models.json:ro
     depends_on:
       memory-db:
         condition: service_healthy
