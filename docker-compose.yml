@@ -56,11 +56,10 @@ services:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.2.1
     container_name: pi-embedding
     restart: unless-stopped
-    command: >
-      --model-id sentence-transformers/all-MiniLM-L6-v2
-      --port 8080
-      --max-batch-tokens 8192
-      --max-client-batch-size 32
+    environment:
+      HF_MODEL_ID: sentence-transformers/all-MiniLM-L6-v2
+      MAX_BATCH_TOKENS: "8192"
+      MAX_CLIENT_BATCH_SIZE: "32"
     ports:
       - "127.0.0.1:8081:8080"
     volumes:
