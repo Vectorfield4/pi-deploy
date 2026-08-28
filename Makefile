@@ -6,7 +6,7 @@ init:
 install-packages:
 	@bash scripts/install-packages.sh
 
-setup: init
+setup:
 	@bash scripts/setup.sh
 
 up: init

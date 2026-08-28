@@ -10,6 +10,9 @@ else
   echo "⚠️  Not a git checkout (no .git) — skipping git pull"
 fi
 
+echo "🔄 Initializing .env and directories..."
+bash scripts/init.sh
+
 echo "🔄 Starting memory stack (memory-db, embedding, dense-mem)..."
 docker compose up -d memory-db embedding dense-mem
 
