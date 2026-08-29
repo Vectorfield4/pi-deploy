@@ -228,6 +228,8 @@ function mdSummary(s) {
   lines.push(`- session_info: \`${JSON.stringify(s.sessionInfo || {}).slice(0, 200)}\``);
   lines.push("");
   lines.push("## Totals (cumulative across session, parsed from session.jsonl)");
+  const pricing = s.pricing || { in: 0, out: 0, cache_read: 0, cache_write: 0 };
+  lines.push(`- pricing (₽/1M tokens): in=${pricing.in} out=${pricing.out} cache_read=${pricing.cache_read} cache_write=${pricing.cache_write}`);
   lines.push(`- user_turns: ${t.user_turns}`);
   lines.push(`- assistant_turns: ${t.assistant_turns}`);
   lines.push(`- tool_calls: ${t.tool_calls}`);
@@ -237,6 +239,7 @@ function mdSummary(s) {
   lines.push(`- cache_read: ${t.cache_read_tokens}`);
   lines.push(`- cache_write: ${t.cache_write_tokens}`);
   lines.push(`- cost_usd: ${t.cost_usd}`);
+  lines.push(`- **cost_rub: ${(s.totals.cost_rub || 0).toFixed(3)}₽**`);
   lines.push("");
   if (s.last_run?.user_message) {
     lines.push("## Last user prompt");
@@ -264,6 +267,7 @@ function mdSummary(s) {
       lines.push(`- total_cost (status.json): ${JSON.stringify(c.total_cost || {})}`);
       const u = c.aggregated_usage || {};
       lines.push(`- aggregated from events.jsonl: in=${u.in_tokens} out=${u.out_tokens} cache_read=${u.cache_read} cache_write=${u.cache_write} cost=${u.cost}`);
+      lines.push(`- **cost_rub: ${(c.cost_rub || 0).toFixed(3)}₽**`);
       lines.push(`- assistant_messages=${u.assistant_messages} tool_messages=${u.tool_messages}`);
       if (u.tool_calls?.length) {
         lines.push(`- tool calls (${u.tool_calls.length}):`);
@@ -297,22 +301,46 @@ function main() {
     ? Date.parse(shaped.last_run.user_message.ts)
     : (Date.now() - 30 * 60_000);
   shaped.children = findChildRuns(since);
+  // Pricing (override via env; sensible defaults for timeweb/deepseek-v4-flash).
+  // PI_PRICE_*_PER_M = cost in rubles per 1M tokens.
+  const price = {
+    in: Number(process.env.PI_PRICE_IN_PER_M) || 50,
+    out: Number(process.env.PI_PRICE_OUT_PER_M) || 50,
+    cache_read: Number(process.env.PI_PRICE_CACHE_READ_PER_M) || 5,
+    cache_write: Number(process.env.PI_PRICE_CACHE_WRITE_PER_M) || 5,
+  };
+  const costRub = (inTok, outTok, cr, cw) =>
+    (inTok / 1e6) * price.in + (outTok / 1e6) * price.out +
+    (cr / 1e6) * price.cache_read + (cw / 1e6) * price.cache_write;
+  // Total across the whole session (session.jsonl cumulative).
+  const t = shaped.totals;
+  shaped.pricing = price;
+  shaped.totals.cost_rub = costRub(t.in_tokens, t.out_tokens, t.cache_read_tokens, t.cache_write_tokens);
+  // Per-child-run cost (using aggregated usage from events.jsonl).
+  for (const c of shaped.children) {
+    const u = c.aggregated_usage || {};
+    c.cost_rub = costRub(u.in_tokens, u.out_tokens, u.cache_read, u.cache_write);
+    c.cost_per_token = {
+      in_rub_per_m: price.in, out_rub_per_m: price.out,
+      cache_read_rub_per_m: price.cache_read, cache_write_rub_per_m: price.cache_write,
+    };
+  }
   // Write
   const id = `${new Date().toISOString().replace(/[:.]/g, "-")}-${parts[parts.length - 3].slice(0, 8)}`;
   const jsonPath = path.join(OUT_DIR, `${id}.json`);
   const mdPath = path.join(OUT_DIR, `${id}.md`);
   fs.writeFileSync(jsonPath, JSON.stringify(shaped, null, 2));
   fs.writeFileSync(mdPath, mdSummary(shaped));
-  const t = shaped.totals;
   console.log(`session: ${shaped.session_dir}`);
   console.log(`model: ${shaped.model}`);
   console.log(`last user @ ${shaped.last_run?.user_message?.ts || "?"}: ${(shaped.last_run?.user_message?.text || "").slice(0, 200).replace(/\n/g, " ")}`);
   console.log(`turns since last user: ${shaped.last_run?.turns?.length || 0}`);
-  console.log(`session.jsonl totals: in=${t.in_tokens} out=${t.out_tokens} cache_read=${t.cache_read_tokens} cache_write=${t.cache_write_tokens} cost_usd=${t.cost_usd}`);
+  console.log(`pricing (₽/1M tokens): in=${price.in} out=${price.out} cache_read=${price.cache_read} cache_write=${price.cache_write}`);
+  console.log(`session.jsonl totals: in=${t.in_tokens} out=${t.out_tokens} cache_read=${t.cache_read_tokens} cache_write=${t.cache_write_tokens} cost=${shaped.totals.cost_rub.toFixed(3)}₽`);
   console.log(`children: ${shaped.children.length}`);
   for (const c of shaped.children) {
     const u = c.aggregated_usage || {};
-    console.log(`  - ${c.run_id} agent=${c.agent} state=${c.state} exit=${c.exit_code} turns=${c.turn_count} tools=${c.tool_count} | in=${u.in_tokens} out=${u.out_tokens} cache_read=${u.cache_read} cache_write=${u.cache_write} cost=${u.cost}`);
+    console.log(`  - ${c.run_id} agent=${c.agent} state=${c.state} exit=${c.exit_code} turns=${c.turn_count} tools=${c.tool_count} | in=${u.in_tokens} out=${u.out_tokens} cache_read=${u.cache_read} cache_write=${u.cache_write} cost=${c.cost_rub.toFixed(3)}₽`);
   }
   console.log(`wrote: ${jsonPath}`);
   console.log(`wrote: ${mdPath}`);
