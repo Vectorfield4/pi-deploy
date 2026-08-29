@@ -31,11 +31,6 @@ cd /root/pi-deploy
 # Create directories + .env from template
 make init
 
-# Daily backup at 02:00. Cron runs a bare environment, so source .env
-# first so scripts/backup.sh sees POSTGRES_PASSWORD.
-( crontab -l 2>/dev/null | grep -v 'pi-deploy && make backup' || true
-  echo "0 2 * * * set -a; . /root/pi-deploy/.env; set +a; cd /root/pi-deploy && make backup" ) | crontab -
-
 echo "=================================================="
 echo "System is ready!"
 echo ""

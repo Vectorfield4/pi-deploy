@@ -25,4 +25,7 @@ bash scripts/memory-bootstrap.sh
 echo "🔄 Installing Pi packages..."
 bash scripts/install-packages.sh
 
+echo "🔄 Installing cron jobs (update-on-push + backup)..."
+bash scripts/setup-cron-jobs.sh
+
 echo "✅ Setup complete"
