@@ -5,7 +5,7 @@ decision once so the complex gate (step 5.2) reuses it instead of re-running
 the architect:
 
 ```
-mcp__dense_mem__remember({
+mcp({ tool: "dense_mem_remember", args: {
   evidence: [{
     content: "project: <project>\ndesign: <feature-title>\ntags: design-decision,project:<project>,<relevant-concepts>\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<decision summary: architecture chosen, alternatives rejected, spec path — under 300 chars>",
     source_type: "observation",
@@ -20,7 +20,7 @@ mcp__dense_mem__remember({
     evidence_indices: [0]
   }],
   idempotency_key: "design:<project>:<feature>:<hash>"
-})
+} })
 ```
 
 If step 5.2 recalled an older design record for the same feature area, list

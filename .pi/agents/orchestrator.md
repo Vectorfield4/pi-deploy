@@ -195,7 +195,7 @@ on merge to main, FTP production HITL via `ping-a-human-pi`).
   Schema reference lives in `.pi/skills/execute-task/references/rag.md` (the
   `evidence`/`relationships`/`idempotency_key` triple is required by dense-mem
   v2.6). If the `mcp({ tool: ... })` form returns "Tool X not found", the
-  namespace tool name (`mcp__dense_mem__recall_memory(query=...)`) also works.
+  namespace tool name (`mcp({ tool: "dense_mem_recall_memory", args: { query=... } })`) also works.
 
 ## Quality
 

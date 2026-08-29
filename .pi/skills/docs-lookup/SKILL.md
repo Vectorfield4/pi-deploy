@@ -23,7 +23,7 @@ Single entry point for library documentation. Wraps `resolve-library-id` and `qu
 
 2. **Recall the cache.**
    ```
-   mcp__dense_mem__recall_memory(query="context7 <libraryName> <topic>")
+   mcp({ tool: "dense_mem_recall_memory", args: { query="context7 <libraryName> <topic>" } })
    ```
    - If the top result's `context` (results are `{ evidence_id, context, space_kind }`) starts with `lib: <libraryName>` and its first line `cache_key:` matches the current `key` → use the cached content. Skip step 3.
    - Parse `valid_until:` from the context. If it is in the past, the cache miss is expected. Proceed to step 3.
@@ -36,7 +36,7 @@ Single entry point for library documentation. Wraps `resolve-library-id` and `qu
 
 4. **Cache the result.** (the `relationship` is required by the v2.6 `remember` contract and makes the cache entry recallable)
    ```
-   mcp__dense_mem__remember({
+   mcp({ tool: "dense_mem_remember", args: {
      evidence: [{
        content: "lib: <libraryName>\ncache_key: <key>\nlibrary_id: <resolved-id>\nversion: <version>\ntopic: <topic>\nvalid_until: <YYYY-MM-DD, today + 7 days>\n\n<docs text, summarized to essential parts>",
        source_type: "document"
@@ -50,7 +50,7 @@ Single entry point for library documentation. Wraps `resolve-library-id` and `qu
        evidence_indices: [0]
      }],
      idempotency_key: "context7:<sha256(key)>"
-   })
+   } })
    ```
 
 5. **Return the docs text** to the caller.

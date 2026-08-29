@@ -11,8 +11,8 @@ Loaded by `execute-task` when QA moved the task back for fixes. Same branch is r
    - If none → return "No QA findings in task" to the orchestrator.
 
 3. **Trace recalled anti-patterns** (best-effort)
-   - If the failing code came from memory recall → `mcp__dense_mem__trace_memory(...)` to find provenance.
-   - If you stored evidence that proved wrong → `mcp__dense_mem__retract_evidence(...)`.
+   - If the failing code came from memory recall → `mcp({ tool: "dense_mem_trace_memory", args: { ... } })` to find provenance.
+   - If you stored evidence that proved wrong → `mcp({ tool: "dense_mem_retract_evidence", args: { ... } })`.
 
 4. **Apply fixes**
    - `cd /workspace/<project>-<task_id>`

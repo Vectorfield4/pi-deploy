@@ -17,11 +17,11 @@ rules hash. The disk files remain the deterministic fallback.
 
 For each `rules_key` you read from disk:
 
-1. Recall the existing record: `mcp__dense_mem__recall_memory(query="project-rules project:<project> key:<rules_key>")`.
+1. Recall the existing record: `mcp({ tool: "dense_mem_recall_memory", args: { query="project-rules project:<project> key:<rules_key>" } })`.
 2. If found → parse `rules_hash:` from the first line of the result's `context` (results are `{ evidence_id, context, space_kind }`). If it matches the current `rules_hash` → skip, the cache is fresh.
 3. If not found OR hash mismatch → write a new record (the `relationship` is required by the v2.6 contract and makes the record recallable):
    ```
-   mcp__dense_mem__remember({
+   mcp({ tool: "dense_mem_remember", args: {
      evidence: [{
        content: "rules_hash: <hash>\nkey: <rules_key>\nproject: <project>\ntags: project-rules,<rules_key>,<project>\n\n<actual section content from disk>",
        source_type: "manual",
@@ -36,11 +36,11 @@ For each `rules_key` you read from disk:
        evidence_indices: [0]
      }],
      idempotency_key: "rules:<project>:<rules_key>:<hash>"
-   })
+   } })
    ```
 4. After all rule records → write the index record once:
    ```
-   mcp__dense_mem__remember({
+   mcp({ tool: "dense_mem_remember", args: {
      evidence: [{
        content: "rules_index: <hash>\nproject: <project>\ntags: project-rules,index,<project>\nkeys: <comma-separated-list>",
        source_type: "manual"
@@ -54,7 +54,7 @@ For each `rules_key` you read from disk:
        evidence_indices: [0]
      }],
      idempotency_key: "rules-index:<project>:<hash>"
-   })
+   } })
    ```
 5. On any MCP failure → log and continue. Never block orchestration on the cache write; disk is the source of truth.
 

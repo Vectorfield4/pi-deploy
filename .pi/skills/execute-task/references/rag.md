@@ -8,10 +8,10 @@ The orchestrator does **one** batched recall per task and passes the result to e
 
 ```
 // In orchestrate-task step 4.5:
-results = mcp__dense_mem__recall_memory(query="<main goal> project:<project> type:<project_type>", limit=10)
+results = mcp({ tool: "dense_mem_recall_memory", args: { query="<main goal> project:<project> type:<project_type>", limit=10 } })
 // Pass to each sub-task in step 7, inside the task JSON string:
 metadata.memory_context = summarize(results)
-metadata.anti_patterns = mcp__dense_mem__recall_memory(query="<main goal> project:<project> anti-pattern", limit=3)
+metadata.anti_patterns = mcp({ tool: "dense_mem_recall_memory", args: { query="<main goal> project:<project> anti-pattern", limit=3 } })
 ```
 
 For ad-hoc tasks that bypass `orchestrate-task`, `component.md` falls back to its own recall.
@@ -26,13 +26,13 @@ For ad-hoc tasks that bypass `orchestrate-task`, `component.md` falls back to it
 
 ## Recall (when batched context is absent)
 
-- `mcp__dense_mem__recall_memory(query="<concise goal of the work>")`
+- `mcp({ tool: "dense_mem_recall_memory", args: { query="<concise goal of the work>" } })`
 - Use a short goal-oriented query (e.g. `react-hook-form + zod auth form with MUI for <project>`) rather than a long paste.
 - Filter via query, not via API. Embed tags into the query string: `query="project:my-project anti-pattern auth"` so the embedding match is precise.
 - Results are `{ evidence_id, context, space_kind }` — read the `context` field (the stored content, bounded at 2000 chars), never `content`. A recalled record's structured prefix (first lines) is the discriminator: `rules_hash:`, `project:`, `valid_until:`, etc.
 - Treat the top results as context hints. Even high-confidence results must still pass validation (lint / test / build) before commit.
-- **Anti-pattern recall**: `mcp__dense_mem__recall_memory(query="<goal> project:<project> anti-pattern")` — use the project's prior failures to avoid repeating them.
-- **Exploration anti-patterns**: `mcp__dense_mem__recall_memory(query="<goal> project:<project> anti-pattern exploration")` — these are decomposition strategies that failed after ≥3 review iterations. Do not repeat.
+- **Anti-pattern recall**: `mcp({ tool: "dense_mem_recall_memory", args: { query="<goal> project:<project> anti-pattern" } })` — use the project's prior failures to avoid repeating them.
+- **Exploration anti-patterns**: `mcp({ tool: "dense_mem_recall_memory", args: { query="<goal> project:<project> anti-pattern exploration" } })` — these are decomposition strategies that failed after ≥3 review iterations. Do not repeat.
 - Graceful degradation: on failure or empty results, proceed without context.
 
 ## Remember (after a successful task)
@@ -40,7 +40,7 @@ For ad-hoc tasks that bypass `orchestrate-task`, `component.md` falls back to it
 `mcp__dense_mem__remember` writes durable evidence anchored by relationships. dense-mem v2.6 contract (`dense-mem.v2.6`, the `:latest` image): every submission requires `evidence`, `relationships`, and `idempotency_key` — a submission without `relationships` is rejected. Each relationship cites the evidence it supports via `evidence_indices` (0-based indexes into the `evidence` array).
 
 ```
-mcp__dense_mem__remember({
+mcp({ tool: "dense_mem_remember", args: {
   evidence: [{
     content: "project: <project>\ntype: <type>\ntags: project:<project>,<type>,<relevant-concepts>\nconfidence: medium\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<concise summary, under 200 chars>",
     source_type: "observation"
@@ -54,7 +54,7 @@ mcp__dense_mem__remember({
     evidence_indices: [0]
   }],
   idempotency_key: "<type>:<project>:<task_id>:<hash-of-content>"
-})
+} })
 ```
 
 Notes:
@@ -72,7 +72,7 @@ Notes:
 
 ## Corrections
 
-- If QA proves a recalled solution was wrong, find the offending record with `mcp__dense_mem__trace_memory(...)`.
-- If the coder profile owns the record, retire it with `mcp__dense_mem__retract_evidence(evidence_ids=[...], reason="...", idempotency_key="...")`.
+- If QA proves a recalled solution was wrong, find the offending record with `mcp({ tool: "dense_mem_trace_memory", args: { ... } })`.
+- If the coder profile owns the record, retire it with `mcp({ tool: "dense_mem_retract_evidence", args: { evidence_ids=[...], reason="...", idempotency_key="..." } })`.
 - dense-mem enforces ownership: you can only correct/retract evidence your own profile submitted. Reviewer-owned records are corrected by the reviewer.
-- For relationship corrections, use `mcp__dense_mem__correct_relationship(...)` (only if the caller owns the active Relationship).
+- For relationship corrections, use `mcp({ tool: "dense_mem_correct_relationship", args: { ... } })` (only if the caller owns the active Relationship).
