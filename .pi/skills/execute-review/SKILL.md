@@ -5,7 +5,11 @@ description: "Runs the full PR review pipeline inside the reviewer agent: load c
 
 # Execute Review
 
-The full review pipeline for a single PR. Loaded by the `reviewer` agent when a review task arrives. The agent's job is to make the merge/bounce/explore decision and write the result.
+The full review pipeline for a single PR. Loaded by the `reviewer` agent when a
+review task arrives — which happens only for tasks where the orchestrator
+invoked the Pro model (`metadata.pro_invoked: true`). Simple Flash tasks skip
+this skill (`execute-qa-task` returns `decision: skip_review` instead). The
+agent's job is to make the merge/bounce/explore decision and write the result.
 
 ## Input
 
@@ -63,10 +67,11 @@ If total diff is over 3000 lines, do not call `gh pr diff` at all. Score from pe
 - `score < SCORE_NEEDS_FIXES` → `decision: bounce`, store anti-pattern
 - `review_iterations >= 3` and the same kind of issue keeps appearing → `decision: explore` (see step 7)
 
-### 6. Merge (only on `decision: merge`)
-- `gh pr merge --squash --base dev`
-- If merge conflict → delegate to `resolve-merge-conflict` subagent, then retry once
-- Trigger Vercel staging: load the `deploy-vercel` skill instructions directly, do not delegate (we don't have a subagent tool)
+### 6. Merge decision (do NOT merge)
+The reviewer does not merge and does not deploy. `decision: merge` means
+"ready for human approval": the orchestrator gates the merge with a zero-token
+watch (`pr-approval-watch`, `pr_watch` tool) and QA squashes into `main` after
+the human approves. No `gh pr merge`, no `deploy-vercel` here.
 
 ### 7. Exploration escalation (only on `decision: explore`)
 Write an anti-pattern (best-effort):
@@ -126,7 +131,9 @@ exploration_flag: <true|false>
 summary: <one sentence>
 ```
 
-The orchestrator reads this output and routes accordingly. Do not call the orchestrator from inside this skill.
+For `decision: merge`, also include `pr_number` and `pr_url` — the orchestrator
+needs the URL to start the approval watch. The orchestrator reads this output and
+routes accordingly. Do not call the orchestrator from inside this skill.
 
 ## Verification
 
@@ -135,4 +142,5 @@ The orchestrator reads this output and routes accordingly. Do not call the orche
 - `findings` is non-empty for `bounce` and `explore`, empty/`none` for `merge`.
 - Memory write attempted at most once.
 - If `explore`: `exploration_flag: true`, no bounce, no merge.
-- If `merge`: `gh pr merge` succeeded, Vercel step ran.
+- If `merge`: NO `gh pr merge` was run — the merge is deferred to the human
+  approval gate (`pr-approval-watch`); `pr_number` and `pr_url` are returned.

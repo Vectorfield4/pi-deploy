@@ -24,7 +24,9 @@ Called for the PR task. Validates, commits, pushes, opens PR.
 - `git push origin <branch>` — retry on transient errors.
 
 ### 4. Create PR
-- `gh pr create --title "Task #<task_id>: <description>" --body "<summary>" --base dev`
+- `gh pr create --title "Task #<task_id>: <description>" --body "<summary>" --base main`
+- PRs always target `main`. Merge into `main` is gated on human approval by the
+  orchestrator's zero-token watch (`pr-approval-watch`), not done here.
 - Retry on transient errors.
 
 ### 5. Cleanup worktrees

@@ -16,11 +16,11 @@ description: "Breaks down complex development tasks into parallel sub-tasks for 
 ### 2. Detect Project Type
 Before decomposing, identify the project type:
 - **frontend**: package.json with React/Vue/Svelte/Angular → complexity gate (step 5.1): complex → `frontend-architect` + `frontend-implementer`, simple → `frontend-implementer` only
-- **backend**: package.json + Express/Fastify/Nest, or go.mod, requirements.txt, Cargo.toml → delegate to `coder`
-- **fullstack**: Monorepo or both frontend + backend markers → `frontend-architect` + `frontend-implementer` for UI, `coder` for API
-- **CLI/lib**: package.json with bin/main, or Makefile + src/ → delegate to `coder`
-- **infra**: docker-compose.yml, Dockerfile, .github/workflows → delegate to `coder`
-- **content**: Markdown-heavy, no code → delegate to `coder`
+- **backend**: package.json + Express/Fastify/Nest, or go.mod, requirements.txt, Cargo.toml → complexity gate (step 5.1a): complex → `coder` on Pro, simple → `coder`
+- **fullstack**: Monorepo or both frontend + backend markers → frontend: complexity gate (step 5.1) architect (complex) / implementer; backend: complexity gate (step 5.1a) → `coder`
+- **CLI/lib**: package.json with bin/main, or Makefile + src/ → complexity gate (step 5.1a) → `coder`
+- **infra**: docker-compose.yml, Dockerfile, .github/workflows → complexity gate (step 5.1a) → `coder`
+- **content**: Markdown-heavy, no code → complexity gate (step 5.1a) → `coder`
 
 ### 3. Load Project Rules
 - Navigate to `/workspace/<project>`.
@@ -143,6 +143,29 @@ Classify the frontend task as `simple` or `complex` before routing. The architec
 - Multi-page features or multiple screens sharing state
 - Design-system/Angular-structure decisions (Atomic Design) at scale
 
+### 5.1a. Assess Complexity for Non-Frontend
+
+The same cold-path rule applies to backend/infra/CLI/content: the Pro model is
+invoked only for genuinely complex work, and review follows Pro.
+
+**Simple** (delegate `coder` on Flash, default model):
+- Well-scoped, 1-3 files, existing patterns cover the change
+- No schema/API contract changes, no cross-cutting concerns, no new services
+
+**Complex** (delegate `coder` with `model: "deepseek/deepseek-v4-pro"`):
+- Vague requirements or open architecture tradeoffs
+- Schema/migration changes, new public APIs or contracts
+- Multi-module or cross-cutting changes (auth flow, shared state across services)
+- Anything where a wrong architectural choice is expensive to undo
+
+### 5.1b. Pro gate (`metadata.pro_invoked`)
+
+`metadata.pro_invoked` is `true` for a task iff **any delegation in its path
+used the Pro model**: `frontend-architect` invoked (complex frontend) OR a
+`coder` complex-path override. Design-reuse and simple tasks are `false`. This
+flag drives the review gate (`execute-qa-task`): the reviewer subagent runs
+only when it is `true`.
+
 ### 5.2. Reuse Past Design Decisions (before any cost)
 
 All frontend routing checks memory before the architect — memory is cheaper than asking the architect. On a `complex` task:
@@ -196,8 +219,11 @@ Never run more than one recall here. If it returns nothing, proceed to the archi
     - **Invariant**: `frontend-architect` is invoked at most once per task. Never re-invoke it for more context, follow-up questions, or reviewer feedback — an underspecified spec is fixed inside implementation.
   - **Simple**: delegate implementation to `frontend-implementer` directly — no architect, no spec.
 - Backend/infra/content tasks: split into per-component sub-tasks as before. Each `coder` subagent gets its own worktree.
+  - **Complex** (step 5.1a): delegate each sub-task with `model: "deepseek/deepseek-v4-pro"` → `metadata.pro_invoked: true`.
+  - **Simple**: delegate `coder` as-is (Flash) → `metadata.pro_invoked: false`.
 - Pass: description, acceptance_criteria, project context, branch name, rules_hash.
 - Also pass the batched `metadata.memory_context` and `metadata.anti_patterns` (from step 4.5) to each sub-task.
+- Also set `metadata.pro_invoked` on every sub-task: `true` iff Pro ran in this task's path (step 5.1b); `false` otherwise.
 
 ### 7.1. Persist Design Decisions (orchestrator, after architecture completes)
 
@@ -226,6 +252,9 @@ If step 5.2 recalled an older design record for the same feature area, list it i
 
 ### 8. Create PR Task
 - After all components complete, delegate PR creation to a `coder` subagent.
+- Compose the QA review task with `metadata.pro_invoked` (step 5.1b). QA runs
+  the reviewer subagent ONLY when it is `true`; simple tasks skip the reviewer
+  and go straight to the human approval gate (`pr-approval-watch`, `WATCH` marker).
 
 ### 9. Quality Check
 - Every criterion traces to the original task description
@@ -237,3 +266,5 @@ If step 5.2 recalled an older design record for the same feature area, list it i
 - PR task created and delegated
 - No task remains in intermediate state
 - `frontend-architect` invoked at most once per task (complex path only, never for simple or design-reuse)
+- `metadata.pro_invoked` set to `true` iff Pro was actually invoked (architect invoked, or `coder` complex override)
+- Reviewer was NOT invoked for tasks with `pro_invoked: false`

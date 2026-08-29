@@ -5,6 +5,10 @@ description: "Checks CI status, merges the PR to dev, and triggers Vercel stagin
 
 # Review and Merge
 
+Legacy skill kept for reference. PR→main merges are now gated on human approval
+by `pr-approval-watch`; this skill is no longer called by the pipeline.
+
+## Old flow (dev branch)
 Verifies CI, merges to `dev`, deploys to Vercel staging.
 
 ## Tunables

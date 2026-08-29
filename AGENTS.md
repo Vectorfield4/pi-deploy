@@ -10,7 +10,7 @@ Deployment + instruction repo for a Pi-based AI development system. No applicati
 ├── mcp.json          # dense-mem MCP server
 ├── models.json       # Provider + model registry (timeweb)
 ├── agents/           # Agent definitions; skills listed per agent in frontmatter
-└── skills/           # Skill packages (24 skills)
+└── skills/           # Skill packages (28 skills)
 scripts/              # Bash scripts (init, setup, cloud-init, backup, setup-cron-jobs, update-on-push)
 docker-compose.yml    # Pi + memory stack (4 services)
 Dockerfile.pi         # Pi container image
@@ -20,7 +20,23 @@ AGENTS.md             # This file — interactive-session instructions
 
 ## How it runs
 
-One Pi process (interactive, PTY, Telegram via `@bytesbrains/pi-telegram-bridge`) + 3 memory containers (PostgreSQL+pgvector, TEI embeddings, dense-mem RAG). No slash commands — users write naturally. The interactive session routes every message to the `orchestrator` subagent (intent: task/question/feedback/deploy/...), which delegates to workers (`frontend-architect`/`frontend-implementer` for frontend, `coder` otherwise), then to `reviewer` (CI/score/merge/bounce), then `qa` (release/deploy).
+One Pi process (interactive, PTY, Telegram via `@bytesbrains/pi-telegram-bridge`) + 3 memory containers (PostgreSQL+pgvector, TEI embeddings, dense-mem RAG). No slash commands — users write naturally. The interactive session routes every message to the `orchestrator` subagent (intent: task/question/feedback/deploy/...), which delegates to workers (`frontend-architect`/`frontend-implementer` for frontend, `coder` otherwise). The Pro model is a cold path, invoked only for complex tasks (`metadata.pro_invoked`), and the `reviewer` (CI/score decision) runs **only** for those tasks. Every PR targeting main then gets a zero-token human approval (`pr_watch`) before `qa` merges/releases/deploys.
+
+## How the main session works (router)
+
+You (this session) are a thin router, not the actor. Every message is routed to
+the `orchestrator` subagent and its `[REVIEW_RESULT]`/output is followed. Two
+things you do yourself, without delegating:
+
+1. **PR watch markers.** When the orchestrator's final message contains a line
+   that is exactly `WATCH <url>` (or `UNWATCH`), call the `pr_watch` tool on the
+   same URL (`{ action: "watch", url }` / `{ action: "unwatch" }`). This starts
+   the zero-token PR poller. When a watch wakes this session with feedback,
+   route the feedback to the orchestrator like any other message.
+2. **Confirmation echo.** For confirmed deploys/releases, just delegate; the
+   orchestrator owns the confirmation flow.
+
+Subagents cannot run slash commands or hold the watch — only you can.
 
 ## Project types
 
@@ -37,7 +53,7 @@ Frontend skills load only when the project is detected as frontend.
 
 ## Task flow
 
-Telegram → Orchestrator → workers (frontend-architect, frontend-implementer, coder) → PR → Reviewer (CI/score/merge) → QA (release/deploy)
+Telegram → Orchestrator → workers (frontend-architect, frontend-implementer, coder) → PR (base main) → Reviewer only for complex/Pro tasks (CI/score decision; simple tasks skip) → human approval (`pr_watch`) → QA (merge + release/deploy)
 
 ## Memory layer
 
@@ -59,17 +75,17 @@ No top-level `tags`/`filter`/`claims` — tags live in content, selection in the
 ### Universal
 - intent-router, orchestrate-task, prioritize-tasks, execute-task, create-pr, setup-ci, project-init, technical-planner, content-strategist, narrative-designer, project-discover, simple-task-executor
 - docs-lookup — Context7 with 7-day dense-mem cache; use instead of `resolve-library-id`/`query-docs` directly
-- release-approval-watch — zero-token HITL: `/pr watch` for release PRs on the main session
+- pr-approval-watch — zero-token HITL: orchestrator hands a passed PR to the router via a `WATCH <url>` marker; the router starts `pr_watch` (main session only)
 
 ### Frontend (loaded only for frontend projects)
 - ui-architect, ui-implementer, integration-specialist, threejs-scene-builder
 
 ### QA
-- execute-qa-task — dispatcher; delegates review to `reviewer`, runs `memory-gc` after each iteration
-- release-to-main — dev→main PR, then merge + build + GitHub Release after approval
-- deploy-vercel, deploy-ftp — staging (auto on merge to dev) / production (manual HITL)
+- execute-qa-task — dispatcher; delegates review to `reviewer`, runs approval merges and `memory-gc` after each iteration
+- create-github-release — single-phase: build from main + publish artifact to GitHub Releases (no PR, no watch)
+- deploy-vercel, deploy-ftp — staging (auto on merge to main) / production (manual HITL)
 - memory-gc — retire evidence with expired `valid_until`
 
 ### Reviewer
-- execute-review — CI wait, validate, score, merge/bounce, memory
+- execute-review — CI wait, validate, score, decide (merge decision is gated on human approval, never executed here)
 - review-and-merge, pr-judge, resolve-merge-conflict, cleanup-branch

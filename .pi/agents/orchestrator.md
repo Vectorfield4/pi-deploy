@@ -11,7 +11,7 @@ skills:
   - prioritize-tasks
   - intent-router
   - project-discover
-  - release-approval-watch
+  - pr-approval-watch
 ---
 
 # Orchestrator Agent
@@ -57,11 +57,18 @@ Before decomposing, detect the project type, then route to the correct agent:
 | Type | Detection | Delegate to |
 |------|-----------|-------------|
 | **frontend** | package.json with React/Vue/Svelte/Angular | complexity gate first; `frontend-architect` (complex only) + `frontend-implementer` |
-| **backend** | package.json + Express/Fastify/Nest, or go.mod, requirements.txt, Cargo.toml | `coder` subagent |
+| **backend** | package.json + Express/Fastify/Nest, or go.mod, requirements.txt, Cargo.toml | complexity gate first; complex → `coder` on Pro, simple → `coder` |
 | **fullstack** | Monorepo or both frontend + backend markers | complexity gate first; `frontend-architect` (complex only) + `frontend-implementer` for UI, `coder` for API |
-| **CLI/lib** | package.json with bin/main, or Makefile + src/ | `coder` subagent |
-| **infra** | docker-compose.yml, Dockerfile, .github/workflows | `coder` subagent |
-| **content** | Markdown-heavy, no code | `coder` subagent |
+| **CLI/lib** | package.json with bin/main, or Makefile + src/ | complexity gate first; complex → `coder` on Pro, simple → `coder` |
+| **infra** | docker-compose.yml, Dockerfile, .github/workflows | complexity gate first; complex → `coder` on Pro, simple → `coder` |
+| **content** | Markdown-heavy, no code | complexity gate first; complex → `coder` on Pro, simple → `coder` |
+
+### Pro gate (review eligibility)
+
+The **Pro model is a cold path**: it runs only for complex work, and review
+follows Pro. Set `metadata.pro_invoked` (see `orchestrate-task` step 5.1b) on
+every sub-task and on the QA review task. The `reviewer` subagent runs ONLY when
+`pro_invoked == true`; simple (Flash-only) work skips the reviewer.
 
 ### Frontend Routing
 
@@ -90,21 +97,37 @@ When project type is `frontend`, **assess complexity first** (see `orchestrate-t
 
 For refactoring: identify target files, read current code, plan targeted edits (not rewrites), preserve external behavior.
 
-## Release / Deploy Handling
+## PR Gate & Release / Deploy Handling
 
-### Release (zero-token HITL)
-Load the `release-approval-watch` skill. High-level contract:
+### PR approval gate (every PR targeting main)
+Full instructions in `pr-approval-watch`. Contract:
 
-1. On `release` intent → **confirm first** → delegate Phase A to `qa` (`release-to-main`).
-2. QA returns the release PR URL (it does not block).
-3. Run `/pr watch <release-pr-url>` on **this session** (do not delegate the watch — only the main session can run extension commands). Report the URL to the user.
-4. Finish the turn; `/pr watch` polls GitHub in the background without blocking Telegram.
-5. When the watch wakes this session on approval → delegate **Phase B** to `qa` (merge + build + GitHub Release). On requested changes → report feedback, do not merge.
+1. **Complex task** (`metadata.pro_invoked: true`): the reviewer returns
+   `decision: merge` together with `pr_number`/`pr_url`. The reviewer never merges.
+   **Simple task** (`pro_invoked` false): no reviewer — the worker PR is ready
+   directly; QA reported `decision: skip_review` with the URL.
+2. You finish the turn by emitting the marker alone on a line:
+   ```
+   WATCH <pr-url>
+   ```
+   The main routing session translates `WATCH <url>` → `pr_watch({ action: "watch", url })`
+   (see AGENTS.md "PR watch markers") and reports the PR link to the user.
+3. `pr_watch` polls GitHub every 30s, zero-token. On new external feedback the
+   watch steers back into this session; classify it (approval → delegate merge,
+   changes → relay feedback, do not merge).
+4. Announces merge: `subagent({ agent: "qa", task: { type: "merge", project, pr_number, branch }, skill: "execute-qa-task" })`.
 
-Full instructions in `release-approval-watch`. QA never polls for approval itself.
+You never merge and never deploy yourself. You only hand off (WATCH) and re-delegate.
+
+### Release (single-phase, no PR)
+On `release` intent → **confirm first** → delegate to `qa`
+(`create-github-release`): builds from `main` and publishes the artifact to
+GitHub Releases. The user's request is the approval; no PR, no watch. If CI owns
+releases later, this skill just pushes the tag.
 
 ### Deploy
-On `deploy` intent → **confirm first** → delegate to `qa` (Vercel staging auto, FTP production HITL via `ping-a-human-pi`).
+On `deploy` intent → **confirm first** → delegate to `qa` (Vercel staging auto
+on merge to main, FTP production HITL via `ping-a-human-pi`).
 
 ## Memory
 
