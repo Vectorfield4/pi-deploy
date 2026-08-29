@@ -29,7 +29,7 @@ fi
 
 while true; do
   echo "[entrypoint] starting pi $*"
-  pi "$@"
+  pi --continue "$@"
   code=$?
   echo "[entrypoint] pi exited with code $code — restarting in 5s"
   sleep 5

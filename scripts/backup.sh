@@ -25,7 +25,7 @@ echo "  ✅ memory_$TIMESTAMP.sql"
 # ── Pi sessions backup (named volume) ──────────────────────────────
 echo "💾 Creating Pi sessions backup..."
 docker run --rm \
-  -v pi-agent-home:/source:ro \
+  -v pi-deploy_pi-agent-home:/source:ro \
   -v "$(cd "$BACKUP_DIR" && pwd)":/backup \
   alpine tar czf "/backup/pi-sessions_$TIMESTAMP.tar.gz" -C /source . 2>/dev/null || true
 
