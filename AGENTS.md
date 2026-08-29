@@ -45,6 +45,12 @@ incapable of writing code and can only delegate. Never re-add those tools to
 its frontmatter; that is the anti-failure guarantee: an orchestrator that
 "learns" to implement answers directly exactly like a broken router.
 
+The orchestrator's `tools` line must keep `subagent_wait` (blocking
+run-to-completion wait, `stopOnAttention: false`) so it can wait for a worker
+**without polling** — `subagent({ action: "status" })` is a one-shot
+inspection, never a wait loop. A task burned 9 status calls for 3 workers;
+the wait discipline is in `orchestrate-task` step 8.5.
+
 > If this contract is not being followed on the running system (the agent
 > replies to Telegram directly instead of delegating), check in order:
 > 1. `/workspace/.pi/SYSTEM.md` is present in the container — without it the

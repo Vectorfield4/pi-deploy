@@ -294,6 +294,17 @@ If step 5.2 recalled an older design record for the same feature area, list it i
   reviewer subagent ONLY when it is `true`; simple tasks skip the reviewer and
   push straight to `main`. There is no PR and no human approval gate.
 
+### 8.5. Wait Discipline (blocking, never polling)
+
+Every delegated worker is an async run. After launching one whose result the next
+step needs, **block on `subagent_wait`** — never poll `status`.
+
+- **Blocking wait (run-to-completion):** `subagent_wait({ "id": "<runId>", "stopOnAttention": false })`. It holds the call open and returns the child's result when the run finishes; `subagent_wait` is exempt from tool timeouts. Use `stopOnAttention: false` for workers that must finish.
+- **Never poll** `subagent({ action: "status" })` in a loop to wait out a run — an observed task burned 9 status calls for 3 workers. `status` is a one-shot inspection (`view: "fleet"` overview, `view: "transcript"` to tail output) for stale/blocked runs only.
+- `subagent({ action: "list" })` once per task to confirm executable agents — one-shot, not a loop.
+- **Parallel fan-out:** launch all sibling workers in a single turn — the run fan-out budget is 64 children per top-level run (the `subagent` spawn charges it; each launch echoes `Run fan-out: N/64 used, M remaining`) — then block-wait each at its dependency barrier. Never launch-and-poll workers one by one.
+- Expected `subagent` call count per task: ~1 `list` + one per worker delegation, with `subagent_wait` blocking between dependency steps. If your call count is well above the worker count, you are polling — wait instead.
+
 ### 9. Quality Check
 - Every criterion traces to the original task description
 - At least one criterion is verifiable via lint/test/build
@@ -306,3 +317,4 @@ If step 5.2 recalled an older design record for the same feature area, list it i
 - `frontend-architect` invoked at most once per task (complex path only, never for simple or design-reuse)
 - `metadata.pro_invoked` set to `true` iff Pro was actually invoked (architect invoked, or `coder` complex override)
 - Reviewer was NOT invoked for tasks with `pro_invoked: false`
+- Wait discipline (step 8.5): workers waited on via blocking `subagent_wait`, not `status` polling loops

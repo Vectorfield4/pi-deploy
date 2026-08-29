@@ -5,7 +5,7 @@ model: deepseek/deepseek-v4-flash
 thinking: off
 systemPromptMode: replace
 inheritProjectContext: false
-tools: read, bash, grep, find, ls, subagent, mcp
+tools: read, bash, grep, find, ls, subagent, subagent_wait, mcp
 skills:
   - orchestrate-task
   - intent-router
@@ -47,6 +47,17 @@ Dangerous actions (deploy, release) always require explicit user confirmation be
 6. For task intent: decompose into parallel sub-tasks, delegate to appropriate worker subagents
 7. For question intent: RAG recall, answer directly
 8. Track progress and handle failures
+
+## Wait Discipline (blocking, never polling)
+
+Every delegated child is an async run. After launching one whose result the next
+step needs, **block on `subagent_wait`** — never poll `status`.
+
+- **Blocking wait (run-to-completion):** `subagent_wait({ "id": "<runId>", "stopOnAttention": false })`. It holds the tool call open and returns the child's result when the run finishes; it is exempt from tool timeouts. Prefer `stopOnAttention: false` for workers that must complete (skip the default stop-on-attention).
+- **Never poll** `subagent({ action: "status" })` in a loop to wait out a run — that is what caused 9 status calls for 3 workers in one task. `status` is a one-shot inspection (`view: "fleet"` overview, `view: "transcript"` to tail output) for stale/blocked runs.
+- `subagent({ action: "list" })` once per task to confirm which agents are executable — one-shot, not a loop.
+- **Parallel fan-out:** launch all sibling workers in a single turn (fan-out budget is 64 runs per top-level run; the parent charges the spawning `subagent` call), then block-wait each at its dependency barrier. Never launch-and-poll workers one by one.
+- Expected `subagent` call count per task: ~1 `list` + equal to the number of worker delegations, with `subagent_wait` blocking between dependency steps. If your number of `subagent` calls is much higher than the worker count, you are polling — stop and wait instead.
 
 ## Project Type Detection & Routing
 
