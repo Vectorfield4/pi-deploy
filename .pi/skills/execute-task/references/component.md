@@ -27,7 +27,7 @@ the context bundle into it.)
 
 3. **Recall experience (RAG)** — load `references/rag.md` if not loaded.
    - If `task.metadata.memory_context` is present and non-empty (orchestrator pre-batched): use it as context. Skip the recall call. Also read `task.metadata.anti_patterns` if present and apply as warnings.
-   - If `task.metadata.memory_context` is absent or empty: call `mcp__dense-mem__recall_memory(query="<concise goal> project:<project>")`. On failure → continue without context.
+   - If `task.metadata.memory_context` is absent or empty: call `mcp__dense_mem__recall_memory(query="<concise goal> project:<project>")`. On failure → continue without context.
 
 4. **Fetch latest and rebase**
    ```
@@ -49,7 +49,7 @@ the context bundle into it.)
 7. **Complete**
    - Success: store experience in memory (best-effort, don't block):
      ```
-     mcp__dense-mem__remember({
+     mcp__dense_mem__remember({
        evidence: [{
          content: "project: <project>\ntype: <type>\ntags: project:<project>,<type>,<relevant-concepts>\nconfidence: medium\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<what was done, key decisions, patterns used — under 200 chars>",
          source_type: "observation"

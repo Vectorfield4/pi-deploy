@@ -43,11 +43,11 @@ Project rules are cached in dense-mem as durable evidence keyed by the project r
 - (always) the `rules-index` record
 
 **For each `rules_key` you read from disk:**
-1. Recall the existing record: `mcp__dense-mem__recall_memory(query="project-rules project:<project> key:<rules_key>")`.
+1. Recall the existing record: `mcp__dense_mem__recall_memory(query="project-rules project:<project> key:<rules_key>")`.
 2. If found → parse `rules_hash:` from the first line of the result's `context` (results are `{ evidence_id, context, space_kind }`). If it matches the current `rules_hash` → skip, the cache is fresh.
 3. If not found OR hash mismatch → write a new record (the `relationship` is required by the v2.6 contract and makes the record recallable):
    ```
-   mcp__dense-mem__remember({
+   mcp__dense_mem__remember({
      evidence: [{
        content: "rules_hash: <hash>\nkey: <rules_key>\nproject: <project>\ntags: project-rules,<rules_key>,<project>\n\n<actual section content from disk>",
        source_type: "manual",
@@ -66,7 +66,7 @@ Project rules are cached in dense-mem as durable evidence keyed by the project r
    ```
 4. After all rule records → write the index record once:
    ```
-   mcp__dense-mem__remember({
+   mcp__dense_mem__remember({
      evidence: [{
        content: "rules_index: <hash>\nproject: <project>\ntags: project-rules,index,<project>\nkeys: <comma-separated-list>",
        source_type: "manual"
@@ -87,8 +87,8 @@ Project rules are cached in dense-mem as durable evidence keyed by the project r
 This step makes the read-side `execute-task/references/memory.md` load procedure actually find records. Without it, every worker task falls back to disk.
 
 ### 4. Recall Past Experience
-- Use `mcp__dense-mem__recall_memory` to find similar past plans, decisions, or patterns.
-- Recall anti-patterns: `mcp__dense-mem__recall_memory(query="<goal> project:<project> anti-pattern")`.
+- Use `mcp__dense_mem__recall_memory` to find similar past plans, decisions, or patterns.
+- Recall anti-patterns: `mcp__dense_mem__recall_memory(query="<goal> project:<project> anti-pattern")`.
 - Include as advisory hints — project rules always take precedence.
 - Graceful degradation: if MCP fails, continue without it.
 
@@ -97,12 +97,12 @@ After decomposition but before delegation, do **one** batched recall that covers
 
 ```
 combined_query = "<main goal> project:<project> type:<project_type>"
-memory_results = mcp__dense-mem__recall_memory(query=combined_query, limit=10)
+memory_results = mcp__dense_mem__recall_memory(query=combined_query, limit=10)
 ```
 
 Also recall anti-patterns:
 ```
-anti_patterns = mcp__dense-mem__recall_memory(query="<main goal> project:<project> anti-pattern", limit=5)
+anti_patterns = mcp__dense_mem__recall_memory(query="<main goal> project:<project> anti-pattern", limit=5)
 ```
 
 Then for each sub-task in step 7, include in the delegated task JSON (the
@@ -171,7 +171,7 @@ only when it is `true`.
 
 All frontend routing checks memory before the architect — memory is cheaper than asking the architect. On a `complex` task:
 
-1. One recall: `mcp__dense-mem__recall_memory(query="<goal> project:<project> design decision")`.
+1. One recall: `mcp__dense_mem__recall_memory(query="<goal> project:<project> design decision")`.
 2. If a matching recent `design:*` record exists (predicate `project:design:decision`) → **skip the architect**. Route as "design-reuse": delegate to `frontend-implementer` with the recorded decision and spec path parsed from the record's `context`.
 3. Otherwise → call `frontend-architect` (step 7). When unsure whether a recalled decision matches the task scope, prefer calling the architect — reuse only genuinely same-scope decisions.
 
@@ -265,7 +265,7 @@ Per-worker mapping:
 After `frontend-architect` produces `artifacts/design-spec.md`, record the decision once so the complex gate (step 5.2) reuses it instead of re-running the architect:
 
 ```
-mcp__dense-mem__remember({
+mcp__dense_mem__remember({
   evidence: [{
     content: "project: <project>\ndesign: <feature-title>\ntags: design-decision,project:<project>,<relevant-concepts>\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<decision summary: architecture chosen, alternatives rejected, spec path — under 300 chars>",
     source_type: "observation",

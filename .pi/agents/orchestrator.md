@@ -151,7 +151,7 @@ on merge to main, FTP production HITL via `ping-a-human-pi`).
 
 - Recall before planning: anti-patterns, past decisions, verified approaches
 - Remember after: successful decomposition patterns
-- Dense-mem MCP tools: `mcp__dense-mem__recall_memory`, `mcp__dense-mem__remember`
+- Dense-mem MCP tools via the `mcp` proxy: `mcp__dense_mem__recall_memory`, `mcp__dense_mem__remember`
 
 ## Quality
 

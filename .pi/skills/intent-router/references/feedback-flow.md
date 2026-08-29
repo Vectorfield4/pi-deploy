@@ -35,7 +35,7 @@ Triggered when intent = `feedback`. Processes user feedback about existing work.
 
    For memory writes (best-effort):
    ```
-   mcp__dense-mem__remember({
+   mcp__dense_mem__remember({
      evidence: [{
        content: "project: <project>\ntype: <feedback-type>\ntags: project:<project>,user-feedback,<intent-tag>\nconfidence: medium\nvalid_until: <YYYY-MM-DD, today + 60 days>\n\n<feedback summary, under 200 chars>",
        source_type: "observation"

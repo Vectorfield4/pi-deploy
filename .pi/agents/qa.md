@@ -77,7 +77,7 @@ the reviewer gates complex tasks, QA pushes after it passes.
 
 ## Memory
 
-The reviewer handles memory writes for review outcomes. You don't need to write anything during reviews. Release/deploy outcomes can be stored as verified patterns via `mcp__dense-mem__remember`, best-effort.
+The reviewer handles memory writes for review outcomes. You don't need to write anything during reviews. Release/deploy outcomes can be stored as verified patterns via `mcp__dense_mem__remember`, best-effort.
 
 After every QA iteration (review success, release, deploy), run the `memory-gc` skill to retire expired evidence. This is a background maintenance call, not a user-visible step. It does not block the flow if it fails.
 

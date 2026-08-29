@@ -16,7 +16,7 @@ We do not invent tags or filter parameters that don't exist in the API. Tags are
 
 For each `rules_key` in `task.metadata.rules_keys_needed` (default keys: `["ui-conventions", "api-standards", "testing-patterns", "build-deploy", "content-voice"]` chosen by project type in `orchestrate-task` step 3.5):
 
-1. `mcp__dense-mem__recall_memory(query="project-rules project:<project> key:<rules_key>")`.
+1. `mcp__dense_mem__recall_memory(query="project-rules project:<project> key:<rules_key>")`.
 2. Parse the top result's `context` (results are `{ evidence_id, context, space_kind }`). Extract the first-line `rules_hash: <hash>`.
 3. If `rules_hash == task.metadata.rules_hash` → use it as authoritative.
 4. If hash mismatch or recall returns nothing → read `/workspace/<project>/AGENTS.md` and `/workspace/<project>/SOUL.md` (if present) directly and extract the section for this key. The disk fallback is deterministic and authoritative.
@@ -27,7 +27,7 @@ For each `rules_key` in `task.metadata.rules_keys_needed` (default keys: `["ui-c
 Each rule is a single evidence item. Tags and hash live in the content as a structured prefix so dense-mem's embedding match finds them on `recall_memory(query=...)`:
 
 ```
-mcp__dense-mem__remember({
+mcp__dense_mem__remember({
   evidence: [{
     content: "rules_hash: a1b2c3d4\nkey: ui-conventions\nproject: my-app\ntags: project-rules,ui-conventions,my-app\n\n<actual section content from AGENTS.md>",
     source_type: "manual"
@@ -64,7 +64,7 @@ Notes:
 When `AGENTS.md` changes and `git rev-parse HEAD` returns a new hash:
 
 ```
-mcp__dense-mem__remember({
+mcp__dense_mem__remember({
   evidence: [{
     content: "rules_hash: 9z9z9z9z\nkey: ui-conventions\nproject: my-app\ntags: project-rules,ui-conventions,my-app\n\n<new section content>",
     source_type: "manual",

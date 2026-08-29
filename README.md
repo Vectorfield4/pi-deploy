@@ -62,7 +62,7 @@ Versions pinned in `.pi/settings.json`. Makefile reads the list and installs via
 | Extension | Version | Role | Used by | Why it's here |
 |-----------|---------|------|---------|---------------|
 | `pi-subagents` | 0.58.0 | Multi-agent orchestration with strict tool allowlists, async runs, model overrides per role | All agents under `.pi/agents/` | Reads `model` and `tools` from each agent's frontmatter. |
-| `pi-mcp-adapter` | 2.29.0 | MCP client. `mcp` proxy tool plus per-server `directTools` registration | All agents (proxy `mcp`); coder and frontend-implementer get `mcp:dense-mem` direct | Connects Pi to the dense-mem RAG server. Proxy keeps orchestrator/QA context light, direct gives workers full tool schemas. |
+| `pi-mcp-adapter` | 2.29.0 | MCP client. `mcp` proxy tool plus per-server `directTools` registration | All agents (proxy `mcp`, incl. workers) | Connects Pi to the dense-mem RAG server. Proxy keeps orchestrator/QA/worker context light; memory is best-effort, never a hard dependency. |
 | `@bytesbrains/pi-telegram-bridge` | 1.4.1 | Telegram bot bridge inside the Pi interactive session | Pi container entrypoint | The path from Telegram into Pi. Polls in the background. |
 | `ping-a-human-pi` | 0.1.1 | Generic human-in-the-loop notifications | QA agent for FTP deploy blocks | Used where GitHub polling doesn't apply (FTP deploys, destructive ops). |
 | `pi-memory` | 0.4.2 | Session memory with qmd semantic search across daily logs and scratchpad | Pi main session | Separate from dense-mem evidence. Orchestrator scratchpad lives here. |

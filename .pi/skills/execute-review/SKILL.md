@@ -35,13 +35,13 @@ The task arrives as a **JSON string** — parse it as `task` and read fields via
 
 ### 1. Load context
 Recall project rules from dense-mem. The query format embeds the project and key:
-`mcp__dense-mem__recall_memory(query="project-rules project:<project> key:<rules_key>")`. If the top result's first line `rules_hash:` (read from the result's `context` — results are `{ evidence_id, context, space_kind }`) doesn't match `task.metadata.rules_hash` or recall returns nothing, read `/workspace/<project>/AGENTS.md` and `/workspace/<project>/SOUL.md` directly. Graceful degradation: never block on memory.
+`mcp__dense_mem__recall_memory(query="project-rules project:<project> key:<rules_key>")`. If the top result's first line `rules_hash:` (read from the result's `context` — results are `{ evidence_id, context, space_kind }`) doesn't match `task.metadata.rules_hash` or recall returns nothing, read `/workspace/<project>/AGENTS.md` and `/workspace/<project>/SOUL.md` directly. Graceful degradation: never block on memory.
 
 Recall past anti-patterns:
-`mcp__dense-mem__recall_memory(query="<feature summary> project:<project> anti-pattern")`. If recalled, these are known failures — use a different approach.
+`mcp__dense_mem__recall_memory(query="<feature summary> project:<project> anti-pattern")`. If recalled, these are known failures — use a different approach.
 
 If `exploration_triggered == true` in `task.metadata`, also recall exploration anti-patterns:
-`mcp__dense-mem__recall_memory(query="<feature summary> project:<project> anti-pattern exploration")` and avoid repeating the same approach.
+`mcp__dense_mem__recall_memory(query="<feature summary> project:<project> anti-pattern exploration")` and avoid repeating the same approach.
 
 ### 2. Wait for CI
 - `gh run list --branch <branch> --limit 3 --json status` (the branch is pushed; CI may run on it).
@@ -79,7 +79,7 @@ main`, no `gh pr merge`, no `deploy-vercel` here.
 ### 7. Exploration escalation (only on `decision: explore`)
 Write an anti-pattern (best-effort):
 ```
-mcp__dense-mem__remember({
+mcp__dense_mem__remember({
   evidence: [{
     content: "project: <project>\ntype: exploration\ntags: anti-pattern,exploration,project:<project>\nconfidence: high\nvalid_until: <YYYY-MM-DD, today + 30 days>\n\nTask '<title>' failed <N> iterations. Recurring: <pattern>. Orchestrator must re-decompose.",
     source_type: "observation"
@@ -100,7 +100,7 @@ Set `exploration_flag: true` in the result. Do not bounce to coder, do not appro
 ### 8. Memory write (best-effort, at most once per task)
 - `score >= SCORE_PASS` and quality is genuine → write verified pattern:
   ```
-  mcp__dense-mem__remember({
+  mcp__dense_mem__remember({
     evidence: [{
       content: "project: <project>\ntype: verified\ntags: verified,project:<project>\nconfidence: high\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<short verdict, under 200 chars>",
       source_type: "observation"

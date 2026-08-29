@@ -5,7 +5,7 @@ model: deepseek/deepseek-v4-flash
 thinking: off
 systemPromptMode: replace
 inheritProjectContext: false
-tools: read, bash, grep, find, ls, edit, write, mcp:dense-mem
+tools: read, bash, grep, find, ls, edit, write, mcp
 skills:
   - execute-task
   - project-init
@@ -75,7 +75,7 @@ You work with whatever stack the project uses. Before implementing:
 
 - Recall before implementing: past approaches, anti-patterns
 - Remember after: verified patterns, solutions
-- Dense-mem MCP tools: `mcp__dense-mem__recall_memory`, `mcp__dense-mem__remember`
+- Dense-mem MCP tools via the `mcp` proxy: `mcp__dense_mem__recall_memory`, `mcp__dense_mem__remember`
 
 ## Documentation Lookup
 
