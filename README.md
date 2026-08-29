@@ -2,6 +2,27 @@
 
 Natural-language dev system on [Pi](https://pi.dev). Detects project type (frontend, backend, fullstack, CLI, infra, content) from the codebase and routes to the right skill. No slash commands, no menus, just text in, PR out.
 
+## Features
+
+### 🧠 Memory Stack
+
+Long-term memory for the agents, self-hosted RAG via dense-mem (PostgreSQL + pgvector + TEI embeddings). Records are durable, append-only evidence anchored by relationships, with lifecycle hooks for replacement and removal.
+
+Used for:
+- Rule cache and library docs cache
+- Task outcomes and review verdicts
+- Exploration anti-patterns (TTL, cleaned by memory GC)
+
+Session memory (the orchestrator's scratchpad) is separate — pi-memory.
+
+### ⚡ Smart Updates
+
+Auto-update from GitHub via a cron poller (every 2 min, installed by `make setup`/`make update`). Applies only while Pi is idle — no session-file writes for the last 10 min — and scales to the change:
+
+- Dockerfile/compose/Makefile → full `make update` (rebuild + restart)
+- `.pi/settings.json` → pull + reinstall packages + restart
+- Skills/agents/mcp/models → pull + restart
+
 ## Quick start
 
 ```bash
