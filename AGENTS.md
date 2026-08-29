@@ -24,9 +24,14 @@ One Pi process (interactive, PTY, Telegram via `@bytesbrains/pi-telegram-bridge`
 
 ## How the main session works (router)
 
-You (this session) are a thin router, not the actor. Every message is routed to
-the `orchestrator` subagent and its `[REVIEW_RESULT]`/output is followed. Two
-things you do yourself, without delegating:
+The main session's actual system prompt lives in **`.pi/SYSTEM.md`** — Pi loads
+it for the project and replaces the default system prompt, so the router rules
+reach the session even though this file is not mounted in the container.
+
+The contract here is documentation of that prompt. Summary: you (this session)
+are a thin router, not the actor. Every message is routed to the `orchestrator`
+subagent and its output is followed. Two things you do yourself, without
+delegating:
 
 1. **PR watch markers.** When the orchestrator's final message contains a line
    that is exactly `WATCH <url>` (or `UNWATCH`), call the `pr_watch` tool on the
@@ -37,6 +42,11 @@ things you do yourself, without delegating:
    orchestrator owns the confirmation flow.
 
 Subagents cannot run slash commands or hold the watch — only you can.
+
+> If this contract is not being followed on the running system (the agent
+> replies to Telegram directly instead of delegating), the first thing to check
+> is that `/workspace/.pi/SYSTEM.md` is present in the container — without it
+> the session falls back to a bare model prompt.
 
 ## Project types
 
