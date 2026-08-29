@@ -39,6 +39,10 @@ Analyze the user message and classify it into ONE of these intents:
    - "urgent"/"critical"/"срочно"/"ASAP" → urgent (+2)
    - "bug"/"fix"/"error" → high (+1)
    - Default → normal
+5. **Stay lightweight.** Project detection uses `ls /workspace` and
+   `find /workspace -maxdepth 2 -name package.json -o -name go.mod -o
+   -name requirements.txt`, never `read` of source files. Reading project
+   files in full belongs to the worker; the orchestrator only inventories.
 
 ## Rejection Filter
 

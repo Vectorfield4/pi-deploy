@@ -30,11 +30,17 @@ reach the session even though this file is not mounted in the container.
 
 The contract here is documentation of that prompt. Summary: you (this session)
 are a thin router, not the actor. Every message is routed to the `orchestrator`
-subagent and its output is followed. One thing you do yourself, without
-delegating:
+subagent and its output is followed.
 
-1. **Confirmation echo.** For confirmed deploys/releases, just delegate; the
-   orchestrator owns the confirmation flow.
+The orchestrator's `systemPromptMode: replace` makes its system prompt the
+cache anchor for the orchestrator's session. Every token the orchestrator
+reads is replayed as cacheRead on every subsequent turn, so the orchestrator
+stays thin: it inventories (`grep`/`find`/`ls`/`wc`) rather than reads, and
+ships a `metadata.file_inventory` to workers so they do the heavy file reads.
+See `.pi/agents/orchestrator.md` (Context Discipline) and
+`.pi/skills/orchestrate-task/SKILL.md` (step 4.7).
+
+One thing you do yourself, without delegating:
 
 Subagents cannot run slash commands or hold tools only the main session loads —
 a push/merge/release never happens on this session either. The orchestrator

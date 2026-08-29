@@ -22,13 +22,23 @@ Before decomposing, identify the project type:
 - **infra**: docker-compose.yml, Dockerfile, .github/workflows → complexity gate (step 5.1a) → `coder`
 - **content**: Markdown-heavy, no code → complexity gate (step 5.1a) → `coder`
 
-### 3. Load Project Rules
+### 3. Load Project Rules (lightweight)
+
+The orchestrator's cache dominates the bill. Loading the full `AGENTS.md` into
+the orchestrator's context is expensive (replayed as cacheRead on every
+turn). Stay light; let workers do the heavy reads.
+
 - Navigate to `/workspace/<project>`.
 - Pull latest: `git pull origin dev` (or `main` if `dev` doesn't exist).
 - Get git hash: `git rev-parse HEAD` → `rules_hash`.
-- Read `AGENTS.md` and `SOUL.md` if they exist.
+- Run `wc -l AGENTS.md SOUL.md 2>/dev/null` first. If the total is **≤ 200
+  lines** → `read` both fully. Otherwise:
+  - `grep -nE '^## ' AGENTS.md SOUL.md` to get a section inventory.
+  - For project-type-relevant sections, `read` only that section
+    (`head -n <end> AGENTS.md | tail -n +<start>` or similar).
 - Extract key rule sections relevant to the project type.
 - Ensure `artifacts/` directory exists in the project root: `mkdir -p /workspace/<project>/artifacts`. This is where cross-skill design specs, content plans, and implementation plans are stored.
+- Workers will read the full `AGENTS.md`/section they need; the orchestrator passes only `metadata.rules_hash` and `metadata.file_inventory` (see step 4.7).
 
 ### 3.5. Store Rules in dense-mem Memory (orchestrator-only)
 Project rules are cached in dense-mem as durable evidence keyed by the project rules hash. The disk files remain the deterministic fallback.
@@ -113,6 +123,40 @@ Then for each sub-task in step 7, include in the delegated task JSON (the
 Graceful degradation: if recall returns nothing, pass `metadata.memory_context: ""` and let the sub-task proceed. The sub-task's `component.md` step 3 will skip recall when `metadata.memory_context` is present (even if empty).
 
 This saves N-1 embedding calls per N-sub-task task. For a 3-component backend feature, we drop from 3 recalls to 1.
+
+### 4.7. Build a file inventory (orchestrator does NOT read)
+
+Heavy file reads belong to workers. The orchestrator builds an inventory (a
+list of paths) per sub-task and ships it inside the task JSON's `metadata`
+object. The worker reads what it needs from the inventory; the orchestrator
+never does.
+
+For each planned sub-task, produce a `file_inventory` array. Keep it short
+(≤ 30 paths) and **scoped to the sub-task**, not the whole project:
+
+```
+file_inventory = [
+  "AGENTS.md",                      # rules — worker reads its own section
+  "artifacts/design-spec.md",       # if architect already produced one
+  "src/api/handlers/<thing>.ts",    # the file(s) the sub-task will touch
+  "src/api/handlers/<thing>.test.ts",
+  "src/api/services/<svc>.ts",      # adjacent service(s) the sub-task reads
+  "package.json",                   # only if a script or dep is relevant
+]
+```
+
+How to build the inventory (orchestrator does, no reads):
+- `ls /workspace/<project>/src` (or relevant top dir) for the layout.
+- `find /workspace/<project>/src -maxdepth 3 -name "*.ts" -path "*<feature>*"`
+  for feature-scoped files.
+- `git diff --name-only origin/main...HEAD` for the in-flight change.
+- `grep -rln "<symbol>" /workspace/<project>/src` for callers/imports.
+- Trust the worker to do `cat`/`read`/`grep` on what you list; you do not paste contents.
+
+The inventory goes into `metadata.file_inventory` on each delegation. The
+worker is told (in the task JSON): "Read what you need from
+`metadata.file_inventory`. Do not read files outside that list unless
+required."
 
 ### 5. Decompose the Task
 
@@ -220,14 +264,15 @@ therefore serializes the context bundle into a JSON string:
 ```
 subagent({
   agent: "<agent>",
-  task: `{"type":"<task type>","task_id":"<task_id>","description":"<...>","acceptance_criteria":["<...>"],"project":"<project>","branch":"<branch>","rules_hash":"<hash>","metadata":{"memory_context":"<...>","anti_patterns":["<...>"],"pro_invoked":<true|false>}}`,
+  task: `{"type":"<task type>","task_id":"<task_id>","description":"<...>","acceptance_criteria":["<...>"],"project":"<project>","branch":"<branch>","rules_hash":"<hash>","metadata":{"memory_context":"<...>","anti_patterns":["<...>"],"pro_invoked":<true|false>,"file_inventory":["<path1>","<path2>"]}}`,
   skill: "<skill>"
 })
 ```
 
 The JSON payload carries: `type`, `task_id`, `title` (optional),
 `description`, `acceptance_criteria`, `project`, `branch`, `rules_hash`, and a
-`metadata` object with `memory_context`, `anti_patterns`, `pro_invoked`, and
+`metadata` object with `memory_context`, `anti_patterns`, `pro_invoked`,
+`file_inventory` (paths the worker should read, built in step 4.7), and
 any task-specific fields (`review_iterations`, `exploration_triggered`,
 `target_files`). When a field is empty, pass `""`, `[]`, or
 `false` — never omit the structure workers look for. Delegated agents read
@@ -258,6 +303,7 @@ Per-worker mapping:
   - **Simple**: delegate `coder` as-is (Flash) → `metadata.pro_invoked: false`.
 - Pass: description, acceptance_criteria, project context, branch name, rules_hash.
 - Also pass the batched `metadata.memory_context` and `metadata.anti_patterns` (from step 4.5) to each sub-task — inside the task JSON's `metadata` object.
+- Also pass `metadata.file_inventory` (from step 4.7) to each sub-task — paths the worker is allowed to read. Workers stay out of the orchestrator's context budget; the orchestrator never reads them.
 - Also set `metadata.pro_invoked` on every sub-task: `true` iff Pro ran in this task's path (step 5.1b); `false` otherwise.
 
 ### 7.1. Persist Design Decisions (orchestrator, after architecture completes)
