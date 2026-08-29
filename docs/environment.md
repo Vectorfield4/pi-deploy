@@ -21,7 +21,7 @@ Single source: `.env.example`. `make init` creates `.env` from it (merges, never
 | `NODE_USE_ENV_PROXY` | – | `1` | Enables HTTP(S)/NO_PROXY support for Node 24 fetch/undici (outbound TG routing via CONNECT proxy) |
 | `HTTP_PROXY` / `HTTPS_PROXY` | – | empty | CONNECT proxy for outbound traffic (e.g. gost on a free-tier Oracle VM). Leave empty for direct connection |
 | `NO_PROXY` | – | `localhost,127.0.0.1,dense-mem,memory-db,embedding` | Hosts that bypass the proxy (internal compose hosts must stay on this list) |
-| `GITHUB_TOKEN` | – | – | GitHub API token for PR operations |
+| `GITHUB_TOKEN` | – | – | GitHub API token (git push auth, `gh api` lookups, releases and CI status) |
 | `VERCEL_TOKEN` | – | – | Vercel API token (staging deploy) |
 | `VERCEL_ORG_ID` | – | – | Vercel organization ID |
 | `FTP_HOST` | – | – | Production FTP host |

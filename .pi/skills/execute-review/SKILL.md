@@ -1,24 +1,25 @@
 ---
 name: execute-review
-description: "Runs the full PR review pipeline inside the reviewer agent: load context, wait for CI, validate, score, decide, write memory, return a structured result."
+description: "Runs the full branch-review pipeline inside the reviewer agent: load context, validate, score the diff against main, decide, write memory, return a structured result."
 ---
 
 # Execute Review
 
-The full review pipeline for a single PR. Loaded by the `reviewer` agent when a
-review task arrives — which happens only for tasks where the orchestrator
-invoked the Pro model (`task.metadata.pro_invoked: true`). Simple Flash tasks
-skip this skill (`execute-qa-task` returns `decision: skip_review` instead). The
-agent's job is to make the merge/bounce/explore decision and write the result.
+The full review pipeline for a single feature branch. Loaded by the `reviewer`
+agent when a review task arrives — which happens only for tasks where the
+orchestrator invoked the Pro model (`task.metadata.pro_invoked: true`). Simple
+Flash tasks skip this skill (`execute-qa-task` returns `decision: skip_review`
+instead). The agent's job is to make the merge/bounce/explore decision and write
+the result. The review reads the **branch diff against `main`** — there is no
+PR.
 
 The task arrives as a **JSON string** — parse it as `task` and read fields via
-`task.project`, `task.branch`, `task.pr_number`, `task.metadata.*`, etc.
+`task.project`, `task.branch`, `task.metadata.*`, etc.
 
 ## Input
 
 - `task.project`: project name (workspace dir under `/workspace/<project>`)
 - `task.branch`: feature branch name
-- `task.pr_number`: PR id (resolve from branch if missing)
 - `task.metadata.acceptance_criteria`: list of strings, may be empty
 - `task.metadata.review_iterations`: int, starts at 0, incremented on each bounce
 - `task.metadata.exploration_triggered`: bool, default false
@@ -27,7 +28,7 @@ The task arrives as a **JSON string** — parse it as `task` and read fields via
 
 - `CI_POLL_INTERVAL_S` (default 30): seconds between CI status checks.
 - `CI_TIMEOUT_S` (default 600): max seconds to wait for CI.
-- `SCORE_PASS` (default 7): threshold to merge.
+- `SCORE_PASS` (default 7): threshold to approve the push.
 - `SCORE_NEEDS_FIXES` (default 5): below this, bounce with anti-pattern.
 
 ## Steps
@@ -43,26 +44,26 @@ If `exploration_triggered == true` in `task.metadata`, also recall exploration a
 `mcp__dense-mem__recall_memory(query="<feature summary> project:<project> anti-pattern exploration")` and avoid repeating the same approach.
 
 ### 2. Wait for CI
-- `gh pr view <pr> --json statusCheckRollup`
-- If running → wait and retry every `${CI_POLL_INTERVAL_S}s` (max `${CI_TIMEOUT_S}s`)
-- If failed → `decision: bounce`, findings = CI error log tail
-- If passed → continue
+- `gh run list --branch <branch> --limit 3 --json status` (the branch is pushed; CI may run on it).
+- If a run is in progress → wait and retry every `${CI_POLL_INTERVAL_S}s` (max `${CI_TIMEOUT_S}s`).
+- If a run failed → `decision: bounce`, findings = CI error log tail.
+- If no runs exist (no CI on the repo) → skip to step 3; local validation is the gate.
 
-### 3. Pre-merge validation
+### 3. Pre-push validation
 If `task.metadata.acceptance_criteria` contains any of: `lint`, `test`, `build`, `typecheck`:
 - Read validation commands from `/workspace/<project>/AGENTS.md` (look for `## Commands` or similar)
-- Run each in the worktree
+- Run each in a worktree checked out on the branch
 - If any fails → `decision: bounce`, findings = the failing command and its output
 
 Skip this step if no validation commands are mentioned. The skill must not invent commands that aren't in `AGENTS.md`.
 
 ### 4. Score the diff
 Use the `pr-judge` skill to score:
-- Read file list first: `gh pr view <pr> --json files --jq '.files[].path'`
+- Get the file list first: `git diff --name-only origin/main...origin/<branch>`
 - Read each changed file. Skip unchanged parts.
 - Compute score per `pr-judge` rubric.
 
-If total diff is over 3000 lines, do not call `gh pr diff` at all. Score from per-file reads.
+If total added/removed lines exceed 3000, do not run the full diff inline; score from per-file reads.
 
 ### 5. Decide
 - `score >= SCORE_PASS` → `decision: merge`
@@ -70,11 +71,10 @@ If total diff is over 3000 lines, do not call `gh pr diff` at all. Score from pe
 - `score < SCORE_NEEDS_FIXES` → `decision: bounce`, store anti-pattern
 - `task.metadata.review_iterations >= 3` and the same kind of issue keeps appearing → `decision: explore` (see step 7)
 
-### 6. Merge decision (do NOT merge)
-The reviewer does not merge and does not deploy. `decision: merge` means
-"ready for human approval": the orchestrator gates the merge with a zero-token
-watch (`pr-approval-watch`, `pr_watch` tool) and QA squashes into `main` after
-the human approves. No `gh pr merge`, no `deploy-vercel` here.
+### 6. Merge decision (do NOT push)
+The reviewer does not push and does not deploy. `decision: merge` means
+"ready to push": QA fast-forwards the branch into `main`. No `git push origin
+main`, no `gh pr merge`, no `deploy-vercel` here.
 
 ### 7. Exploration escalation (only on `decision: explore`)
 Write an anti-pattern (best-effort):
@@ -95,7 +95,7 @@ mcp__dense-mem__remember({
   idempotency_key: "exploration:<project>:<task_id>"
 })
 ```
-Set `exploration_flag: true` in the result. Do not bounce to coder, do not merge.
+Set `exploration_flag: true` in the result. Do not bounce to coder, do not approve.
 
 ### 8. Memory write (best-effort, at most once per task)
 - `score >= SCORE_PASS` and quality is genuine → write verified pattern:
@@ -134,9 +134,9 @@ exploration_flag: <true|false>
 summary: <one sentence>
 ```
 
-For `decision: merge`, also include `pr_number` and `pr_url` — the orchestrator
-needs the URL to start the approval watch. The orchestrator reads this output and
-routes accordingly. Do not call the orchestrator from inside this skill.
+For `decision: merge`, no URL is needed — QA pushes the branch to `main`. The
+orchestrator reads this output and routes accordingly. Do not call the
+orchestrator from inside this skill.
 
 ## Verification
 
@@ -144,6 +144,6 @@ routes accordingly. Do not call the orchestrator from inside this skill.
 - `score` is 1-10 integer.
 - `findings` is non-empty for `bounce` and `explore`, empty/`none` for `merge`.
 - Memory write attempted at most once.
-- If `explore`: `exploration_flag: true`, no bounce, no merge.
-- If `merge`: NO `gh pr merge` was run — the merge is deferred to the human
-  approval gate (`pr-approval-watch`); `pr_number` and `pr_url` are returned.
+- If `explore`: `exploration_flag: true`, no bounce, no approve.
+- If `merge`: NO `git push origin main` / `gh pr merge` ran — the push is
+  delegated to QA.

@@ -5,7 +5,7 @@ description: "Automatically resolves merge conflicts."
 
 # Resolve Merge Conflict
 
-1. Ensure on the PR branch.
+1. Ensure on the feature branch.
 2. `git fetch origin && git merge origin/<base_branch>`
 3. If no conflicts → success.
 4. If conflicts:

@@ -1,11 +1,14 @@
 ---
 name: pr-judge
-description: "Evaluates a PR against a quality rubric (code quality, tests, security, docs) and returns a score 1-10."
+description: "Evaluates a feature branch diff against main using a quality rubric (code quality, tests, security, docs) and returns a score 1-10."
 ---
 
-# PR Judge
+# Branch Judge
 
-Automated quality evaluation of a PR diff against a fixed rubric.
+Automated quality evaluation of a feature branch's diff against `main` using a
+fixed rubric. Operates on local git state — there is no PR.
+
+Run from `/workspace/<project>` after `git fetch origin main <branch>`.
 
 ## Rubric (score 1–10)
 
@@ -20,13 +23,14 @@ Automated quality evaluation of a PR diff against a fixed rubric.
 
 ### 1. List changed files
 ```bash
-gh pr view <pr_number> --repo <repo> --json files --jq '.files[].path'
+git diff --name-only origin/main...origin/<branch>
 ```
-Use the file list to decide which files to read in full. If the diff is over 3000 lines, read only the changed files, not the raw diff.
+Use the file list to decide which files to read in full. If the diff is over
+3000 lines, read only the changed files, not the raw diff.
 
 ### 2. Get the diff for review
 ```bash
-gh pr diff <pr_number> --repo <repo>
+git diff origin/main...origin/<branch>
 ```
 
 ### 3. Evaluate each dimension (1–10)
@@ -35,12 +39,12 @@ gh pr diff <pr_number> --repo <repo>
 - 6–7: Acceptable
 - 8–10: Excellent
 
-### 3. Compute overall score
+### 4. Compute overall score
 ```
 overall = round(code_quality * 0.25 + tests * 0.25 + security * 0.25 + docs * 0.25)
 ```
 
-### 4. Return structured result
+### 5. Return structured result
 ```
 [JUDGE_SCORE=N] summary | quality=N tests=N security=N docs=N
 ```
@@ -53,4 +57,5 @@ overall = round(code_quality * 0.25 + tests * 0.25 + security * 0.25 + docs * 0.
 | ≤ 4 | Anti-pattern — save as anti-pattern |
 
 ## Content Quality Overlay (for any markdown write)
-If any file touched by the PR is markdown (`*.md`), scan for banned words/phrases from `prose-quality.md`. ≥3 flags → docs dimension ≤ 4.
+If any file changed by the branch is markdown (`*.md`), scan for banned
+words/phrases from `prose-quality.md`. ≥3 flags → docs dimension ≤ 4.

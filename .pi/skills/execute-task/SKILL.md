@@ -1,6 +1,6 @@
 ---
 name: execute-task
-description: "Executes a single development sub-task (UI, content, integration), initializes a new project, or aggregates changes and creates a PR."
+description: "Executes a single development sub-task (UI, content, integration) or initializes a new project."
 ---
 
 # Execute Task
@@ -18,9 +18,12 @@ The task arrives as a **JSON string** — parse it and read fields via
 ### 2. Dispatch by task type
 - `type == "init"` → load `references/init.md`
 - `component == true` → load `references/memory.md` → `references/rag.md` → `references/component.md`
-- `pr_creation == true` → load `references/memory.md` → `references/pr.md`
 - `type == "review"` → load `references/memory.md` → `references/rag.md` → `references/review-fix.md`
 - Otherwise → report "Unknown task type"
+
+Work on the branch, commit and push it. Merging the branch into `main` is QA's
+job (after the reviewer passes for complex tasks; directly for simple tasks) —
+do not merge into `main` yourself.
 
 ## Conventions
 

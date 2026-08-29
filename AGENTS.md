@@ -20,7 +20,7 @@ AGENTS.md             # This file — interactive-session instructions
 
 ## How it runs
 
-One Pi process (interactive, PTY, Telegram via `@bytesbrains/pi-telegram-bridge`) + 3 memory containers (PostgreSQL+pgvector, TEI embeddings, dense-mem RAG). No slash commands — users write naturally. The interactive session routes every message to the `orchestrator` subagent (intent: task/question/feedback/deploy/...), which delegates to workers (`frontend-architect`/`frontend-implementer` for frontend, `coder` otherwise). The Pro model is a cold path, invoked only for complex tasks (`metadata.pro_invoked`), and the `reviewer` (CI/score decision) runs **only** for those tasks. Every PR targeting main then gets a zero-token human approval (`pr_watch`) before `qa` merges/releases/deploys.
+One Pi process (interactive, PTY, Telegram via `@bytesbrains/pi-telegram-bridge`) + 3 memory containers (PostgreSQL+pgvector, TEI embeddings, dense-mem RAG). No slash commands — users write naturally. The interactive session routes every message to the `orchestrator` subagent (intent: task/question/feedback/deploy/...), which delegates to workers (`frontend-architect`/`frontend-implementer` for frontend, `coder` otherwise). The Pro model is a cold path, invoked only for complex tasks (`metadata.pro_invoked`), and the `reviewer` (score decision) runs **only** for those tasks. Work lands on a feature branch and is pushed to `main` directly — no PR, no human approval gate. Released/deployed by `qa`.
 
 ## How the main session works (router)
 
@@ -30,18 +30,15 @@ reach the session even though this file is not mounted in the container.
 
 The contract here is documentation of that prompt. Summary: you (this session)
 are a thin router, not the actor. Every message is routed to the `orchestrator`
-subagent and its output is followed. Two things you do yourself, without
+subagent and its output is followed. One thing you do yourself, without
 delegating:
 
-1. **PR watch markers.** When the orchestrator's final message contains a line
-   that is exactly `WATCH <url>` (or `UNWATCH`), call the `pr_watch` tool on the
-   same URL (`{ action: "watch", url }` / `{ action: "unwatch" }`). This starts
-   the zero-token PR poller. When a watch wakes this session with feedback,
-   route the feedback to the orchestrator like any other message.
-2. **Confirmation echo.** For confirmed deploys/releases, just delegate; the
+1. **Confirmation echo.** For confirmed deploys/releases, just delegate; the
    orchestrator owns the confirmation flow.
 
-Subagents cannot run slash commands or hold the watch — only you can.
+Subagents cannot run slash commands or hold tools only the main session loads —
+a push/merge/release never happens on this session either. The orchestrator
+delegates pushes to `qa`; the reviewer only decides, it never pushes.
 
 > If this contract is not being followed on the running system (the agent
 > replies to Telegram directly instead of delegating), check in order:
@@ -64,7 +61,7 @@ Subagents cannot run slash commands or hold the watch — only you can.
 | **frontend** | package.json + React/Vue/Svelte | frontend-architect + frontend-implementer | ui-architect, ui-implementer, integration-specialist, threejs-scene-builder |
 | **backend** | package.json + Express/Fastify/Nest or go.mod, requirements.txt | coder | execute-task |
 | **fullstack** | Monorepo or both frontend + backend markers | frontend-architect + frontend-implementer + coder | combination |
-| **CLI/lib** | package.json with bin/main, or Makefile + src/ | coder | execute-task, create-pr |
+| **CLI/lib** | package.json with bin/main, or Makefile + src/ | coder | execute-task |
 | **infra** | docker-compose.yml, Dockerfile, .github/workflows | coder | setup-ci, execute-task |
 | **content** | Markdown-heavy, no code | coder | content-strategist, narrative-designer |
 
@@ -72,7 +69,7 @@ Frontend skills load only when the project is detected as frontend.
 
 ## Task flow
 
-Telegram → Orchestrator → workers (frontend-architect, frontend-implementer, coder) → PR (base main) → Reviewer only for complex/Pro tasks (CI/score decision; simple tasks skip) → human approval (`pr_watch`) → QA (merge + release/deploy)
+Telegram → Orchestrator → workers (frontend-architect, frontend-implementer, coder) on a feature branch → Reviewer only for complex/Pro tasks (score decision; simple tasks skip) → QA (push branch into main + release/deploy)
 
 ## Subagent task contract (`task` is a JSON string)
 
@@ -88,8 +85,8 @@ therefore serialize into the string as JSON:
   qa / reviewer): `task` is a JSON string carrying `type`, `task_id`,
   `description`, `acceptance_criteria`, `project`, `branch`, `rules_hash`, and
   a `metadata` object (`memory_context`, `anti_patterns`, `pro_invoked`, plus
-  review/target-file/pr fields). See `orchestrate-task` step 7.
-- Merge → `qa`: `{"type":"merge","project":...,"pr_number":...,"branch":...}`.
+  review/target-file fields). See `orchestrate-task` step 7.
+- Finalize/branch-push → `qa`: `{"type":"push","project":...,"branch":...,"metadata":{"pro_invoked":...}}`.
 
 Read-side: every delegated agent parses its incoming task string as JSON and
 reads fields via `task.type`, `task.metadata.*`, etc. Do not pass `task` as an
@@ -113,19 +110,18 @@ No top-level `tags`/`filter`/`claims` — tags live in content, selection in the
 ## Skills catalog
 
 ### Universal
-- intent-router, orchestrate-task, execute-task, create-pr, setup-ci, project-init, content-strategist, narrative-designer, project-discover
+- intent-router, orchestrate-task, execute-task, setup-ci, project-init, content-strategist, narrative-designer, project-discover
 - docs-lookup — Context7 with 7-day dense-mem cache; use instead of `resolve-library-id`/`query-docs` directly
-- pr-approval-watch — zero-token HITL: orchestrator hands a passed PR to the router via a `WATCH <url>` marker; the router starts `pr_watch` (main session only)
 
 ### Frontend (loaded only for frontend projects)
 - ui-architect, ui-implementer, integration-specialist, threejs-scene-builder
 
 ### QA
-- execute-qa-task — dispatcher; delegates review to `reviewer`, runs approval merges and `memory-gc` after each iteration
+- execute-qa-task — dispatcher; delegates review to `reviewer` for complex tasks, pushes branches into `main` (no PR), runs `memory-gc` after each iteration
 - create-github-release — single-phase: build from main + publish artifact to GitHub Releases (no PR, no watch)
-- deploy-vercel, deploy-ftp — staging (auto on merge to main) / production (manual HITL)
+- deploy-vercel, deploy-ftp — staging (auto on push to main) / production (manual HITL)
 - memory-gc — retire evidence with expired `valid_until`
 
 ### Reviewer
-- execute-review — CI wait, validate, score, decide (merge decision is gated on human approval, never executed here)
+- execute-review — validate, score the branch diff against `main`, decide (merge decision is a push-approval only — QA executes the push, never here)
 - pr-judge, resolve-merge-conflict, cleanup-branch

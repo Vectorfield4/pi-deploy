@@ -28,7 +28,6 @@
     "npm:@bytesbrains/pi-telegram-bridge@1.4.1",
     "npm:ping-a-human-pi@0.1.1",
     "npm:pi-memory@0.4.2",
-    "npm:@upstash/context7-pi@0.1.2",
-    "npm:@vectorfield/pi-prs@0.1.1"
+    "npm:@upstash/context7-pi@0.1.2"
   ]
 }

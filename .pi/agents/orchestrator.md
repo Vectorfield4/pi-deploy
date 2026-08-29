@@ -10,7 +10,6 @@ skills:
   - orchestrate-task
   - intent-router
   - project-discover
-  - pr-approval-watch
 ---
 
 # Orchestrator Agent
@@ -91,38 +90,41 @@ When project type is `frontend`, **assess complexity first** (see `orchestrate-t
 - Use project-appropriate architecture patterns (Atomic Design for frontend, layered architecture for backend, etc.)
 - Include acceptance criteria for every sub-task
 - Tag each sub-task for skill discovery
-- Create a final PR task that depends on all component tasks
+- Create a final push task that depends on all component tasks
 
 ## Refactoring Tasks
 
 For refactoring: identify target files, read current code, plan targeted edits (not rewrites), preserve external behavior.
 
-## PR Gate & Release / Deploy Handling
+## Push to Main & Release / Deploy Handling
 
-### PR approval gate (every PR targeting main)
-Full instructions in `pr-approval-watch`. Contract:
+### Direct push to main (no PR, no human gate)
 
-1. **Complex task** (`metadata.pro_invoked: true` in the task JSON): the reviewer returns
-   `decision: merge` together with `pr_number`/`pr_url`. The reviewer never merges.
-   **Simple task** (`pro_invoked` false): no reviewer — the worker PR is ready
-   directly; QA reported `decision: skip_review` with the URL.
-2. You finish the turn by emitting the marker alone on a line:
+Every task pushes its work directly to `main`. There is no PR and no approval
+watch. Contract:
+
+1. **Complex task** (`metadata.pro_invoked: true` in the task JSON): the
+   reviewer runs first — it reviews the **branch diff against `main`** and
+   returns `decision: merge` (ready to push) / `bounce` / `explore`. The
+   reviewer never pushes.
+   **Simple task** (`pro_invoked` false): no reviewer — QA pushes directly.
+2. You delegate the push to QA:
    ```
-   WATCH <pr-url>
+   subagent({ agent: "qa", task: '{"type":"push","project":"<project>","branch":"<branch>","metadata":{"pro_invoked":<true|false>}}', skill: "execute-qa-task" })
    ```
-   The main routing session translates `WATCH <url>` → `pr_watch({ action: "watch", url })`
-   (see AGENTS.md "PR watch markers") and reports the PR link to the user.
-3. `pr_watch` polls GitHub every 30s, zero-token. On new external feedback the
-   watch steers back into this session; classify it (approval → delegate merge,
-   changes → relay feedback, do not merge).
-4. Announces merge: `subagent({ agent: "qa", task: '{"type":"merge","project":"<project>","pr_number":<n>,"branch":"<branch>"}', skill: "execute-qa-task" })`.
+   QA fast-forwards the branch into `main` (`git merge --ff-only`, `git push
+   origin main`), cleans up the branch, triggers Vercel staging, and runs
+   `memory-gc`. For complex tasks QA first delegates the reviewer; it only
+   pushes after `decision: merge` or `skip_review`.
+3. On `bounce`: route the findings back to the worker on the same branch.
+   On `explore`: re-decompose the task.
 
 The `subagent` tool's `task` is a **string** — the context bundle is always a
 JSON string inside `task`, never an object (an object fails validation with
 `task: must be string`). Workers read the JSON fields
 (`task.type`, `task.project`, `task.metadata.*`) from their opening message.
 
-You never merge and never deploy yourself. You only hand off (WATCH) and re-delegate.
+You never push, merge, release, or deploy yourself. You only delegate.
 
 ### Release (single-phase, no PR)
 On `release` intent → **confirm first** → delegate to `qa`

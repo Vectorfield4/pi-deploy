@@ -1,9 +1,9 @@
 FROM node:24-bookworm-slim
 
 # --- GitHub CLI (gh) + base system packages ---
-# See scripts/install-github-cli.sh. gh is needed by the merge/release/deploy
-# skills for `gh pr merge` and `gh release`. PR approval HITL is handled
-# zero-token by @vectorfield/pi-prs (pr_watch tool via the router), not by gh polling.
+# See scripts/install-github-cli.sh. gh is needed by the release/deploy
+# skills for `gh release create` / `gh api` (release + CI lookups) and by the
+# coder/reviewer for git push auth. Direct push to main; no PR watch.
 COPY scripts/install-github-cli.sh /usr/local/bin/install-github-cli.sh
 RUN chmod +x /usr/local/bin/install-github-cli.sh \
   && /usr/local/bin/install-github-cli.sh \

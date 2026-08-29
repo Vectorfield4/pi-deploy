@@ -1,6 +1,6 @@
 ---
 name: orchestrate-task
-description: "Breaks down complex development tasks into parallel sub-tasks for worker agents, coordinating a single feature branch and final PR creation."
+description: "Breaks down complex development tasks into parallel sub-tasks for worker agents, coordinating a single feature branch and final push to main."
 ---
 
 # Orchestrate Task
@@ -229,7 +229,7 @@ The JSON payload carries: `type`, `task_id`, `title` (optional),
 `description`, `acceptance_criteria`, `project`, `branch`, `rules_hash`, and a
 `metadata` object with `memory_context`, `anti_patterns`, `pro_invoked`, and
 any task-specific fields (`review_iterations`, `exploration_triggered`,
-`target_files`, `pr_number`). When a field is empty, pass `""`, `[]`, or
+`target_files`). When a field is empty, pass `""`, `[]`, or
 `false` — never omit the structure workers look for. Delegated agents read
 these JSON fields from their task string (`task.type`, `task.metadata.*`, …);
 see each skill's read-side notes.
@@ -241,9 +241,9 @@ Per-worker mapping:
 | complex component (any non-frontend type) | `coder` + `model: "deepseek/deepseek-v4-pro"` | `execute-task` |
 | frontend architecture (complex only) | `frontend-architect` | `ui-architect` |
 | frontend implementation | `frontend-implementer` | `ui-implementer` (+ `threejs-scene-builder` for 3D) |
-| PR creation (aggregates all components) | `coder` | `create-pr` |
-| review / merge / release / deploy | `qa` | `execute-qa-task` |
-| PR review itself (via QA, complex only) | `reviewer` | `execute-review` |
+| finalize: review gate + push to main | `qa` | `execute-qa-task` |
+| release / deploy | `qa` | `execute-qa-task` |
+| branch review (via QA, complex only) | `reviewer` | `execute-review` |
 
 - Frontend features:
   - **Design-reuse** (from step 5.2): delegate to `frontend-implementer` with the recalled decision + spec path — no architect call.
@@ -285,11 +285,14 @@ mcp__dense-mem__remember({
 
 If step 5.2 recalled an older design record for the same feature area, list it in `supersedes_evidence_ids`. On any MCP failure → log and continue; the spec on disk is the source of truth.
 
-### 8. Create PR Task
-- After all components complete, delegate PR creation to a `coder` subagent.
-- Compose the QA review task with `metadata.pro_invoked` (step 5.1b). QA runs
-  the reviewer subagent ONLY when it is `true`; simple tasks skip the reviewer
-  and go straight to the human approval gate (`pr-approval-watch`, `WATCH` marker).
+### 8. Finalize Task (push to main)
+- After all components complete, delegate the finalize task to a `qa` subagent:
+  ```
+  subagent({ agent: "qa", task: '{"type":"push","project":"<project>","branch":"<branch>","metadata":{"pro_invoked":<true|false>}}', skill: "execute-qa-task" })
+  ```
+- Compose the QA task with `metadata.pro_invoked` (step 5.1b). QA runs the
+  reviewer subagent ONLY when it is `true`; simple tasks skip the reviewer and
+  push straight to `main`. There is no PR and no human approval gate.
 
 ### 9. Quality Check
 - Every criterion traces to the original task description
@@ -298,7 +301,7 @@ If step 5.2 recalled an older design record for the same feature area, list it i
 
 ## Verification
 - All sub-tasks delegated to workers
-- PR task created and delegated
+- Finalize task (push to main) created and delegated
 - No task remains in intermediate state
 - `frontend-architect` invoked at most once per task (complex path only, never for simple or design-reuse)
 - `metadata.pro_invoked` set to `true` iff Pro was actually invoked (architect invoked, or `coder` complex override)

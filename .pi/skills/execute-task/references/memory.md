@@ -1,6 +1,6 @@
 # Project Rules via dense-mem Memory
 
-Loaded by `execute-task` before component / PR flows. Project rules from `AGENTS.md` (and `SOUL.md` if present) are cached in dense-mem as durable evidence, keyed by project and `rules_hash`. The disk files remain the deterministic source of truth.
+Loaded by `execute-task` before component flows. Project rules from `AGENTS.md` (and `SOUL.md` if present) are cached in dense-mem as durable evidence, keyed by project and `rules_hash`. The disk files remain the deterministic source of truth.
 
 The task arrives as a **JSON string** (the `subagent` tool accepts only a
 string). Parse it as `task` and read fields via `task.project`,
@@ -12,7 +12,7 @@ string). Parse it as `task` and read fields via `task.project`,
 
 We do not invent tags or filter parameters that don't exist in the API. Tags are encoded in the content (see schema below). Filtering happens in the query string.
 
-## Load procedure (for component / PR tasks)
+## Load procedure (for component tasks)
 
 For each `rules_key` in `task.metadata.rules_keys_needed` (default keys: `["ui-conventions", "api-standards", "testing-patterns", "build-deploy", "content-voice"]` chosen by project type in `orchestrate-task` step 3.5):
 

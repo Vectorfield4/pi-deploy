@@ -1,6 +1,6 @@
 # Review Fix (`type == "review"`)
 
-Loaded by `execute-task` when QA moved the task back for fixes. Same branch and PR are reused.
+Loaded by `execute-task` when QA moved the task back for fixes. Same branch is reused.
 
 ## Steps
 

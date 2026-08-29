@@ -1,11 +1,11 @@
 ---
 name: deploy-vercel
-description: "Builds the dev branch and deploys to Vercel staging (preview)."
+description: "Builds the main branch and deploys to Vercel staging (preview)."
 ---
 
 # Deploy to Vercel (Staging)
 
-Builds the project at `dev` and uploads to Vercel as staging/preview deployment.
+Builds the project at `main` and uploads to Vercel as staging/preview deployment.
 
 ## Prerequisites
 - Project linked to Vercel (`.vercel/project.json` committed)
@@ -13,8 +13,8 @@ Builds the project at `dev` and uploads to Vercel as staging/preview deployment.
 
 ## Instructions
 
-### 1. Sync dev
-- `git checkout dev && git pull origin dev`
+### 1. Sync main
+- `git checkout main && git pull origin main`
 
 ### 2. Resolve Vercel link
 - Read `/workspace/<project>/.vercel/project.json`
@@ -34,7 +34,7 @@ Builds the project at `dev` and uploads to Vercel as staging/preview deployment.
 ### 6. Return staging URL
 
 ## Verification
-- Dev is up to date
+- Main is up to date
 - Vercel link resolved
 - Local build succeeds
 - Deployment URL returned and reachable
