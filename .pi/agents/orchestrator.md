@@ -50,48 +50,15 @@ Dangerous actions (deploy, release) always require explicit user confirmation be
 
 ## Wait Discipline (notification-based; don't poll)
 
-`pi-subagents@0.58.0` has a built-in **result-watcher**: when a delegated
-worker run reaches a terminal state, the extension injects a
-`<subagent_notification>` message into your context and **triggers a new
-turn** for you to process the result. This is the intended coordination
-mechanism. The `subagent_wait` tool exists but has a documented race
-condition that returns early with a false timeout while the child is still
-running — relying on it burned 13 status calls for 3 workers in the last
-task and produced the duplicated acceptance reports you saw.
-
-The pattern:
-
-1. **Launch and return.** `subagent({ agent, task, skill, model? })` gives
-   you a `runId`. **Do not** follow up with `subagent_wait` or
-   `subagent status` or `bash sleep`. End the current turn. The
-   result-watcher will deliver the worker's outcome as a fresh user turn
-   that opens with a `Background task completed: **<agent>** ...` block
-   (or `failed` / `paused` / `stopped`).
-2. **React in the next turn.** When a notification arrives, you are in a
-   new turn with the result already in your context. Decide the next
-   step (delegate more, call QA, reply to the user) and end the turn.
-3. **Parallel fan-out.** Spawn all sibling workers in a single turn
-   (fan-out budget 64 children per top-level run; the `subagent` call
-   echoes `Run fan-out: N/64 used, M remaining`). End the turn. Each
-   completion arrives as its own notification turn, in the order they
-   finish. Track outstanding workers by what notifications you have
-   already received.
-4. **One-shot inspect (only as a diagnostic).** `subagent({ action:
-   "status", id, view: "transcript", lines: 30 })` — when a notification
-   has not arrived but you need to understand why (the child may have
-   crashed; check `/tmp/pi-subagents-uid-0/async-subagent-runs/<id>/`
-   for `events.jsonl` and `output-0.log`). Never use `status` to *wait*.
-5. **Fallback for genuinely blocked flows.** If a downstream step truly
-   cannot proceed without the result and the notification has not
-   arrived, use **one** `bash { command: "sleep 120; echo waited",
-   timeout: 130 }` then check the events log directly. `subagent_wait` is
-   the exception path, reserved for `pi -p` non-interactive runs where
-   there is no next turn to receive the notification.
-
-Expected `subagent` call count per task: ~1 `list` + one per worker
-delegation, **no `wait` and no `status` in the happy path**. If your count
-is well above the worker count, you are polling — stop and rely on the
-notification.
+`pi-subagents@0.58.0` injects a `<subagent_notification>` into your context
+and triggers a fresh turn when a delegated worker reaches a terminal state —
+that is the intended coordination flow. `subagent_wait` has a documented
+race condition (returns early with a false timeout) and `subagent status`
+polling produced 13+ redundant calls in the last task. See
+`.pi/skills/orchestrate-task/SKILL.md` step 8.5 for the full procedure.
+Summary: `subagent({ agent, task, skill })` → end the turn → react to the
+next notification. `subagent status` is diagnostic only. `subagent_wait`
+is the exception path for `pi -p` non-interactive runs.
 
 ## Project Type Detection & Routing
 
@@ -185,17 +152,15 @@ on merge to main, FTP production HITL via `ping-a-human-pi`).
 
 - Recall before planning: anti-patterns, past decisions, verified approaches
 - Remember after: successful decomposition patterns
-- Dense-mem is reached through the `mcp` proxy tool. Two-step flow:
+- Dense-mem is reached through the `mcp` proxy tool (see
+  `.pi/skills/dense-mem/SKILL.md`):
   ```
-  mcp({ connect: "dense_mem" })           # once per session, idempotent
+  mcp({ connect: "dense_mem" })          # once per session, idempotent
   mcp({ tool: "dense_mem_recall_memory", args: { query: "...", limit: 5 } })
-  mcp({ tool: "dense_mem_remember",
-        args: { evidence: [...], relationships: [...], idempotency_key: "..." } })
+  mcp({ tool: "dense_mem_remember", args: { evidence: [...], relationships: [...], idempotency_key: "..." } })
   ```
-  Schema reference lives in `.pi/skills/execute-task/references/rag.md` (the
-  `evidence`/`relationships`/`idempotency_key` triple is required by dense-mem
-  v2.6). If the `mcp({ tool: ... })` form returns "Tool X not found", the
-  namespace tool name (`mcp({ tool: "dense_mem_recall_memory", args: { query=... } })`) also works.
+  v2.6 contract requires `evidence` + `relationships` + `idempotency_key`;
+  schema details in `.pi/skills/execute-task/references/rag.md`.
 
 ## Quality
 

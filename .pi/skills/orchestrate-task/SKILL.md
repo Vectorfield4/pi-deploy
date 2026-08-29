@@ -169,125 +169,80 @@ Never run more than one recall here. If it returns nothing, proceed to the archi
 
 ### 7. Delegate Sub-Tasks
 
-**Spawn form.** The `subagent` tool accepts `task` as a **string only** — never
-an object (a `task` object fails validation with `task: must be string`). The
-child receives the string verbatim as its opening message. Every delegation
-therefore serializes the context bundle into a JSON string:
+`subagent` accepts `task` as a **string only** (an object fails with
+`task: must be string`). Serialize the context bundle into JSON:
 
 ```
 subagent({
   agent: "<agent>",
-  task: `{"type":"<task type>","task_id":"<task_id>","description":"<...>","acceptance_criteria":["<...>"],"project":"<project>","branch":"<branch>","rules_hash":"<hash>","metadata":{"memory_context":"<...>","anti_patterns":["<...>"],"pro_invoked":<true|false>,"file_inventory":["<path1>","<path2>"]}}`,
+  task: `{"type":"...","task_id":"...","description":"...","acceptance_criteria":["..."],"project":"...","branch":"...","rules_hash":"...","metadata":{"memory_context":"...","anti_patterns":["..."],"pro_invoked":<bool>,"file_inventory":["<path1>","<path2>"]}}`,
   skill: "<skill>"
 })
 ```
 
-The JSON payload carries: `type`, `task_id`, `title` (optional),
-`description`, `acceptance_criteria`, `project`, `branch`, `rules_hash`, and a
-`metadata` object with `memory_context`, `anti_patterns`, `pro_invoked`,
-`file_inventory` (paths the worker should read, built in step 4.7), and
-any task-specific fields (`review_iterations`, `exploration_triggered`,
-`target_files`). When a field is empty, pass `""`, `[]`, or
-`false` — never omit the structure workers look for. Delegated agents read
-these JSON fields from their task string (`task.type`, `task.metadata.*`, …);
-see each skill's read-side notes.
-Per-worker mapping:
+Payload fields: top-level `type`/`task_id`/`description`/`acceptance_criteria`/
+`project`/`branch`/`rules_hash`; `metadata` carries `memory_context` (from
+step 4.5), `anti_patterns`, `pro_invoked` (step 5.1b), `file_inventory` (from
+step 4.7), and task-specific fields. Pass `""` / `[]` / `false` for empty
+values — never omit the structure. Workers read fields as `task.metadata.*`.
 
 | Work | `agent` | `skill` |
 |------|---------|---------|
 | backend/infra/content/CLI component | `coder` | `execute-task` |
-| complex component (any non-frontend type) | `coder` + `model: "deepseek/deepseek-v4-pro"` | `execute-task` |
+| complex component (any non-frontend) | `coder` + `model: "deepseek/deepseek-v4-pro"` | `execute-task` |
 | frontend architecture (complex only) | `frontend-architect` | `ui-architect` |
-| frontend implementation | `frontend-implementer` | `ui-implementer` (+ `threejs-scene-builder` for 3D) |
+| frontend implementation | `frontend-architect` or `frontend-implementer` | `ui-architect` / `ui-implementer` |
 | finalize: review gate + push to main | `qa` | `execute-qa-task` |
 | release / deploy | `qa` | `execute-qa-task` |
 | branch review (via QA, complex only) | `reviewer` | `execute-review` |
 
-- Frontend features:
-  - **Design-reuse** (from step 5.2): delegate to `frontend-implementer` with the recalled decision + spec path — no architect call.
-  - **Complex**: two-phase delegation:
-    1. Prepare the full context and delegate to `frontend-architect` (Pro) **exactly once** — it creates `artifacts/design-spec.md`. Pass everything in that single call: feature description, acceptance criteria, project context, branch, rules_hash, `metadata.memory_context`, `metadata.anti_patterns`, and a file inventory of the relevant components/pages/routes/state. The architect must not need to discover the codebase.
-    2. After architect completes, persist the design decision (step 7.1), then delegate implementation to `frontend-implementer` (Flash) — builds from spec.
-    - Both work in the same worktree on the same branch. Do not create separate worktrees per phase.
-    - **Invariant**: `frontend-architect` is invoked at most once per task. Never re-invoke it for more context, follow-up questions, or reviewer feedback — an underspecified spec is fixed inside implementation.
-  - **Simple**: delegate implementation to `frontend-implementer` directly — no architect, no spec.
-- Backend/infra/content tasks: split into per-component sub-tasks as before. Each `coder` subagent gets its own worktree.
-  - **Complex** (step 5.1a): delegate each sub-task with `model: "deepseek/deepseek-v4-pro"` → `metadata.pro_invoked: true`.
-  - **Simple**: delegate `coder` as-is (Flash) → `metadata.pro_invoked: false`.
-- Pass: description, acceptance_criteria, project context, branch name, rules_hash.
-- Also pass the batched `metadata.memory_context` and `metadata.anti_patterns` (from step 4.5) to each sub-task — inside the task JSON's `metadata` object.
-- Also pass `metadata.file_inventory` (from step 4.7) to each sub-task — paths the worker is allowed to read. Workers stay out of the orchestrator's context budget; the orchestrator never reads them.
-- Also set `metadata.pro_invoked` on every sub-task: `true` iff Pro ran in this task's path (step 5.1b); `false` otherwise.
+- Frontend complex (architect + implementer): delegate `frontend-architect`
+  **once** with full context; it creates `artifacts/design-spec.md`. After
+  it completes, persist the design (step 7.1) and delegate implementation
+  to `frontend-implementer`. Both share the same worktree. Never re-invoke
+  the architect — an underspecified spec is fixed inside implementation.
+- Frontend simple / design-reuse: delegate to `frontend-implementer`
+  directly (no architect).
+- Backend/infra/content: split into per-component sub-tasks; each `coder`
+  in its own worktree. Complex → `model: "deepseek/deepseek-v4-pro"`,
+  `metadata.pro_invoked: true`. Simple → Flash, `pro_invoked: false`.
 
 ### 7.1. Persist Design Decisions (orchestrator, after architecture completes)
 
-Record the decision once so the complex gate (step 5.2) reuses it instead of
-re-running the architect. Full `remember` shape (v2.6 contract, TTL 90d,
-`supersedes_evidence_ids` for older records, graceful degradation) lives in
-`references/persist-design.md`. Read it when you reach this step.
+Record the decision once so the complex gate (step 5.2) reuses it instead
+of re-running the architect. Full `remember` shape (v2.6 contract, TTL 90d,
+`supersedes_evidence_ids` for older records, graceful degradation) lives
+in `references/persist-design.md`. Read it when you reach this step.
 
 ### 8. Finalize Task (push to main)
-- After all components complete, delegate the finalize task to a `qa` subagent:
-  ```
-  subagent({ agent: "qa", task: '{"type":"push","project":"<project>","branch":"<branch>","metadata":{"pro_invoked":<true|false>}}', skill: "execute-qa-task" })
-  ```
-- Compose the QA task with `metadata.pro_invoked` (step 5.1b). QA runs the
-  reviewer subagent ONLY when it is `true`; simple tasks skip the reviewer and
-  push straight to `main`. There is no PR and no human approval gate.
+
+```
+subagent({ agent: "qa", task: '{"type":"push","project":"<project>","branch":"<branch>","metadata":{"pro_invoked":<bool>}}', skill: "execute-qa-task" })
+```
+
+QA runs the reviewer subagent only when `pro_invoked == true`; simple tasks
+skip the reviewer and push straight to `main`. No PR, no human gate.
 
 ### 8.5. Wait Discipline (notification-based; don't poll)
 
-`pi-subagents@0.58.0` ships a built-in **result-watcher**: when a delegated
-worker run reaches a terminal state (`complete` / `failed` / `paused`), the
-extension injects a `<subagent_notification>` message into the parent's
-context and **triggers a new turn** for the parent to process the result.
-This is the intended coordination mechanism — `subagent_wait` is the
-exception path, not the default, and has a documented race condition that
-returns early with a false timeout while the child is still running.
+The intended flow: `subagent({ agent, task, skill })` returns a `runId`; end
+the turn; the result-watcher injects a `<subagent_notification>` into your
+next turn with the worker's outcome. `subagent_wait` and `subagent status`
+are diagnostic only — polling them burned 13+ calls per task and produced
+duplicated acceptance reports. `subagent_wait` is the exception path for
+`pi -p` non-interactive runs where there is no next turn to receive the
+notification.
 
-Use the notification flow. **Do not** call `subagent_wait` or
-`subagent({ action: "status" })` to wait for a worker in the main flow — that
-path burned 13 status calls for 3 workers in the last task and produced
-duplicated acceptance reports when the notification finally arrived.
-
-The pattern:
-
-1. **Launch and return.** `subagent({ agent, task, skill })` returns a
-   `runId`. Do not call `subagent_wait`, `subagent status`, or
-   `bash sleep` immediately after. End the current turn. The result-watcher
-   will deliver the worker's outcome as a new user turn (a single
-   `Background task completed: **<agent>** ...` block with the result
-   preview, session line, and any child runs).
-2. **React in the next turn.** When a notification arrives, you are in a
-   fresh turn with the result already in your context. Decide the next
-   step (delegate more, call QA, reply to the user). If the notification
-   is `failed`, treat it as a bounce — route back to the worker or escalate
-   to the user.
-3. **Parallel fan-out.** Spawn all sibling workers in a single turn
-   (fan-out budget is 64 children per top-level run; the `subagent` call
-   echoes `Run fan-out: N/64 used, M remaining`). End the turn; each
-   completion arrives as its own notification turn, in the order they
-   finish. Track which workers are still outstanding by reviewing the
-   notifications you have already received.
-4. **One-shot inspect (only when needed).** `subagent({ action: "status",
-   id, view: "transcript", lines: 30 })` — use once, when a notification
-   has not arrived but you need to understand why (the child may have
-   crashed; check `/tmp/pi-subagents-uid-0/async-subagent-runs/<id>/` for
-   `events.jsonl` and `output-0.log`). Do not use `status` to *wait* —
-   only to *diagnose*.
-5. **Fallback for genuinely blocked flows.** If a step downstream of the
-   worker absolutely cannot proceed without the result and the
-   notification has not arrived in a reasonable time (e.g. the worker
-   `events.jsonl` shows it crashed), use **one** `bash { command: "sleep
-   120; echo waited", timeout: 130 }` then re-check via the events log,
-   not via `subagent status`. `subagent_wait` is reserved for that
-   exception path (the `non-interactive` / `pi -p` case where there is no
-   next turn to receive the notification).
-
-Expected `subagent` call count per task: ~1 `list` + one per worker
-delegation, **no `wait` and no `status` in the happy path**. If your call
-count is well above the worker count, you are polling — stop and rely on
-the notification.
+- Launch all sibling workers in a single turn (fan-out budget 64); end
+  the turn. Each completion arrives as its own notification turn, in
+  finish order. Track outstanding workers by which notifications you
+  have already received.
+- `subagent({ action: "status", id, view: "transcript", lines: 30 })` —
+  one-shot diagnostic only (events.jsonl under
+  `/tmp/pi-subagents-uid-0/async-subagent-runs/<id>/` for crashes).
+- Blocked-fallback: if a downstream step truly cannot proceed and the
+  notification has not arrived, use **one** `bash sleep 120` then read
+  the events log directly.
 
 ### 9. Quality Check
 - Every criterion traces to the original task description
