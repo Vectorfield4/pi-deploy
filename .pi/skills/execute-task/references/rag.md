@@ -14,7 +14,7 @@ metadata.memory_context = summarize(results)
 metadata.anti_patterns = mcp__dense-mem__recall_memory(query="<main goal> project:<project> anti-pattern", limit=3)
 ```
 
-For ad-hoc tasks that bypass `orchestrate-task` (e.g. `simple-task-executor` calls), `component.md` falls back to its own recall.
+For ad-hoc tasks that bypass `orchestrate-task`, `component.md` falls back to its own recall.
 
 ## Principles
 

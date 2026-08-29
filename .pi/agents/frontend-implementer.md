@@ -10,7 +10,7 @@ skills:
   - ui-implementer
   - threejs-scene-builder
   - integration-specialist
-  - simple-task-executor
+  - docs-lookup
 ---
 
 # Frontend Implementer Agent

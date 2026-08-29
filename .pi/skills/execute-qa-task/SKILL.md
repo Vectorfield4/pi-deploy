@@ -26,7 +26,7 @@ it never decides itself whether to merge.
    - No `APPROVED` review → do NOT merge. Report that approval is still pending.
    - PR already merged/closed → report the final state and stop.
 2. Merge: `gh pr merge <pr_number> --squash`.
-   - Conflict → delegate to `resolve-merge-conflict` subagent, then retry once.
+   - Conflict → load the `resolve-merge-conflict` skill, then retry once.
 3. Post-merge: load and run `cleanup-branch` for `branch` (drop feature branch
    and worktrees). Trigger Vercel staging per `deploy-vercel` (main branch build).
 4. Run `memory-gc`.
@@ -53,8 +53,8 @@ Pass: `project`, `branch`, `pr_number` (if known), `metadata.acceptance_criteria
 `metadata.review_iterations`, `metadata.exploration_triggered`.
 
 The reviewer runs the full PR pipeline and returns a structured result. This
-agent does not call `pr-judge`, `review-and-merge`, or `resolve-merge-conflict`
-directly — those skills are owned by the reviewer.
+agent does not call `pr-judge` or `resolve-merge-conflict` directly — only the
+reviewer owns the judge rubric.
 
 ### 5. Handle the reviewer's result
 

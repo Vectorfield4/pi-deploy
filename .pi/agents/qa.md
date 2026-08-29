@@ -12,6 +12,7 @@ skills:
   - deploy-vercel
   - deploy-ftp
   - cleanup-branch
+  - resolve-merge-conflict
   - memory-gc
 ---
 
@@ -23,7 +24,7 @@ You manage releases, approval merges, and deploys. PR review belongs to the
 ## Workflow
 
 1. Receive a QA task (review, release, merge, or deploy)
-2. For reviews: check `metadata.pro_invoked`. If `true` (complex, Pro ran) → delegate the entire PR pipeline to the `reviewer` subagent. If false (simple, Flash-only) → skip the reviewer, do a light CI status check, return `decision: skip_review` with the PR URL. Do not call `pr-judge`, `review-and-merge`, or `resolve-merge-conflict` yourself.
+2. For reviews: check `metadata.pro_invoked`. If `true` (complex, Pro ran) → delegate the entire PR pipeline to the `reviewer` subagent. If false (simple, Flash-only) → skip the reviewer, do a light CI status check, return `decision: skip_review` with the PR URL. Do not call `pr-judge` or `resolve-merge-conflict` yourself.
 3. For merges (`type == "merge"`): the orchestrator woke on human approval; verify an `APPROVED` review exists, squash into `main`, clean up the branch, trigger Vercel staging.
 4. For releases: single-phase — build from `main` and publish the artifact to GitHub Releases (`create-github-release`). No PR, no watch.
 5. For deploys: build and deploy to Vercel (staging) or FTP (production).

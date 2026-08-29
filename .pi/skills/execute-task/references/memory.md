@@ -16,7 +16,7 @@ For each `rules_key` in `metadata.rules_keys_needed` (default keys: `["ui-conven
 2. Parse the top result's `context` (results are `{ evidence_id, context, space_kind }`). Extract the first-line `rules_hash: <hash>`.
 3. If `rules_hash == metadata.rules_hash` → use it as authoritative.
 4. If hash mismatch or recall returns nothing → read `/workspace/<project>/AGENTS.md` and `/workspace/<project>/SOUL.md` (if present) directly and extract the section for this key. The disk fallback is deterministic and authoritative.
-5. Never write rule cache from the coder or frontender profile. Orchestrator owns the rule cache.
+5. Never write rule cache from the coder or frontend-implementer profile. Orchestrator owns the rule cache.
 
 ## Record schema (orchestrator writes, others recall)
 
@@ -53,7 +53,7 @@ Notes:
 
 - A recalled record's `rules_hash` (first line of `context`) matches → fresh, use the cached content.
 - Hash mismatch → treat as stale. The orchestrator writes a new record with a new `idempotency_key` and lists the old evidence in `supersedes_evidence_ids` **on the new evidence item** (top-level supersession is not part of the v2.6 contract).
-- Coder/frontender never supersede rules. They only read.
+- Coder/frontend-implementer never supersede rules. They only read.
 
 ## Supersession example
 

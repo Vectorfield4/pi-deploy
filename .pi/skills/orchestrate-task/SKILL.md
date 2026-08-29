@@ -182,7 +182,7 @@ Never run more than one recall here. If it returns nothing, proceed to the archi
 3. Database schema changes, migrations
 
 #### For fullstack projects:
-- Frontend features → `frontender` subagent
+- Frontend features → `frontend-implementer` subagent
 - Backend features → `coder` subagent
 - Link by API contract
 
@@ -210,6 +210,31 @@ Never run more than one recall here. If it returns nothing, proceed to the archi
 - `feature/<task_id>-<sanitized_title>`
 
 ### 7. Delegate Sub-Tasks
+
+**Spawn form.** Every delegation uses the explicit tool shape:
+```
+subagent({
+  agent: "<agent>",
+  task: {
+    type: "<task type>",
+    description, acceptance_criteria, project, branch, rules_hash,
+    metadata: { ... }
+  },
+  skill: "<skill>"
+})
+```
+Per-worker mapping:
+
+| Work | `agent` | `skill` |
+|------|---------|---------|
+| backend/infra/content/CLI component | `coder` | `execute-task` |
+| complex component (any non-frontend type) | `coder` + `model: "deepseek/deepseek-v4-pro"` | `execute-task` |
+| frontend architecture (complex only) | `frontend-architect` | `ui-architect` |
+| frontend implementation | `frontend-implementer` | `ui-implementer` (+ `threejs-scene-builder` for 3D) |
+| PR creation (aggregates all components) | `coder` | `create-pr` |
+| review / merge / release / deploy | `qa` | `execute-qa-task` |
+| PR review itself (via QA, complex only) | `reviewer` | `execute-review` |
+
 - Frontend features:
   - **Design-reuse** (from step 5.2): delegate to `frontend-implementer` with the recalled decision + spec path — no architect call.
   - **Complex**: two-phase delegation:

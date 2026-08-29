@@ -10,7 +10,7 @@ Deployment + instruction repo for a Pi-based AI development system. No applicati
 ├── mcp.json          # dense-mem MCP server
 ├── models.json       # Provider + model registry (timeweb)
 ├── agents/           # Agent definitions; skills listed per agent in frontmatter
-└── skills/           # Skill packages (28 skills)
+└── skills/           # Skill packages (24 skills)
 scripts/              # Bash scripts (init, setup, cloud-init, backup, setup-cron-jobs, update-on-push)
 docker-compose.yml    # Pi + memory stack (4 services)
 Dockerfile.pi         # Pi container image
@@ -43,7 +43,7 @@ Subagents cannot run slash commands or hold the watch — only you can.
 | Type | Detection | Primary agent | Primary skills |
 |------|-----------|---------------|----------------|
 | **frontend** | package.json + React/Vue/Svelte | frontend-architect + frontend-implementer | ui-architect, ui-implementer, integration-specialist, threejs-scene-builder |
-| **backend** | package.json + Express/Fastify/Nest or go.mod, requirements.txt | coder | technical-planner, execute-task |
+| **backend** | package.json + Express/Fastify/Nest or go.mod, requirements.txt | coder | execute-task |
 | **fullstack** | Monorepo or both frontend + backend markers | frontend-architect + frontend-implementer + coder | combination |
 | **CLI/lib** | package.json with bin/main, or Makefile + src/ | coder | execute-task, create-pr |
 | **infra** | docker-compose.yml, Dockerfile, .github/workflows | coder | setup-ci, execute-task |
@@ -73,7 +73,7 @@ No top-level `tags`/`filter`/`claims` — tags live in content, selection in the
 ## Skills catalog
 
 ### Universal
-- intent-router, orchestrate-task, prioritize-tasks, execute-task, create-pr, setup-ci, project-init, technical-planner, content-strategist, narrative-designer, project-discover, simple-task-executor
+- intent-router, orchestrate-task, execute-task, create-pr, setup-ci, project-init, content-strategist, narrative-designer, project-discover
 - docs-lookup — Context7 with 7-day dense-mem cache; use instead of `resolve-library-id`/`query-docs` directly
 - pr-approval-watch — zero-token HITL: orchestrator hands a passed PR to the router via a `WATCH <url>` marker; the router starts `pr_watch` (main session only)
 
@@ -88,4 +88,4 @@ No top-level `tags`/`filter`/`claims` — tags live in content, selection in the
 
 ### Reviewer
 - execute-review — CI wait, validate, score, decide (merge decision is gated on human approval, never executed here)
-- review-and-merge, pr-judge, resolve-merge-conflict, cleanup-branch
+- pr-judge, resolve-merge-conflict, cleanup-branch

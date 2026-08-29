@@ -29,8 +29,8 @@ Loaded by `execute-task` after project rules are loaded (see `references/memory.
 
 5. **Implement the component**
    - Follow the skill instructions provided by the orchestrator for this task type.
-   - Use Context7 tools (`resolve-library-id` → `query-docs`) for up-to-date library docs.
-   - Note: frontend tasks (UI components, 3D scenes, page assembly) are delegated to the `frontender` agent by the orchestrator. If you receive a frontend task, report it back.
+   - For library docs: load the `docs-lookup` skill (Context7 with a 7-day dense-mem cache) — do not call `resolve-library-id`/`query-docs` directly.
+   - Note: frontend tasks (UI components, 3D scenes, page assembly) are delegated to the `frontend-implementer` agent (complex ones also use `frontend-architect`) by the orchestrator. If you receive a frontend task, report it back.
 
 6. **Quality check and commit**
    - Verify against judge rubric (see `execute-task` → Quality Targets). Fix deficient dimensions.

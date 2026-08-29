@@ -44,7 +44,7 @@ make logs          # Check logs
 ## Task flow
 
 ```
-Telegram → Orchestrator → Subagents (frontender/coder) → PR → Reviewer (complex/Pro tasks only) → human approval (pr_watch) → QA (merge/release/deploy)
+Telegram → Orchestrator → Subagents (frontend/coder) → PR → Reviewer (complex/Pro tasks only) → human approval (pr_watch) → QA (merge/release/deploy)
 ```
 
 The Pro model (`deepseek/deepseek-v4-pro`) is a cold path: it runs only for
@@ -59,11 +59,11 @@ Versions pinned in `.pi/settings.json`. Makefile reads the list and installs via
 | Extension | Version | Role | Used by | Why it's here |
 |-----------|---------|------|---------|---------------|
 | `pi-subagents` | 0.58.0 | Multi-agent orchestration with strict tool allowlists, async runs, model overrides per role | All agents under `.pi/agents/` | Reads `model` and `tools` from each agent's frontmatter. |
-| `pi-mcp-adapter` | 2.29.0 | MCP client. `mcp` proxy tool plus per-server `directTools` registration | All agents (proxy `mcp`); coder and frontender get `mcp:dense-mem` direct | Connects Pi to the dense-mem RAG server. Proxy keeps orchestrator/QA context light, direct gives workers full tool schemas. |
+| `pi-mcp-adapter` | 2.29.0 | MCP client. `mcp` proxy tool plus per-server `directTools` registration | All agents (proxy `mcp`); coder and frontend-implementer get `mcp:dense-mem` direct | Connects Pi to the dense-mem RAG server. Proxy keeps orchestrator/QA context light, direct gives workers full tool schemas. |
 | `@bytesbrains/pi-telegram-bridge` | 1.4.1 | Telegram bot bridge inside the Pi interactive session | Pi container entrypoint | The path from Telegram into Pi. Polls in the background. |
 | `ping-a-human-pi` | 0.1.1 | Generic human-in-the-loop notifications | QA agent for FTP deploy blocks | Used where GitHub polling doesn't apply (FTP deploys, destructive ops). |
 | `pi-memory` | 0.4.2 | Session memory with qmd semantic search across daily logs and scratchpad | Pi main session | Separate from dense-mem evidence. Orchestrator scratchpad lives here. |
-| `@upstash/context7-pi` | 0.1.2 | Library docs via Context7 | coder, frontender, qa | Workers call `resolve-library-id` then `query-docs` instead of trusting training data. |
+| `@upstash/context7-pi` | 0.1.2 | Library docs via Context7 | coder, frontend-implementer, reviewer (via the `docs-lookup` skill) | Workers use `docs-lookup` (Context7 + 7-day dense-mem cache) instead of trusting training data; never call `resolve-library-id`/`query-docs` directly. |
 | `@vectorfield/pi-prs` | 0.1.1 | GitHub PR watch with explicit URL/number targeting. Zero-token PR approval (registers the `pr_watch` tool) | Pi main session | Orchestrators hand passed PRs to the router via a `WATCH <url>` marker; the router calls `pr_watch({action:"watch", url})`. `/pr watch` polls GitHub from the project root and wakes Pi on external feedback until the PR closes/merges — without blocking Telegram. |
 
 ### What is not installed

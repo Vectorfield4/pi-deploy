@@ -8,10 +8,8 @@ inheritProjectContext: false
 tools: read, bash, grep, find, ls, mcp:dense-mem
 skills:
   - execute-review
-  - review-and-merge
   - pr-judge
-  - resolve-merge-conflict
-  - cleanup-branch
+  - docs-lookup
 ---
 
 # Reviewer Agent

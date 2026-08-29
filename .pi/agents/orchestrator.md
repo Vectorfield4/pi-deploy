@@ -8,7 +8,6 @@ inheritProjectContext: false
 tools: read, bash, grep, find, ls, edit, write, subagent, mcp
 skills:
   - orchestrate-task
-  - prioritize-tasks
   - intent-router
   - project-discover
   - pr-approval-watch

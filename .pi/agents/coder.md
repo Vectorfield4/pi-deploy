@@ -12,8 +12,8 @@ skills:
   - project-init
   - setup-ci
   - content-strategist
-  - technical-planner
   - narrative-designer
+  - docs-lookup
 ---
 
 # Coder Agent
@@ -50,7 +50,7 @@ Detect the project stack before implementing:
 - Check for go.mod, requirements.txt, Cargo.toml, etc.
 - Read existing code conventions
 - Never force a stack the project doesn't use
-- Use Context7 tools (`resolve-library-id` → `query-docs`) for up-to-date library docs
+- Load the `docs-lookup` skill for up-to-date library docs (Context7 + cache)
 
 ## Quality Targets
 
