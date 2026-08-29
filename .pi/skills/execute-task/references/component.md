@@ -43,7 +43,15 @@ Loaded by `execute-task` after project rules are loaded (see `references/memory.
      mcp__dense-mem__remember({
        evidence: [{
          content: "project: <project>\ntype: <type>\ntags: project:<project>,<type>,<relevant-concepts>\nconfidence: medium\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<what was done, key decisions, patterns used — under 200 chars>",
-         source_type: "task_outcome"
+         source_type: "observation"
+       }],
+       relationships: [{
+         ref: "task:<project>:<type>:<task_id>",
+         subject: { name: "<project>", entity_kind: "project" },
+         predicate: { proposed_key: "project:task:outcome" },
+         object: { entity: { name: "task:<task_id>", entity_kind: "concept" } },
+         polarity: "+",
+         evidence_indices: [0]
        }],
        idempotency_key: "task:<project>:<type>:<task_id>"
      })

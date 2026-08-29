@@ -44,15 +44,23 @@ Project rules are cached in dense-mem as durable evidence keyed by the project r
 
 **For each `rules_key` you read from disk:**
 1. Recall the existing record: `mcp__dense-mem__recall_memory(query="project-rules project:<project> key:<rules_key>")`.
-2. If found → parse `rules_hash:` from the first line of the result's content. If it matches the current `rules_hash` → skip, the cache is fresh.
-3. If not found OR hash mismatch → write a new record:
+2. If found → parse `rules_hash:` from the first line of the result's `context` (results are `{ evidence_id, context, space_kind }`). If it matches the current `rules_hash` → skip, the cache is fresh.
+3. If not found OR hash mismatch → write a new record (the `relationship` is required by the v2.6 contract and makes the record recallable):
    ```
    mcp__dense-mem__remember({
      evidence: [{
        content: "rules_hash: <hash>\nkey: <rules_key>\nproject: <project>\ntags: project-rules,<rules_key>,<project>\n\n<actual section content from disk>",
-       source_type: "manual"
+       source_type: "manual",
+       supersedes_evidence_ids: ["<old-uuid-if-superseding>"]
      }],
-     supersedes_evidence_ids: ["<old-uuid-if-superseding>"],
+     relationships: [{
+       ref: "rules:<project>:<rules_key>:<hash>",
+       subject: { name: "<project>", entity_kind: "project" },
+       predicate: { proposed_key: "project:rules:<rules_key>" },
+       object: { entity: { name: "<rules_key>", entity_kind: "concept" } },
+       polarity: "+",
+       evidence_indices: [0]
+     }],
      idempotency_key: "rules:<project>:<rules_key>:<hash>"
    })
    ```
@@ -62,6 +70,14 @@ Project rules are cached in dense-mem as durable evidence keyed by the project r
      evidence: [{
        content: "rules_index: <hash>\nproject: <project>\ntags: project-rules,index,<project>\nkeys: <comma-separated-list>",
        source_type: "manual"
+     }],
+     relationships: [{
+       ref: "rules-index:<project>:<hash>",
+       subject: { name: "<project>", entity_kind: "project" },
+       predicate: { proposed_key: "project:rules:index" },
+       object: { entity: { name: "rules-index", entity_kind: "concept" } },
+       polarity: "+",
+       evidence_indices: [0]
      }],
      idempotency_key: "rules-index:<project>:<hash>"
    })
@@ -90,7 +106,7 @@ anti_patterns = mcp__dense-mem__recall_memory(query="<main goal> project:<projec
 ```
 
 Then for each sub-task in step 7, include in the delegated task metadata:
-- `metadata.memory_context`: top-5 memory results as a single string (newest first, summarize the relevance)
+- `metadata.memory_context`: top-5 memory results as a single string, summarized from each result's `context` field (recall results are `{ evidence_id, context, space_kind }`; newest first, note the relevance)
 - `metadata.anti_patterns`: top-3 anti-patterns (use as warnings, do not act on directly)
 
 Graceful degradation: if recall returns nothing, pass `metadata.memory_context: ""` and let the sub-task proceed. The sub-task's `component.md` step 3 will skip recall when `metadata.memory_context` is present (even if empty).

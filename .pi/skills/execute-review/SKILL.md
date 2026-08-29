@@ -27,7 +27,7 @@ The full review pipeline for a single PR. Loaded by the `reviewer` agent when a 
 
 ### 1. Load context
 Recall project rules from dense-mem. The query format embeds the project and key:
-`mcp__dense-mem__recall_memory(query="project-rules project:<project> key:<rules_key>")`. If the top result's first line `rules_hash:` doesn't match `metadata.rules_hash` or recall returns nothing, read `/workspace/<project>/AGENTS.md` and `/workspace/<project>/SOUL.md` directly. Graceful degradation: never block on memory.
+`mcp__dense-mem__recall_memory(query="project-rules project:<project> key:<rules_key>")`. If the top result's first line `rules_hash:` (read from the result's `context` — results are `{ evidence_id, context, space_kind }`) doesn't match `metadata.rules_hash` or recall returns nothing, read `/workspace/<project>/AGENTS.md` and `/workspace/<project>/SOUL.md` directly. Graceful degradation: never block on memory.
 
 Recall past anti-patterns:
 `mcp__dense-mem__recall_memory(query="<feature summary> project:<project> anti-pattern")`. If recalled, these are known failures — use a different approach.
@@ -74,7 +74,15 @@ Write an anti-pattern (best-effort):
 mcp__dense-mem__remember({
   evidence: [{
     content: "project: <project>\ntype: exploration\ntags: anti-pattern,exploration,project:<project>\nconfidence: high\nvalid_until: <YYYY-MM-DD, today + 30 days>\n\nTask '<title>' failed <N> iterations. Recurring: <pattern>. Orchestrator must re-decompose.",
-    source_type: "review_outcome"
+    source_type: "observation"
+  }],
+  relationships: [{
+    ref: "exploration:<project>:<task_id>",
+    subject: { name: "<project>", entity_kind: "project" },
+    predicate: { proposed_key: "project:exploration:anti-pattern" },
+    object: { entity: { name: "task:<task_id>", entity_kind: "concept" } },
+    polarity: "-",
+    evidence_indices: [0]
   }],
   idempotency_key: "exploration:<project>:<task_id>"
 })
@@ -87,7 +95,15 @@ Set `exploration_flag: true` in the result. Do not bounce to coder, do not merge
   mcp__dense-mem__remember({
     evidence: [{
       content: "project: <project>\ntype: verified\ntags: verified,project:<project>\nconfidence: high\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<short verdict, under 200 chars>",
-      source_type: "review_outcome"
+      source_type: "observation"
+    }],
+    relationships: [{
+      ref: "review-verified:<project>:<task_id>",
+      subject: { name: "<project>", entity_kind: "project" },
+      predicate: { proposed_key: "project:review:verified" },
+      object: { entity: { name: "task:<task_id>", entity_kind: "concept" } },
+      polarity: "+",
+      evidence_indices: [0]
     }],
     idempotency_key: "review-verified:<project>:<task_id>"
   })

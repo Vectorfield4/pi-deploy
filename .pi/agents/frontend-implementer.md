@@ -88,7 +88,7 @@ Use `docs-lookup` skill for up-to-date library docs. Never rely on training data
 
 - Recall before implementing: `mcp__dense-mem__recall_memory(query="<goal>")`.
 - Recall anti-patterns: `mcp__dense-mem__recall_memory(query="<goal> project:<project> anti-pattern")`.
-- Remember after success: `mcp__dense-mem__remember({ evidence: [{ content: "project: <project>\ntype: frontend\ntags: project:<project>,frontend\nconfidence: medium\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<short summary, under 200 chars>", source_type: "task_outcome" }], idempotency_key: "task:<project>:frontend:<task_id>" })`.
+- Remember after success: `mcp__dense-mem__remember({ evidence: [{ content: "project: <project>\ntype: frontend\ntags: project:<project>,frontend\nconfidence: medium\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<short summary, under 200 chars>", source_type: "observation" }], relationships: [{ ref: "task:<project>:frontend:<task_id>", subject: { name: "<project>", entity_kind: "project" }, predicate: { proposed_key: "project:task:outcome" }, object: { entity: { name: "task:<task_id>", entity_kind: "concept" } }, polarity: "+", evidence_indices: [0] }], idempotency_key: "task:<project>:frontend:<task_id>" })`. The `relationships` block is required by the v2.6 `remember` contract; without it the write is rejected.
 - Graceful degradation: if MCP fails, continue without context.
 
 ## Quality Targets

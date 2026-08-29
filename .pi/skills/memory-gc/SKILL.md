@@ -27,20 +27,21 @@ Callers write the `valid_until` line as part of `evidence.content`. This skill n
    ```
    The query is broad so it returns a mix of recent and old records. We do not aim for completeness on a single pass; the skill runs on every QA iteration, so over time most expired evidence is found.
 
-2. **Parse `valid_until` from each result's content.**
-   - First line starting with `valid_until:` → ISO date.
+2. **Parse `valid_until` from each result's `context`.**
+   - Each recall result is `{ evidence_id, context, space_kind }`. Find a line starting with `valid_until:` anywhere in `context` → ISO date.
    - Missing or unparseable → skip the record. (It was written before TTL was enforced, or it is config which never expires.)
    - Compare to today's date (UTC). If `valid_until < today` → expired, queue for retraction.
 
 3. **Retract in batch.**
-   For each expired evidence item, get the evidence id from the recall result's metadata (dense-mem exposes the active evidence id; if not visible in the result, fall back to `trace_memory` to look it up), then:
+   For each expired evidence item, take `evidence_id` directly from the recall result, then:
    ```
    mcp__dense-mem__retract_evidence({
-     evidence_ids: ["<id>"],
+     evidence_ids: ["<evidence_id>"],
      reason: "TTL expired (<original valid_until>)",
-     idempotency_key: "memory-gc:retract:<id>:<YYYY-MM-DD>"
+     idempotency_key: "memory-gc:retract:<evidence_id>:<YYYY-MM-DD>"
    })
    ```
+   If `recall_memory` cannot supply the id (degraded result), fall back to `trace_memory` to look it up.
 
 4. **Cap per-call work.** Process at most 20 records per call. More than that → return early and run again next iteration. This keeps the call cheap.
 

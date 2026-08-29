@@ -29,6 +29,7 @@ For ad-hoc tasks that bypass `orchestrate-task` (e.g. `simple-task-executor` cal
 - `mcp__dense-mem__recall_memory(query="<concise goal of the work>")`
 - Use a short goal-oriented query (e.g. `react-hook-form + zod auth form with MUI for <project>`) rather than a long paste.
 - Filter via query, not via API. Embed tags into the query string: `query="project:my-project anti-pattern auth"` so the embedding match is precise.
+- Results are `{ evidence_id, context, space_kind }` — read the `context` field (the stored content, bounded at 2000 chars), never `content`. A recalled record's structured prefix (first lines) is the discriminator: `rules_hash:`, `project:`, `valid_until:`, etc.
 - Treat the top results as context hints. Even high-confidence results must still pass validation (lint / test / build) before commit.
 - **Anti-pattern recall**: `mcp__dense-mem__recall_memory(query="<goal> project:<project> anti-pattern")` — use the project's prior failures to avoid repeating them.
 - **Exploration anti-patterns**: `mcp__dense-mem__recall_memory(query="<goal> project:<project> anti-pattern exploration")` — these are decomposition strategies that failed after ≥3 review iterations. Do not repeat.
@@ -36,26 +37,38 @@ For ad-hoc tasks that bypass `orchestrate-task` (e.g. `simple-task-executor` cal
 
 ## Remember (after a successful task)
 
-`mcp__dense-mem__remember` writes durable evidence. Real dense-mem shape:
+`mcp__dense-mem__remember` writes durable evidence anchored by relationships. dense-mem v2.6 contract (`dense-mem.v2.6`, the `:latest` image): every submission requires `evidence`, `relationships`, and `idempotency_key` — a submission without `relationships` is rejected. Each relationship cites the evidence it supports via `evidence_indices` (0-based indexes into the `evidence` array).
 
 ```
 mcp__dense-mem__remember({
   evidence: [{
     content: "project: <project>\ntype: <type>\ntags: project:<project>,<type>,<relevant-concepts>\nconfidence: medium\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<concise summary, under 200 chars>",
-    source_type: "task_outcome"
+    source_type: "observation"
+  }],
+  relationships: [{
+    ref: "<type>:<project>:<task_id>",
+    subject: { name: "<project>", entity_kind: "project" },
+    predicate: { proposed_key: "project:<type>:outcome" },
+    object: { entity: { name: "task:<task_id>", entity_kind: "concept" } },
+    polarity: "+",
+    evidence_indices: [0]
   }],
   idempotency_key: "<type>:<project>:<task_id>:<hash-of-content>"
 })
 ```
 
 Notes:
+- `relationships` is **required**. Keep `subject` as the project entity, pick a stable `proposed_key` per record type (`project:task:outcome`, `project:review:verified`, `project:exploration:anti-pattern`, `project:user:feedback`, `project:rules:<key>`, `library:docs:cache`), and cite `evidence_indices: [0]` for single-evidence submissions.
+- `source_type` is an enum: `conversation`, `document`, `observation`, `manual`. Older values `task_outcome`, `review_outcome`, `tool_output` no longer exist and are rejected. Map: experiential outcomes (task, review, exploration, feedback) → `observation`; rules caches and project metadata → `manual`; docs cache → `document`.
+- `supersedes_evidence_ids` lives **inside an evidence item**, not at the top level. Top-level fields other than `evidence`, `relationships`, `idempotency_key` are rejected (`additionalProperties: false`).
 - `claims`, `tags`, `filter` are not in dense-mem's `remember` API. Tags go inside the content (structured prefix), filters go inside the query.
-- `confidence` is a field of the **evidence item**, not a top-level argument.
+- `confidence` and `valid_until` are not API fields; keep them as lines in `content`.
 - `valid_until` is the TTL date for decay. Format: ISO `YYYY-MM-DD`. The `memory-gc` skill retires evidence after this date. See `.pi/skills/memory-gc/SKILL.md` for the policy.
 - `idempotency_key` is required. Use a hash of the content so retried writes don't duplicate.
-- `remember` is asynchronous: it returns a `submission_id`. Poll `mcp__dense-mem__get_submission_status` once; do not block the task on it.
+- `remember` is **asynchronous**: it validates the submission, then queues graph verification. It returns a `submission_id`; poll `get_submission_status(submission_id)` once, but do not block the task on it.
 - Only call `remember` AFTER success (validation passed / task completed) — never for work in progress.
 - Cap `content` at one sentence (~200 chars) for ordinary tasks. Use longer content only for review verdicts and exploration anti-patterns.
+- Recall only returns evidence supported by an **active relationship**; the relationship above is what makes a record recallable.
 
 ## Corrections
 
