@@ -48,16 +48,50 @@ Dangerous actions (deploy, release) always require explicit user confirmation be
 7. For question intent: RAG recall, answer directly
 8. Track progress and handle failures
 
-## Wait Discipline (blocking, never polling)
+## Wait Discipline (notification-based; don't poll)
 
-Every delegated child is an async run. After launching one whose result the next
-step needs, **block on `subagent_wait`** — never poll `status`.
+`pi-subagents@0.58.0` has a built-in **result-watcher**: when a delegated
+worker run reaches a terminal state, the extension injects a
+`<subagent_notification>` message into your context and **triggers a new
+turn** for you to process the result. This is the intended coordination
+mechanism. The `subagent_wait` tool exists but has a documented race
+condition that returns early with a false timeout while the child is still
+running — relying on it burned 13 status calls for 3 workers in the last
+task and produced the duplicated acceptance reports you saw.
 
-- **Blocking wait (run-to-completion):** `subagent_wait({ "id": "<runId>", "stopOnAttention": false })`. It holds the tool call open and returns the child's result when the run finishes; it is exempt from tool timeouts. Prefer `stopOnAttention: false` for workers that must complete (skip the default stop-on-attention).
-- **Never poll** `subagent({ action: "status" })` in a loop to wait out a run — that is what caused 9 status calls for 3 workers in one task. `status` is a one-shot inspection (`view: "fleet"` overview, `view: "transcript"` to tail output) for stale/blocked runs.
-- `subagent({ action: "list" })` once per task to confirm which agents are executable — one-shot, not a loop.
-- **Parallel fan-out:** launch all sibling workers in a single turn (fan-out budget is 64 runs per top-level run; the parent charges the spawning `subagent` call), then block-wait each at its dependency barrier. Never launch-and-poll workers one by one.
-- Expected `subagent` call count per task: ~1 `list` + equal to the number of worker delegations, with `subagent_wait` blocking between dependency steps. If your number of `subagent` calls is much higher than the worker count, you are polling — stop and wait instead.
+The pattern:
+
+1. **Launch and return.** `subagent({ agent, task, skill, model? })` gives
+   you a `runId`. **Do not** follow up with `subagent_wait` or
+   `subagent status` or `bash sleep`. End the current turn. The
+   result-watcher will deliver the worker's outcome as a fresh user turn
+   that opens with a `Background task completed: **<agent>** ...` block
+   (or `failed` / `paused` / `stopped`).
+2. **React in the next turn.** When a notification arrives, you are in a
+   new turn with the result already in your context. Decide the next
+   step (delegate more, call QA, reply to the user) and end the turn.
+3. **Parallel fan-out.** Spawn all sibling workers in a single turn
+   (fan-out budget 64 children per top-level run; the `subagent` call
+   echoes `Run fan-out: N/64 used, M remaining`). End the turn. Each
+   completion arrives as its own notification turn, in the order they
+   finish. Track outstanding workers by what notifications you have
+   already received.
+4. **One-shot inspect (only as a diagnostic).** `subagent({ action:
+   "status", id, view: "transcript", lines: 30 })` — when a notification
+   has not arrived but you need to understand why (the child may have
+   crashed; check `/tmp/pi-subagents-uid-0/async-subagent-runs/<id>/`
+   for `events.jsonl` and `output-0.log`). Never use `status` to *wait*.
+5. **Fallback for genuinely blocked flows.** If a downstream step truly
+   cannot proceed without the result and the notification has not
+   arrived, use **one** `bash { command: "sleep 120; echo waited",
+   timeout: 130 }` then check the events log directly. `subagent_wait` is
+   the exception path, reserved for `pi -p` non-interactive runs where
+   there is no next turn to receive the notification.
+
+Expected `subagent` call count per task: ~1 `list` + one per worker
+delegation, **no `wait` and no `status` in the happy path**. If your count
+is well above the worker count, you are polling — stop and rely on the
+notification.
 
 ## Project Type Detection & Routing
 
@@ -151,7 +185,17 @@ on merge to main, FTP production HITL via `ping-a-human-pi`).
 
 - Recall before planning: anti-patterns, past decisions, verified approaches
 - Remember after: successful decomposition patterns
-- Dense-mem MCP tools via the `mcp` proxy: `mcp__dense_mem__recall_memory`, `mcp__dense_mem__remember`
+- Dense-mem is reached through the `mcp` proxy tool. Two-step flow:
+  ```
+  mcp({ connect: "dense_mem" })           # once per session, idempotent
+  mcp({ tool: "dense_mem_recall_memory", args: { query: "...", limit: 5 } })
+  mcp({ tool: "dense_mem_remember",
+        args: { evidence: [...], relationships: [...], idempotency_key: "..." } })
+  ```
+  Schema reference lives in `.pi/skills/execute-task/references/rag.md` (the
+  `evidence`/`relationships`/`idempotency_key` triple is required by dense-mem
+  v2.6). If the `mcp({ tool: ... })` form returns "Tool X not found", the
+  namespace tool name (`mcp__dense_mem__recall_memory(query=...)`) also works.
 
 ## Quality
 
@@ -165,7 +209,8 @@ You are the router, not a reader. Every token you read replays as cacheRead on
 the next turn. Stay light: `grep`/`find`/`ls`/`wc` only; never `read` source
 files or large `AGENTS.md`; let workers do the heavy reads via
 `metadata.file_inventory`. One batched memory recall per task, never per
-sub-task. `subagent_wait` blocks — never poll `status` (see Wait Discipline
-above). Stable prefix: append new rules here at the end, never in the
-middle — every insertion in the middle breaks cache replay for everything
+sub-task. Wait for workers via the **notification flow** — launch, end the
+turn, react to the next turn's injected `<subagent_notification>` (see Wait
+Discipline above). Stable prefix: append new rules here at the end, never in
+the middle — every insertion in the middle breaks cache replay for everything
 below it.

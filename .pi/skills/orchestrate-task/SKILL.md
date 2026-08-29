@@ -235,16 +235,59 @@ re-running the architect. Full `remember` shape (v2.6 contract, TTL 90d,
   reviewer subagent ONLY when it is `true`; simple tasks skip the reviewer and
   push straight to `main`. There is no PR and no human approval gate.
 
-### 8.5. Wait Discipline (blocking, never polling)
+### 8.5. Wait Discipline (notification-based; don't poll)
 
-Every delegated worker is an async run. After launching one whose result the next
-step needs, **block on `subagent_wait`** — never poll `status`.
+`pi-subagents@0.58.0` ships a built-in **result-watcher**: when a delegated
+worker run reaches a terminal state (`complete` / `failed` / `paused`), the
+extension injects a `<subagent_notification>` message into the parent's
+context and **triggers a new turn** for the parent to process the result.
+This is the intended coordination mechanism — `subagent_wait` is the
+exception path, not the default, and has a documented race condition that
+returns early with a false timeout while the child is still running.
 
-- **Blocking wait (run-to-completion):** `subagent_wait({ "id": "<runId>", "stopOnAttention": false })`. It holds the call open and returns the child's result when the run finishes; `subagent_wait` is exempt from tool timeouts. Use `stopOnAttention: false` for workers that must finish.
-- **Never poll** `subagent({ action: "status" })` in a loop to wait out a run — an observed task burned 9 status calls for 3 workers. `status` is a one-shot inspection (`view: "fleet"` overview, `view: "transcript"` to tail output) for stale/blocked runs only.
-- `subagent({ action: "list" })` once per task to confirm executable agents — one-shot, not a loop.
-- **Parallel fan-out:** launch all sibling workers in a single turn — the run fan-out budget is 64 children per top-level run (the `subagent` spawn charges it; each launch echoes `Run fan-out: N/64 used, M remaining`) — then block-wait each at its dependency barrier. Never launch-and-poll workers one by one.
-- Expected `subagent` call count per task: ~1 `list` + one per worker delegation, with `subagent_wait` blocking between dependency steps. If your call count is well above the worker count, you are polling — wait instead.
+Use the notification flow. **Do not** call `subagent_wait` or
+`subagent({ action: "status" })` to wait for a worker in the main flow — that
+path burned 13 status calls for 3 workers in the last task and produced
+duplicated acceptance reports when the notification finally arrived.
+
+The pattern:
+
+1. **Launch and return.** `subagent({ agent, task, skill })` returns a
+   `runId`. Do not call `subagent_wait`, `subagent status`, or
+   `bash sleep` immediately after. End the current turn. The result-watcher
+   will deliver the worker's outcome as a new user turn (a single
+   `Background task completed: **<agent>** ...` block with the result
+   preview, session line, and any child runs).
+2. **React in the next turn.** When a notification arrives, you are in a
+   fresh turn with the result already in your context. Decide the next
+   step (delegate more, call QA, reply to the user). If the notification
+   is `failed`, treat it as a bounce — route back to the worker or escalate
+   to the user.
+3. **Parallel fan-out.** Spawn all sibling workers in a single turn
+   (fan-out budget is 64 children per top-level run; the `subagent` call
+   echoes `Run fan-out: N/64 used, M remaining`). End the turn; each
+   completion arrives as its own notification turn, in the order they
+   finish. Track which workers are still outstanding by reviewing the
+   notifications you have already received.
+4. **One-shot inspect (only when needed).** `subagent({ action: "status",
+   id, view: "transcript", lines: 30 })` — use once, when a notification
+   has not arrived but you need to understand why (the child may have
+   crashed; check `/tmp/pi-subagents-uid-0/async-subagent-runs/<id>/` for
+   `events.jsonl` and `output-0.log`). Do not use `status` to *wait* —
+   only to *diagnose*.
+5. **Fallback for genuinely blocked flows.** If a step downstream of the
+   worker absolutely cannot proceed without the result and the
+   notification has not arrived in a reasonable time (e.g. the worker
+   `events.jsonl` shows it crashed), use **one** `bash { command: "sleep
+   120; echo waited", timeout: 130 }` then re-check via the events log,
+   not via `subagent status`. `subagent_wait` is reserved for that
+   exception path (the `non-interactive` / `pi -p` case where there is no
+   next turn to receive the notification).
+
+Expected `subagent` call count per task: ~1 `list` + one per worker
+delegation, **no `wait` and no `status` in the happy path**. If your call
+count is well above the worker count, you are polling — stop and rely on
+the notification.
 
 ### 9. Quality Check
 - Every criterion traces to the original task description
@@ -258,4 +301,4 @@ step needs, **block on `subagent_wait`** — never poll `status`.
 - `frontend-architect` invoked at most once per task (complex path only, never for simple or design-reuse)
 - `metadata.pro_invoked` set to `true` iff Pro was actually invoked (architect invoked, or `coder` complex override)
 - Reviewer was NOT invoked for tasks with `pro_invoked: false`
-- Wait discipline (step 8.5): workers waited on via blocking `subagent_wait`, not `status` polling loops
+- Wait discipline (step 8.5): workers' results are received via the result-watcher `<subagent_notification>` injection, not via `subagent_wait` or `status` polling loops. `subagent status` only as a one-shot diagnostic, never as a wait primitive.

@@ -51,11 +51,17 @@ incapable of writing code and can only delegate. Never re-add those tools to
 its frontmatter; that is the anti-failure guarantee: an orchestrator that
 "learns" to implement answers directly exactly like a broken router.
 
-The orchestrator's `tools` line must keep `subagent_wait` (blocking
-run-to-completion wait, `stopOnAttention: false`) so it can wait for a worker
-**without polling** — `subagent({ action: "status" })` is a one-shot
-inspection, never a wait loop. A task burned 9 status calls for 3 workers;
-the wait discipline is in `orchestrate-task` step 8.5.
+The orchestrator's `tools` line keeps `subagent_wait` for the documented
+exception path (e.g. `pi -p` non-interactive runs that have no next turn to
+receive the notification). In the **main flow** the orchestrator relies on
+the result-watcher's `<subagent_notification>` injection — launch a worker,
+end the turn, and the next turn opens with the worker's outcome already
+in context. `subagent({ action: "status" })` is a one-shot diagnostic,
+never a wait loop. `subagent_wait` has a known race condition that returns
+early with a false timeout while the child is still running, and treating
+it as a strict block burned 13 status calls for 3 workers in a recent
+task and produced duplicated acceptance reports. The wait discipline is
+in `orchestrate-task` step 8.5.
 
 > If this contract is not being followed on the running system (the agent
 > replies to Telegram directly instead of delegating), check in order:
