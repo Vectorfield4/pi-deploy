@@ -2,6 +2,10 @@
 
 Loaded by `execute-task` before component / PR flows. Project rules from `AGENTS.md` (and `SOUL.md` if present) are cached in dense-mem as durable evidence, keyed by project and `rules_hash`. The disk files remain the deterministic source of truth.
 
+The task arrives as a **JSON string** (the `subagent` tool accepts only a
+string). Parse it as `task` and read fields via `task.project`,
+`task.metadata.rules_keys_needed`, `task.metadata.rules_hash`, etc.
+
 ## dense-mem as the cache
 
 `remember` writes evidence with `idempotency_key` so retried writes are safe, and anchors each record with a supporting `relationship` (required by the v2.6 contract — a submission without `relationships` is rejected). `supersedes_evidence_ids` (an **evidence-item** field) advances a record to a new content version without losing lineage. `recall_memory(query=...)` is evidence-first and support-path gated: only active evidence with eligible support returns — which is exactly what our per-record relationships provide.
@@ -10,11 +14,11 @@ We do not invent tags or filter parameters that don't exist in the API. Tags are
 
 ## Load procedure (for component / PR tasks)
 
-For each `rules_key` in `metadata.rules_keys_needed` (default keys: `["ui-conventions", "api-standards", "testing-patterns", "build-deploy", "content-voice"]` chosen by project type in `orchestrate-task` step 3.5):
+For each `rules_key` in `task.metadata.rules_keys_needed` (default keys: `["ui-conventions", "api-standards", "testing-patterns", "build-deploy", "content-voice"]` chosen by project type in `orchestrate-task` step 3.5):
 
 1. `mcp__dense-mem__recall_memory(query="project-rules project:<project> key:<rules_key>")`.
 2. Parse the top result's `context` (results are `{ evidence_id, context, space_kind }`). Extract the first-line `rules_hash: <hash>`.
-3. If `rules_hash == metadata.rules_hash` → use it as authoritative.
+3. If `rules_hash == task.metadata.rules_hash` → use it as authoritative.
 4. If hash mismatch or recall returns nothing → read `/workspace/<project>/AGENTS.md` and `/workspace/<project>/SOUL.md` (if present) directly and extract the section for this key. The disk fallback is deterministic and authoritative.
 5. Never write rule cache from the coder or frontend-implementer profile. Orchestrator owns the rule cache.
 
@@ -49,7 +53,7 @@ Notes:
 
 ## Cache invalidation
 
-`metadata.rules_hash` (set by the orchestrator from `git rev-parse HEAD` of the project) is the authority.
+`task.metadata.rules_hash` (set by the orchestrator from `git rev-parse HEAD` of the project) is the authority.
 
 - A recalled record's `rules_hash` (first line of `context`) matches → fresh, use the cached content.
 - Hash mismatch → treat as stale. The orchestrator writes a new record with a new `idempotency_key` and lists the old evidence in `supersedes_evidence_ids` **on the new evidence item** (top-level supersession is not part of the v2.6 contract).

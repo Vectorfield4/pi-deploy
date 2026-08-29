@@ -5,6 +5,9 @@ description: "Executes a single development sub-task (UI, content, integration),
 
 # Execute Task
 
+The task arrives as a **JSON string** — parse it and read fields via
+`task.type`, `task.project`, `task.branch`, `task.metadata.*`, etc.
+
 ## Steps
 
 ### 1. Setup worktree

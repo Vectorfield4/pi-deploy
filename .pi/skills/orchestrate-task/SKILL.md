@@ -105,7 +105,8 @@ Also recall anti-patterns:
 anti_patterns = mcp__dense-mem__recall_memory(query="<main goal> project:<project> anti-pattern", limit=5)
 ```
 
-Then for each sub-task in step 7, include in the delegated task metadata:
+Then for each sub-task in step 7, include in the delegated task JSON (the
+`metadata` object inside the `task` string):
 - `metadata.memory_context`: top-5 memory results as a single string, summarized from each result's `context` field (recall results are `{ evidence_id, context, space_kind }`; newest first, note the relevance)
 - `metadata.anti_patterns`: top-3 anti-patterns (use as warnings, do not act on directly)
 
@@ -211,18 +212,27 @@ Never run more than one recall here. If it returns nothing, proceed to the archi
 
 ### 7. Delegate Sub-Tasks
 
-**Spawn form.** Every delegation uses the explicit tool shape:
+**Spawn form.** The `subagent` tool accepts `task` as a **string only** — never
+an object (a `task` object fails validation with `task: must be string`). The
+child receives the string verbatim as its opening message. Every delegation
+therefore serializes the context bundle into a JSON string:
+
 ```
 subagent({
   agent: "<agent>",
-  task: {
-    type: "<task type>",
-    description, acceptance_criteria, project, branch, rules_hash,
-    metadata: { ... }
-  },
+  task: `{"type":"<task type>","task_id":"<task_id>","description":"<...>","acceptance_criteria":["<...>"],"project":"<project>","branch":"<branch>","rules_hash":"<hash>","metadata":{"memory_context":"<...>","anti_patterns":["<...>"],"pro_invoked":<true|false>}}`,
   skill: "<skill>"
 })
 ```
+
+The JSON payload carries: `type`, `task_id`, `title` (optional),
+`description`, `acceptance_criteria`, `project`, `branch`, `rules_hash`, and a
+`metadata` object with `memory_context`, `anti_patterns`, `pro_invoked`, and
+any task-specific fields (`review_iterations`, `exploration_triggered`,
+`target_files`, `pr_number`). When a field is empty, pass `""`, `[]`, or
+`false` — never omit the structure workers look for. Delegated agents read
+these JSON fields from their task string (`task.type`, `task.metadata.*`, …);
+see each skill's read-side notes.
 Per-worker mapping:
 
 | Work | `agent` | `skill` |
@@ -247,7 +257,7 @@ Per-worker mapping:
   - **Complex** (step 5.1a): delegate each sub-task with `model: "deepseek/deepseek-v4-pro"` → `metadata.pro_invoked: true`.
   - **Simple**: delegate `coder` as-is (Flash) → `metadata.pro_invoked: false`.
 - Pass: description, acceptance_criteria, project context, branch name, rules_hash.
-- Also pass the batched `metadata.memory_context` and `metadata.anti_patterns` (from step 4.5) to each sub-task.
+- Also pass the batched `metadata.memory_context` and `metadata.anti_patterns` (from step 4.5) to each sub-task — inside the task JSON's `metadata` object.
 - Also set `metadata.pro_invoked` on every sub-task: `true` iff Pro ran in this task's path (step 5.1b); `false` otherwise.
 
 ### 7.1. Persist Design Decisions (orchestrator, after architecture completes)

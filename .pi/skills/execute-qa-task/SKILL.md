@@ -5,10 +5,15 @@ description: "Executes a single QA task — dispatches to create-github-release 
 
 # Execute QA Task
 
+The task arrives as a **JSON string** — parse it and read fields via
+`task.type`, `task.project`, `task.branch`, `task.pr_number`,
+`task.metadata.*`, etc.
+
 ## Steps
 
 ### 1. Fetch the task
-- Extract `title`, `description`, `metadata` (`project`, `branch`, `pr_number`).
+- Parse the `task` JSON string: extract `title`, `description`, `metadata`
+  (`project`, `branch`, `pr_number`).
 
 ### 2. Dispatch by task type
 - **`type == "release"`** → load and run `create-github-release`
@@ -35,22 +40,28 @@ it never decides itself whether to merge.
 ### 4. Review task — delegate to the reviewer subagent
 
 The reviewer runs **only for complex tasks where the orchestrator invoked the
-Pro model** (`metadata.pro_invoked == true`). Simple (Flash-only) tasks skip the
-reviewer entirely — their PR goes straight to the human approval gate.
+Pro model** (`task.metadata.pro_invoked == true`). Simple (Flash-only) tasks
+skip the reviewer entirely — their PR goes straight to the human approval gate.
 
-1. **`metadata.pro_invoked` is not `true`** → skip the reviewer:
+1. **`task.metadata.pro_invoked` is not `true`** → skip the reviewer:
    - Best-effort CI check: `gh pr checks <pr_number>` (wait up to `CI_TIMEOUT_S`).
      Blocked/red → report to the orchestrator so coder fixes it. This is a
      status check, not a review, and does not produce a score or memory writes.
    - Return: `decision: skip_review`, `pr_number`, `pr_url`. The orchestrator
      starts the human gate (`WATCH` marker) without waiting on a reviewer.
-2. **Otherwise** → full review:
+2. **Otherwise** → full review. `task` is a **string** — build the reviewer
+   task as its own JSON string (never an object):
 ```
-subagent({ agent: "reviewer", task: <review task>, skill: "execute-review" })
+subagent({
+  agent: "reviewer",
+  task: `{"type":"review","project":"<project>","branch":"<branch>","pr_number":"<n>","metadata":{"acceptance_criteria":["<...>"],"review_iterations":<n>,"exploration_triggered":<bool>,"pro_invoked":true}}`,
+  skill: "execute-review"
+})
 ```
 
-Pass: `project`, `branch`, `pr_number` (if known), `metadata.acceptance_criteria`,
-`metadata.review_iterations`, `metadata.exploration_triggered`.
+Pass (inside the JSON): `project`, `branch`, `pr_number` (if known), and the
+`metadata` fields `acceptance_criteria`, `review_iterations`,
+`exploration_triggered`.
 
 The reviewer runs the full PR pipeline and returns a structured result. This
 agent does not call `pr-judge` or `resolve-merge-conflict` directly — only the
@@ -58,7 +69,7 @@ reviewer owns the judge rubric.
 
 ### 5. Handle the reviewer's result
 
-**decision: `skip_review`** (simple task, `pro_invoked` not set)
+**decision: `skip_review`** (simple task, `task.metadata.pro_invoked` not set)
 - The PR needs no reviewer. Report `pr_number`/`pr_url` to the orchestrator;
   it emits the `WATCH <url>` marker for the human gate. No merge here.
 
@@ -87,7 +98,7 @@ Best-effort, never blocks the flow. If it fails, the next QA iteration retries.
 
 ## Verification
 
-- Review tasks delegate to `reviewer` only when `metadata.pro_invoked == true`;
+- Review tasks delegate to `reviewer` only when `task.metadata.pro_invoked == true`;
   otherwise they return `decision: skip_review` (no score, no memory writes).
 - `type == "merge"` runs only with a verified `APPROVED` review; merge succeeded;
   branch cleaned up; `memory-gc` attempted.

@@ -65,9 +65,10 @@ Before decomposing, detect the project type, then route to the correct agent:
 ### Pro gate (review eligibility)
 
 The **Pro model is a cold path**: it runs only for complex work, and review
-follows Pro. Set `metadata.pro_invoked` (see `orchestrate-task` step 5.1b) on
-every sub-task and on the QA review task. The `reviewer` subagent runs ONLY when
-`pro_invoked == true`; simple (Flash-only) work skips the reviewer.
+follows Pro. Set `metadata.pro_invoked` (see `orchestrate-task` step 5.1b) in
+the `task` JSON of every sub-task and of the QA review task. The `reviewer`
+subagent runs ONLY when `pro_invoked == true`; simple (Flash-only) work skips
+the reviewer.
 
 ### Frontend Routing
 
@@ -75,7 +76,7 @@ When project type is `frontend`, **assess complexity first** (see `orchestrate-t
 
 - **Design-reuse** (step 5.2): recall `project:design:decision` — if a matching decision exists, skip the architect; pass the recalled decision + spec path to `frontend-implementer`.
 - **Complex** (vague scope, architectural/design decisions, multi-page, cross-cutting):
-  1. Delegate **architecture** to `frontend-architect` subagent (Pro) — exactly once, in a **single call** with the full context bundle: feature description, acceptance criteria, project context, branch, rules_hash, `metadata.memory_context`, anti-patterns, and a file inventory of relevant components/pages/routes/state
+  1. Delegate **architecture** to `frontend-architect` subagent (Pro) — exactly once, in a **single call** with the full context bundle (JSON in `task`): feature description, acceptance criteria, project context, branch, rules_hash, `metadata.memory_context`, anti-patterns, and a file inventory of relevant components/pages/routes/state
      - Architect creates `artifacts/design-spec.md`
   2. After architecture completes, persist the design decision (step 7.1), then delegate **implementation** to `frontend-implementer` subagent (Flash)
      - Pass: architecture spec, feature description, project context, branch, rules_hash
@@ -101,7 +102,7 @@ For refactoring: identify target files, read current code, plan targeted edits (
 ### PR approval gate (every PR targeting main)
 Full instructions in `pr-approval-watch`. Contract:
 
-1. **Complex task** (`metadata.pro_invoked: true`): the reviewer returns
+1. **Complex task** (`metadata.pro_invoked: true` in the task JSON): the reviewer returns
    `decision: merge` together with `pr_number`/`pr_url`. The reviewer never merges.
    **Simple task** (`pro_invoked` false): no reviewer — the worker PR is ready
    directly; QA reported `decision: skip_review` with the URL.
@@ -114,7 +115,12 @@ Full instructions in `pr-approval-watch`. Contract:
 3. `pr_watch` polls GitHub every 30s, zero-token. On new external feedback the
    watch steers back into this session; classify it (approval → delegate merge,
    changes → relay feedback, do not merge).
-4. Announces merge: `subagent({ agent: "qa", task: { type: "merge", project, pr_number, branch }, skill: "execute-qa-task" })`.
+4. Announces merge: `subagent({ agent: "qa", task: '{"type":"merge","project":"<project>","pr_number":<n>,"branch":"<branch>"}', skill: "execute-qa-task" })`.
+
+The `subagent` tool's `task` is a **string** — the context bundle is always a
+JSON string inside `task`, never an object (an object fails validation with
+`task: must be string`). Workers read the JSON fields
+(`task.type`, `task.project`, `task.metadata.*`) from their opening message.
 
 You never merge and never deploy yourself. You only hand off (WATCH) and re-delegate.
 

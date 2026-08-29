@@ -2,23 +2,32 @@
 
 Loaded by `execute-task` after project rules are loaded (see `references/memory.md`).
 
+The task arrives as a **JSON string** — parse it as `task` and read fields
+via `task.type`, `task.description`, `task.metadata.*`, etc. (The
+`subagent` tool only accepts `task` as a string; the orchestrator serializes
+the context bundle into it.)
+
 ## Steps
 
 0. **Check task type**
-   - `metadata.type == "refactoring"` → skip to **Refactoring path** below.
+   - `task.metadata.type == "refactoring"` → skip to **Refactoring path** below.
    - Otherwise → standard flow.
 
 ## Standard flow (feature/bugfix/content/integration)
 
 1. **Validate acceptance criteria**
-   - Read `metadata.acceptance_criteria`. For each: does it trace to `description`? If invented → drop. If not verifiable via lint/test → note "manual review only".
+   - Read the `acceptance_criteria` array from `task` (or
+     `task.metadata.acceptance_criteria`). For each: does it trace to
+     `task.description`? If invented → drop. If not verifiable via lint/test →
+     note "manual review only".
    - Missing entirely → add comment: `"No acceptance_criteria — QA will review against description only"`.
 
-2. **Identify component type** — from `metadata.type`, else infer from `title`/`description`.
+2. **Identify component type** — from `task.type` / `task.metadata.type`,
+   else infer from `title`/`description`.
 
 3. **Recall experience (RAG)** — load `references/rag.md` if not loaded.
-   - If `metadata.memory_context` is present and non-empty (orchestrator pre-batched): use it as context. Skip the recall call. Also read `metadata.anti_patterns` if present and apply as warnings.
-   - If `metadata.memory_context` is absent or empty: call `mcp__dense-mem__recall_memory(query="<concise goal> project:<project>")`. On failure → continue without context.
+   - If `task.metadata.memory_context` is present and non-empty (orchestrator pre-batched): use it as context. Skip the recall call. Also read `task.metadata.anti_patterns` if present and apply as warnings.
+   - If `task.metadata.memory_context` is absent or empty: call `mcp__dense-mem__recall_memory(query="<concise goal> project:<project>")`. On failure → continue without context.
 
 4. **Fetch latest and rebase**
    ```
@@ -59,15 +68,15 @@ Loaded by `execute-task` after project rules are loaded (see `references/memory.
    - Failure: return error details to the orchestrator.
    - Cleanup: `cd /workspace/<project> && git worktree remove --force /workspace/<project>-<task_id> 2>/dev/null || true`
 
-## Refactoring path (`metadata.type == "refactoring"`)
+## Refactoring path (`task.metadata.type == "refactoring"`)
 
 Applies targeted edits to existing code instead of generating new components.
 
-1. **Validate criteria** — same as standard step 1. Also read `metadata.target_files`.
+1. **Validate criteria** — same as standard step 1. Also read `task.metadata.target_files`.
 
 2. **Fetch and rebase** — same as standard step 4.
 
-3. **Read current code** — navigate to worktree, read each file in `metadata.target_files`. Understand current structure.
+3. **Read current code** — navigate to worktree, read each file in `task.metadata.target_files`. Understand current structure.
 
 4. **Apply targeted edits**
    - Use `edit` tool per `change_description`. Preserve external behavior.

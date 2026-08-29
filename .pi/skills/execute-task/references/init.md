@@ -1,6 +1,6 @@
 # Project Initialization (`type == "init"`)
 
-Loaded by `execute-task` for tasks with `metadata.type == "init"`. Project rules are not loaded — the project may not exist yet.
+Loaded by `execute-task` for tasks with `task.metadata.type == "init"`. Project rules are not loaded — the project may not exist yet.
 
 ## Steps
 

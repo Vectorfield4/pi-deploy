@@ -4,12 +4,12 @@ Loaded by `execute-task` for `component` and `review` flows. Provides recall ove
 
 ## Batched recall (orchestrator → workers)
 
-The orchestrator does **one** batched recall per task and passes the result to each sub-task via `metadata.memory_context`. Workers should NOT recall again — they read the context they were given. The `component.md` step 3 enforces this.
+The orchestrator does **one** batched recall per task and passes the result to each sub-task via `task.metadata.memory_context` (inside the task JSON string). Workers should NOT recall again — they read the context they were given. The `component.md` step 3 enforces this.
 
 ```
 // In orchestrate-task step 4.5:
 results = mcp__dense-mem__recall_memory(query="<main goal> project:<project> type:<project_type>", limit=10)
-// Pass to each sub-task in step 7:
+// Pass to each sub-task in step 7, inside the task JSON string:
 metadata.memory_context = summarize(results)
 metadata.anti_patterns = mcp__dense-mem__recall_memory(query="<main goal> project:<project> anti-pattern", limit=3)
 ```

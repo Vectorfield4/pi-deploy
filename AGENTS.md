@@ -44,9 +44,18 @@ delegating:
 Subagents cannot run slash commands or hold the watch — only you can.
 
 > If this contract is not being followed on the running system (the agent
-> replies to Telegram directly instead of delegating), the first thing to check
-> is that `/workspace/.pi/SYSTEM.md` is present in the container — without it
-> the session falls back to a bare model prompt.
+> replies to Telegram directly instead of delegating), check in order:
+> 1. `/workspace/.pi/SYSTEM.md` is present in the container — without it the
+>    session falls back to a bare model prompt.
+> 2. `.pi/settings.json` `subagents.modelScope.allow` uses the full
+>    `provider/model` id (`timeweb/deepseek/...`) — a provider-less pattern
+>    makes every subagent launch fail with a modelScope error.
+> 3. Delegation uses `task` as a **string**, never an object — an object fails
+>    validation with `task: must be string` (pi-subagents@0.58.x).
+> 4. If a session previously hit errors, the model may have "learned" that
+>    delegation fails and answer directly — start a fresh session
+>    (rename the session file under `/root/.pi/agent/sessions/--workspace--/`
+>    and let Pi start a new one).
 
 ## Project types
 
@@ -64,6 +73,27 @@ Frontend skills load only when the project is detected as frontend.
 ## Task flow
 
 Telegram → Orchestrator → workers (frontend-architect, frontend-implementer, coder) → PR (base main) → Reviewer only for complex/Pro tasks (CI/score decision; simple tasks skip) → human approval (`pr_watch`) → QA (merge + release/deploy)
+
+## Subagent task contract (`task` is a JSON string)
+
+pi-subagents (package `pi-subagents@0.58.x`) accepts the `subagent` tool's
+`task` as a **string only** — an object fails validation with
+`task: must be string`. The child receives the string verbatim as its opening
+message (`Task: <text>`); there is no structured channel. All context carriers
+therefore serialize into the string as JSON:
+
+- Router → orchestrator: `task` is the raw user message. Orchestrator does
+  intent detection itself.
+- Orchestrator → workers (coder / frontend-architect / frontend-implementer /
+  qa / reviewer): `task` is a JSON string carrying `type`, `task_id`,
+  `description`, `acceptance_criteria`, `project`, `branch`, `rules_hash`, and
+  a `metadata` object (`memory_context`, `anti_patterns`, `pro_invoked`, plus
+  review/target-file/pr fields). See `orchestrate-task` step 7.
+- Merge → `qa`: `{"type":"merge","project":...,"pr_number":...,"branch":...}`.
+
+Read-side: every delegated agent parses its incoming task string as JSON and
+reads fields via `task.type`, `task.metadata.*`, etc. Do not pass `task` as an
+object anywhere.
 
 ## Memory layer
 

@@ -7,18 +7,21 @@ description: "Runs the full PR review pipeline inside the reviewer agent: load c
 
 The full review pipeline for a single PR. Loaded by the `reviewer` agent when a
 review task arrives — which happens only for tasks where the orchestrator
-invoked the Pro model (`metadata.pro_invoked: true`). Simple Flash tasks skip
-this skill (`execute-qa-task` returns `decision: skip_review` instead). The
+invoked the Pro model (`task.metadata.pro_invoked: true`). Simple Flash tasks
+skip this skill (`execute-qa-task` returns `decision: skip_review` instead). The
 agent's job is to make the merge/bounce/explore decision and write the result.
+
+The task arrives as a **JSON string** — parse it as `task` and read fields via
+`task.project`, `task.branch`, `task.pr_number`, `task.metadata.*`, etc.
 
 ## Input
 
-- `project`: project name (workspace dir under `/workspace/<project>`)
-- `branch`: feature branch name
-- `pr_number`: PR id (resolve from branch if missing)
-- `metadata.acceptance_criteria`: list of strings, may be empty
-- `metadata.review_iterations`: int, starts at 0, incremented on each bounce
-- `metadata.exploration_triggered`: bool, default false
+- `task.project`: project name (workspace dir under `/workspace/<project>`)
+- `task.branch`: feature branch name
+- `task.pr_number`: PR id (resolve from branch if missing)
+- `task.metadata.acceptance_criteria`: list of strings, may be empty
+- `task.metadata.review_iterations`: int, starts at 0, incremented on each bounce
+- `task.metadata.exploration_triggered`: bool, default false
 
 ## Tunables
 
@@ -31,12 +34,12 @@ agent's job is to make the merge/bounce/explore decision and write the result.
 
 ### 1. Load context
 Recall project rules from dense-mem. The query format embeds the project and key:
-`mcp__dense-mem__recall_memory(query="project-rules project:<project> key:<rules_key>")`. If the top result's first line `rules_hash:` (read from the result's `context` — results are `{ evidence_id, context, space_kind }`) doesn't match `metadata.rules_hash` or recall returns nothing, read `/workspace/<project>/AGENTS.md` and `/workspace/<project>/SOUL.md` directly. Graceful degradation: never block on memory.
+`mcp__dense-mem__recall_memory(query="project-rules project:<project> key:<rules_key>")`. If the top result's first line `rules_hash:` (read from the result's `context` — results are `{ evidence_id, context, space_kind }`) doesn't match `task.metadata.rules_hash` or recall returns nothing, read `/workspace/<project>/AGENTS.md` and `/workspace/<project>/SOUL.md` directly. Graceful degradation: never block on memory.
 
 Recall past anti-patterns:
 `mcp__dense-mem__recall_memory(query="<feature summary> project:<project> anti-pattern")`. If recalled, these are known failures — use a different approach.
 
-If `exploration_triggered == true` in metadata, also recall exploration anti-patterns:
+If `exploration_triggered == true` in `task.metadata`, also recall exploration anti-patterns:
 `mcp__dense-mem__recall_memory(query="<feature summary> project:<project> anti-pattern exploration")` and avoid repeating the same approach.
 
 ### 2. Wait for CI
@@ -46,7 +49,7 @@ If `exploration_triggered == true` in metadata, also recall exploration anti-pat
 - If passed → continue
 
 ### 3. Pre-merge validation
-If `metadata.acceptance_criteria` contains any of: `lint`, `test`, `build`, `typecheck`:
+If `task.metadata.acceptance_criteria` contains any of: `lint`, `test`, `build`, `typecheck`:
 - Read validation commands from `/workspace/<project>/AGENTS.md` (look for `## Commands` or similar)
 - Run each in the worktree
 - If any fails → `decision: bounce`, findings = the failing command and its output
@@ -65,7 +68,7 @@ If total diff is over 3000 lines, do not call `gh pr diff` at all. Score from pe
 - `score >= SCORE_PASS` → `decision: merge`
 - `SCORE_NEEDS_FIXES <= score < SCORE_PASS` → `decision: bounce`, no memory write
 - `score < SCORE_NEEDS_FIXES` → `decision: bounce`, store anti-pattern
-- `review_iterations >= 3` and the same kind of issue keeps appearing → `decision: explore` (see step 7)
+- `task.metadata.review_iterations >= 3` and the same kind of issue keeps appearing → `decision: explore` (see step 7)
 
 ### 6. Merge decision (do NOT merge)
 The reviewer does not merge and does not deploy. `decision: merge` means

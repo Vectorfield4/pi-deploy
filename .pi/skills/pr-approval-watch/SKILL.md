@@ -15,7 +15,7 @@ then classify the wake and re-delegate.
 
 - **Every PR targeting `main`** gets the human approval gate via the zero-token
   watch — simple and complex alike. What differs is whether a reviewer ran first:
-  - **Complex tasks** (`metadata.pro_invoked: true`): the reviewer returned
+  - **Complex tasks** (`task.metadata.pro_invoked: true`): the reviewer returned
     `[REVIEW_RESULT] decision: merge` → gate the merge on human approval.
   - **Simple tasks** (`pro_invoked` false): no reviewer — QA returned
     `decision: skip_review`; the worker PR goes straight to this gate.
@@ -53,8 +53,9 @@ plus the feedback bodies. Classify:
 - **Approved** — a review with `APPROVED`, or the reviewer writes `approved` /
   `LGTM` / `merge` / `✔` → delegate the merge:
   ```
-  subagent({ agent: "qa", task: { type: "merge", project, pr_number, branch }, skill: "execute-qa-task" })
+  subagent({ agent: "qa", task: '{"type":"merge","project":"<project>","pr_number":<n>,"branch":"<branch>"}', skill: "execute-qa-task" })
   ```
+  (`task` is a JSON **string**, never an object.)
   QA verifies an `APPROVED` review exists, squashes into `main`, cleans up the
   branch, triggers Vercel staging, and runs `memory-gc`. Do NOT re-watch after
   the merge.

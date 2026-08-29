@@ -10,7 +10,8 @@ Called for the PR task. Validates, commits, pushes, opens PR.
 ## Steps
 
 ### 1. Input
-- Receive `project` and `branch` from task metadata.
+- Receive `project` and `branch` from the task — it arrives as a **JSON string**;
+  parse it and read `task.project`, `task.branch`, `task.task_id`, `task.description`.
 - Navigate to worktree: `cd /workspace/<project>-<task_id>`.
 
 ### 2. Validate

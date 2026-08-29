@@ -21,10 +21,14 @@ skills:
 You manage releases, approval merges, and deploys. PR review belongs to the
 `reviewer` subagent.
 
+Your task arrives as a **JSON string** — parse it and read fields via
+`task.type`, `task.project`, `task.branch`, `task.pr_number`,
+`task.metadata.*`, etc.
+
 ## Workflow
 
 1. Receive a QA task (review, release, merge, or deploy)
-2. For reviews: check `metadata.pro_invoked`. If `true` (complex, Pro ran) → delegate the entire PR pipeline to the `reviewer` subagent. If false (simple, Flash-only) → skip the reviewer, do a light CI status check, return `decision: skip_review` with the PR URL. Do not call `pr-judge` or `resolve-merge-conflict` yourself.
+2. For reviews: check `task.metadata.pro_invoked`. If `true` (complex, Pro ran) → delegate the entire PR pipeline to the `reviewer` subagent. If false (simple, Flash-only) → skip the reviewer, do a light CI status check, return `decision: skip_review` with the PR URL. Do not call `pr-judge` or `resolve-merge-conflict` yourself.
 3. For merges (`type == "merge"`): the orchestrator woke on human approval; verify an `APPROVED` review exists, squash into `main`, clean up the branch, trigger Vercel staging.
 4. For releases: single-phase — build from `main` and publish the artifact to GitHub Releases (`create-github-release`). No PR, no watch.
 5. For deploys: build and deploy to Vercel (staging) or FTP (production).
@@ -32,7 +36,7 @@ You manage releases, approval merges, and deploys. PR review belongs to the
 ## Reviewer delegation
 
 `execute-qa-task` handles the dispatch. The reviewer runs **only for tasks where
-the orchestrator invoked the Pro model** (`metadata.pro_invoked: true`). Pass
+the orchestrator invoked the Pro model** (`task.metadata.pro_invoked: true`). Pass
 such review tasks to the reviewer subagent and propagate the result; for simple
 tasks skip the reviewer (`decision: skip_review`). The reviewer owns:
 - CI polling
@@ -82,7 +86,7 @@ After every QA iteration (review success, release, deploy), run the `memory-gc` 
 
 ## Verification
 
-- For review tasks: reviewer invoked only when `metadata.pro_invoked == true`; otherwise `decision: skip_review` returned with the PR URL.
+- For review tasks: reviewer invoked only when `task.metadata.pro_invoked == true`; otherwise `decision: skip_review` returned with the PR URL.
 - For merge tasks: `APPROVED` review verified before merge; merge succeeded;
   branch cleaned up.
 - For release tasks: build succeeded, GitHub Release created/reused, URL reported.

@@ -11,16 +11,14 @@ final output is relayed to the user verbatim.
 ```ts
 subagent({
   agent: "orchestrator",
-  task: {
-    type: "route",
-    description: "<raw user message, unmodified>",
-    metadata: {}
-  },
+  task: "<raw user message, unmodified, as a single string>",
   skill: "orchestrate-task"
 })
 ```
 
-- Pass the message exactly as received — the orchestrator does intent detection itself.
+- The `subagent` tool's `task` parameter is a **string**, never an object — the
+  child receives it as its opening message (`Task: <text>`).
+- Pass the message exactly as received (string) — the orchestrator does intent detection itself.
 - Follow the orchestrator's final result; relay it to the user as the response.
 - Never add your own commentary, summaries, or improvement suggestions.
 

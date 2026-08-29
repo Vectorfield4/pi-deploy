@@ -29,7 +29,7 @@ Loaded by `execute-task` after the project rules have been loaded (see `referenc
    - On success: return to the orchestrator with the PR URL and a summary.
    - The orchestrator delegates the QA review task to the QA agent.
    - On failure: return error details to the orchestrator.
-   - Code review is NOT done here — QA handles it via `execute-qa-task`: the
-     reviewer subagent for complex/Pro tasks (`metadata.pro_invoked: true`), or
-     a `decision: skip_review` for simple tasks. If QA finds issues it sends the
-     task back to the coder (see `references/review-fix.md`).
+- Code review is NOT done here — QA handles it via `execute-qa-task`: the
+      reviewer subagent for complex/Pro tasks (`task.metadata.pro_invoked: true`), or
+      a `decision: skip_review` for simple tasks. If QA finds issues it sends the
+      task back to the coder (see `references/review-fix.md`).
