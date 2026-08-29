@@ -4,13 +4,23 @@
   "theme": "dark",
   "compaction": {
     "enabled": true,
-    "reserveTokens": 16384,
-    "keepRecentTokens": 35000
+    "reserveTokens": 8192,
+    "keepRecentTokens": 16000
   },
   "retry": {
     "enabled": true,
     "maxRetries": 3,
     "baseDelayMs": 2000
+  },
+  "subagents": {
+    "modelScope": {
+      "enforce": true,
+      "strict": true,
+      "allow": [
+        "deepseek/deepseek-v4-flash",
+        "deepseek/deepseek-v4-pro"
+      ]
+    }
   },
   "packages": [
     "npm:pi-subagents@0.58.0",

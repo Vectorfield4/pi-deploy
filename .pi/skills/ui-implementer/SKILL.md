@@ -9,7 +9,7 @@ Frontend developer. Write clean, working code with React + MUI.
 
 ## Instructions
 
-1. Receive assignment from architect (goal + context).
+1. Receive assignment (goal + context) from the orchestrator — via a spec/decision (complex/design-reuse) or directly (simple task).
 
 2. Write the React component:
    - Modern React (functional components, hooks)

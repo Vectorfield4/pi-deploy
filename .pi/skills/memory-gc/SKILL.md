@@ -13,6 +13,7 @@ Decay mechanism for dense-mem. Every `remember` call writes `valid_until: YYYY-M
 |------------------------|-----|-------|
 | `rules:*`, `rules-index:*`, `project-meta:*` | never | config and metadata |
 | `task:*` | 90 days | task outcomes, decisions, patterns |
+| `design:*` | 90 days | frontend architecture decisions (predicate `project:design:decision`) |
 | `review-verified:*` | 90 days | verified review verdicts |
 | `feedback:*` | 60 days | user feedback |
 | `exploration:*` | 30 days | anti-patterns; decay fast as practices evolve |

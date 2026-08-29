@@ -6,149 +6,70 @@ Deployment + instruction repo for a Pi-based AI development system. No applicati
 
 ```
 .pi/
-├── settings.json        # Pi configuration
-├── mcp.json             # MCP servers (dense-mem)
-├── agents/              # Agent definitions (orchestrator/frontender/coder/qa/reviewer); skills listed per agent in frontmatter
-└── skills/              # Skill packages (24 skills)
-scripts/                 # Bash scripts (init, memory-bootstrap, etc.)
-docker-compose.yml       # Pi + dense-mem stack (4 services)
-Dockerfile.pi            # Pi container
-AGENTS.md                # This file — global instructions
-.env                     # Secrets (gitignored)
+├── settings.json     # Pi config: model default, compaction, subagent model scope
+├── mcp.json          # dense-mem MCP server
+├── models.json       # Provider + model registry (timeweb)
+├── agents/           # Agent definitions; skills listed per agent in frontmatter
+└── skills/           # Skill packages (24 skills)
+scripts/              # Bash scripts (init, setup, cloud-init, backup, setup-cron-jobs, update-on-push)
+docker-compose.yml    # Pi + memory stack (4 services)
+Dockerfile.pi         # Pi container image
+AGENTS.md             # This file — interactive-session instructions
+.env                  # Secrets (gitignored)
 ```
 
 ## How it runs
 
-One Pi process (interactive mode) + 3 memory stack containers:
-
-| Container | Role |
-|---|---|
-| pi | Pi agent (interactive) + subagents (orchestrator/frontender/coder/qa/reviewer) + telegram bridge |
-| memory-db | PostgreSQL + pgvector |
-| embedding | TEI (all-MiniLM-L6-v2) |
-| dense-mem | RAG MCP server |
-
-The Pi container runs in interactive mode with a PTY. Telegram messages come in via `@bytesbrains/pi-telegram-bridge` extension (background listener polls Telegram). Pi's session stays active — no human at the terminal needed.
-
-The orchestrator receives natural language messages, detects intent (task, question, feedback, deploy, etc.), detects the project type, and routes to the appropriate worker: `frontender` for frontend features, `coder` for backend/infra/content. The `reviewer` subagent runs the full PR review pipeline (CI check, scoring, merge/bounce). The `qa` agent handles releases and deploys.
-
-No slash commands — users write naturally: "Add login page", "Why is the API slow?", "Deploy to production".
+One Pi process (interactive, PTY, Telegram via `@bytesbrains/pi-telegram-bridge`) + 3 memory containers (PostgreSQL+pgvector, TEI embeddings, dense-mem RAG). No slash commands — users write naturally. The interactive session routes every message to the `orchestrator` subagent (intent: task/question/feedback/deploy/...), which delegates to workers (`frontend-architect`/`frontend-implementer` for frontend, `coder` otherwise), then to `reviewer` (CI/score/merge/bounce), then `qa` (release/deploy).
 
 ## Project types
 
-The system is project-agnostic. The orchestrator detects the project type from the codebase and routes to appropriate skills:
-
 | Type | Detection | Primary agent | Primary skills |
 |------|-----------|---------------|----------------|
-| **frontend** | package.json + React/Vue/Svelte | frontender | ui-architect, ui-implementer, integration-specialist, threejs-scene-builder |
+| **frontend** | package.json + React/Vue/Svelte | frontend-architect + frontend-implementer | ui-architect, ui-implementer, integration-specialist, threejs-scene-builder |
 | **backend** | package.json + Express/Fastify/Nest or go.mod, requirements.txt | coder | technical-planner, execute-task |
-| **fullstack** | Monorepo or both frontend + backend markers | frontender + coder | Combination of above |
+| **fullstack** | Monorepo or both frontend + backend markers | frontend-architect + frontend-implementer + coder | combination |
 | **CLI/lib** | package.json with bin/main, or Makefile + src/ | coder | execute-task, create-pr |
 | **infra** | docker-compose.yml, Dockerfile, .github/workflows | coder | setup-ci, execute-task |
 | **content** | Markdown-heavy, no code | coder | content-strategist, narrative-designer |
 
-Frontend-specific skills (ui-architect, ui-implementer, threejs-scene-builder, integration-specialist) are only loaded when the project is detected as frontend.
-
-## Memory layer
-
-**dense-mem** is a self-hosted MCP memory server (PostgreSQL + pgvector). Stack runs `ghcr.io/markhuangai/dense-mem:latest`, which serves contract `dense-mem.v2.6` (open-vocabulary predicate policy). It stores **durable, append-only evidence anchored by relationships** with lifecycle hooks (`supersedes_evidence_ids` on the evidence item, `retract_evidence`, `correct_relationship`). Reach it through MCP via `pi-mcp-adapter`. The full tool catalog (`remember`, `recall_memory`, `get_submission_status`, `retract_evidence`, `correct_relationship`, `trace_memory`) is in the dense-mem repo.
-
-**v2.6 `remember` shape — mandatory:** `{ evidence: [...], relationships: [...], idempotency_key }`. Every evidence item (required `content`) must be cited by a `relationships[].evidence_indices` entry; submissions without `relationships` are rejected. `recall_memory(query=...)` is evidence-first and support-path gated: only evidence backed by an **active relationship** returns. Every write below therefore ships exactly one supporting relationship; without it the record is neither accepted nor recallable. Recall results are `{ evidence_id, context, space_kind }` — skills read `context`, never `content`.
-
-Our usage patterns on top of the dense-mem API:
-
-- **Rule cache** (orchestrator writes, workers read): section content from `AGENTS.md` written as evidence with `idempotency_key: rules:<project>:<key>:<hash>`, `source_type: "manual"`, predicate `project:rules:<key>`, subject = project entity. Supersession advances to a new hash via `supersedes_evidence_ids` **inside the evidence item** (top-level supersession is rejected in v2.6). See `.pi/skills/orchestrate-task/SKILL.md` step 3.5 and `.pi/skills/execute-task/references/memory.md` for the read side.
-- **Task outcomes** (coder/frontender writes): concise summary, `source_type: "observation"`, predicate `project:task:outcome`, idempotency keyed on `task_id`. See `.pi/skills/execute-task/references/component.md` step 7.
-- **Review verdicts** (reviewer writes): `source_type: "observation"`, predicate `project:review:verified`, includes `confidence` inside the content. See `.pi/skills/execute-review/SKILL.md` step 8.
-- **Exploration anti-patterns** (reviewer writes, on 3+ failed iterations): `source_type: "observation"`, predicate `project:exploration:anti-pattern`, polarity `-`. Typed content that signals the orchestrator to re-decompose. TTL 30 days, decays fast as practices evolve.
-- **Batched recall**: orchestrator does one recall per task and passes results via `metadata.memory_context` to each sub-task. Workers read this context instead of recalling again. Saves N-1 embedding calls per N-component task.
-- **Docs cache**: library documentation flows through the `docs-lookup` skill, which caches Context7 results in dense-mem for 7 days (`source_type: "document"`, predicate `library:docs:cache`). Cap content at 2000 chars per call.
-- **Memory GC**: every `remember` writes `valid_until: YYYY-MM-DD` in the content. The `memory-gc` skill (run by QA after each iteration) walks recall results, parses `valid_until` from each result's `context`, and calls `retract_evidence` on expired records. TTL policy: rules/project-meta = never, task/verified = 90d, feedback = 60d, exploration = 30d.
-
-**Important: dense-mem does not have top-level `tags`, `filter`, or `claims` parameters.** Tags are encoded in the content (structured prefix like `tags: project:<project>,ui-conventions`). Filter-style selection is done in the query string (`query="project:<project> anti-pattern"`). `confidence` lives inside the evidence item, not at the top level. `source_type` is an enum (`conversation`, `document`, `observation`, `manual`) — the old `task_outcome`/`review_outcome`/`tool_output` values no longer exist. Do not invent API fields; skill bodies were migrated to match this exact shape.
-
-**Ownership**: dense-mem enforces that each profile can only `retract_evidence` or `correct_relationship` on records it owns. Coder owns its task evidence. Orchestrator owns rule cache. Reviewer owns review evidence. Crossing ownership boundaries is rejected by the server.
-
-**Session memory** (separate from dense-mem) is provided by the `pi-memory` extension, used by the orchestrator as a private scratchpad. It does not talk to dense-mem.
-
-## Documentation
-
-Context7 (`@upstash/context7-pi`) — up-to-date library docs. Agents use `resolve-library-id` → `query-docs` tools when working with external libraries. No training data assumptions.
+Frontend skills load only when the project is detected as frontend.
 
 ## Task flow
 
-Telegram → Orchestrator → Subagents (frontender/coder) → PR → Reviewer (CI/score/merge) → QA (release/deploy)
+Telegram → Orchestrator → workers (frontend-architect, frontend-implementer, coder) → PR → Reviewer (CI/score/merge) → QA (release/deploy)
 
-## Commands
+## Memory layer
 
-```bash
-make init              # Create .env + directories
-make setup             # Full stack bootstrap (init + services + packages)
-make up                # Start all services
-make down              # Stop all services
-make logs              # Tail logs
-make restart           # Restart Pi agent
-make backup            # Backup databases
-make install-packages  # Install Pi packages inside container
-make update-skills     # Restart Pi to pick up skill changes
-make update            # git pull + rebuild/restart Pi (pull latest repo changes)
-```
+**dense-mem** — self-hosted RAG memory (PostgreSQL + pgvector + TEI), contract `dense-mem.v2.6`, reached via MCP through `pi-mcp-adapter`. Stores durable append-only **evidence anchored by relationships**: `relationships` and `idempotency_key` required, `supersedes_evidence_ids` goes inside the evidence item, lifecycle via `retract_evidence`/`correct_relationship`. `source_type` enum: conversation/document/observation/manual. Recall is support-path gated and returns `{ evidence_id, context, space_kind }` — read `context`, never `content`.
+
+Usage patterns:
+- **Rule cache** (orchestrator writes, workers read): AGENTS.md sections as evidence, `idempotency_key: rules:<project>:<key>:<hash>`, `source_type: manual`, predicate `project:rules:<key>`.
+- **Task outcomes** (workers): `source_type: observation`, predicate `project:task:outcome`, keyed on `task_id`.
+- **Design decisions** (orchestrator, after frontend architecture): `source_type: observation`, predicate `project:design:decision`, idempotency `design:<project>:<feature>:<hash>`, TTL 90d. The complex frontend gate recalls it first — if a matching decision exists, the architect is skipped.
+- **Review verdicts** (reviewer): `source_type: observation`, predicate `project:review:verified`, `confidence` in content.
+- **Exploration anti-patterns** (reviewer): `source_type: observation`, predicate `project:exploration:anti-pattern`, polarity `-`, TTL 30d.
+- **Docs cache** (docs-lookup): `source_type: document`, predicate `library:docs:cache`, 7-day TTL, ≤2000 chars.
+- **Memory GC** (QA): parses `valid_until` from `context`, `retract_evidence` on expiry (rules/meta never, task/verified/design 90d, feedback 60d, exploration 30d).
+
+No top-level `tags`/`filter`/`claims` — tags live in content, selection in the query. Ownership: retract/correct only on own records (coder↔task, orchestrator↔rules, reviewer↔reviews). Session memory (orchestrator scratchpad) is separate — `pi-memory`, not dense-mem.
 
 ## Skills catalog
 
-### Universal (all project types)
-- intent-router — classifies natural language → task/question/feedback/deploy/etc.
-- orchestrate-task — decomposes tasks into parallel sub-tasks
-- release-approval-watch — orchestrator-side zero-token HITL: runs `/pr watch` for release PRs, re-delegates merge/release to QA on approval
-- prioritize-tasks — composite scoring for task ordering
-- execute-task — main task dispatcher (init/pr/review)
-- create-pr — commit, push, open PR
-- setup-ci — GitHub Actions CI pipeline
-- project-init — initialize new project (clone, deps, lint, base structure)
-- technical-planner — break work into subtasks
-- content-strategist — content plan with anti-AI-pattern checks
-- narrative-designer — story/narrative design
-- project-discover — scan workspace for projects
-- simple-task-executor — quick tasks (forms, tables, components, scripts)
-- docs-lookup — Context7 library docs with 7-day dense-mem cache. Use instead of calling `resolve-library-id` / `query-docs` directly.
+### Universal
+- intent-router, orchestrate-task, prioritize-tasks, execute-task, create-pr, setup-ci, project-init, technical-planner, content-strategist, narrative-designer, project-discover, simple-task-executor
+- docs-lookup — Context7 with 7-day dense-mem cache; use instead of `resolve-library-id`/`query-docs` directly
+- release-approval-watch — zero-token HITL: `/pr watch` for release PRs on the main session
 
-### Frontend-specific (loaded only for frontend projects)
-- ui-architect — Atomic Design page architecture
-- ui-implementer — React+MUI component implementation
-- integration-specialist — assemble components into app
-- threejs-scene-builder — 3D scenes with Three.js/R3F
+### Frontend (loaded only for frontend projects)
+- ui-architect, ui-implementer, integration-specialist, threejs-scene-builder
 
-### QA (all project types)
-- execute-qa-task — main QA dispatcher (review/release/deploy). Delegates review tasks to the `reviewer` subagent. Calls `memory-gc` after each successful iteration.
-- release-to-main — two-phase: open dev→main PR (return URL), then merge + build + GitHub Release after approval
-- deploy-vercel — build and deploy to Vercel staging
-- deploy-ftp — download release zip, upload to production
-- memory-gc — retires dense-mem evidence whose `valid_until` has passed
+### QA
+- execute-qa-task — dispatcher; delegates review to `reviewer`, runs `memory-gc` after each iteration
+- release-to-main — dev→main PR, then merge + build + GitHub Release after approval
+- deploy-vercel, deploy-ftp — staging (auto on merge to dev) / production (manual HITL)
+- memory-gc — retire evidence with expired `valid_until`
 
-### Reviewer (all project types)
-- execute-review — full PR review pipeline (CI wait, validate, score, merge/bounce, memory)
-- review-and-merge — CI check, merge to dev
-- pr-judge — score PRs 1-10 on quality rubric
-- resolve-merge-conflict — merge conflict resolution
-- cleanup-branch — delete worktrees and branches
-
-## Frontend stack (when project is frontend)
-
-React 19, Vite 7, TypeScript 5, MUI 7, Zustand 5, TanStack Query 5, React Router 7, GSAP 3, Three.js/R3F 9, Vitest 3, MSW 2, Biome 2, Storybook 9
-
-## Deploy
-
-- **Staging**: Vercel (auto-deploy on merge to dev)
-- **Production**: FTP (manual via "deploy to production")
-
-## Packages
-
-| Package | Purpose |
-|---------|---------|
-| pi-subagents | Multi-agent orchestration (orchestrator/frontender/coder/qa/reviewer) |
-| pi-mcp-adapter | MCP client for dense-mem RAG server |
-| @bytesbrains/pi-telegram-bridge | Telegram ↔ Pi interactive session bridge |
-| ping-a-human-pi | Human-in-the-loop approval (HITL) for Telegram-only blocks (FTP deploys, destructive ops) |
-| pi-memory | Session memory persistence |
-| @upstash/context7-pi | Library docs lookup (Context7) |
-| @vectorfield/pi-prs | GitHub PR watch. Zero-token release HITL: main-session `/pr watch <url>` polls and wakes Pi on approval, without blocking Telegram |
+### Reviewer
+- execute-review — CI wait, validate, score, merge/bounce, memory
+- review-and-merge, pr-judge, resolve-merge-conflict, cleanup-branch
