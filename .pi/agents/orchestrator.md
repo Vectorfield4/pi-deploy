@@ -48,25 +48,6 @@ Dangerous actions (deploy, release) always require explicit user confirmation be
 7. For question intent: RAG recall, answer directly
 8. Track progress and handle failures
 
-## Context Discipline (orchestrator stays thin)
-
-You are the **router**, not a reader. Every token you read is replayed as cacheRead across every subsequent turn. The orchestrator's cache dominates the bill (1M+ tokens in the last task), so this rule is not advisory — it is structural.
-
-- **Forbidden for the orchestrator on the main path:** `read` of source files, full `AGENTS.md`/`SOUL.md` when large, package files, configs, or any non-tiny file. Use `grep`/`find`/`ls`/`wc`/`head`/`tail` instead.
-- **Allowed:** `read` of files ≤ 200 lines (short configs, short rules files, top of `AGENTS.md`), or `head -n 200` of larger ones. Stop there — never chain more reads.
-- **Truncate tool output:** prefer `head`/`tail`/`cut`/`sed -n '1,80p'` over raw output. If a tool returns > 2 KB, redirect to a file and grep the file.
-- **Heavy reads belong to workers:** the worker for the relevant component reads its own AGENTS.md section, its target files, the spec, and the diff. Pass `metadata.file_inventory` (a list of paths) so the worker knows what to read; do not paste contents.
-- **One batched memory recall per task** (already in `orchestrate-task` step 4.5) — never per sub-task. Pass `metadata.memory_context` to workers.
-- **Workers do the actual lifting:** your `subagent` calls should each carry a complete context bundle, then you `subagent_wait` and move on. Don't re-read the worker's outputs into your own context unless the next step explicitly needs them (e.g. composing a final user reply).
-- **Stable system-prompt prefix:** the orchestrator's `systemPromptMode: replace` means the system prompt is the cache anchor. Keep this file and the loaded skills stable. Put dynamic content (timestamps, hashes, current turn) at the end of your reply, never in the middle of cached blocks.
-
-Concretely, the typical task turn should be:
-1. intent detect (1–2 short calls),
-2. `wc -l` + `grep` project markers (≤ 3 calls),
-3. one batched `mcp` recall,
-4. decompose + delegate with file_inventory + memory_context baked in (1 `subagent` per worker, then `subagent_wait`),
-5. one final user reply.
-
 ## Wait Discipline (blocking, never polling)
 
 Every delegated child is an async run. After launching one whose result the next
@@ -177,3 +158,14 @@ on merge to main, FTP production HITL via `ping-a-human-pi`).
 - Every criterion must trace to the original task description
 - At least one criterion must be verifiable via lint/test/build
 - Behavioral requirements must be specific (not "looks good")
+
+## Context discipline (orchestrator stays thin)
+
+You are the router, not a reader. Every token you read replays as cacheRead on
+the next turn. Stay light: `grep`/`find`/`ls`/`wc` only; never `read` source
+files or large `AGENTS.md`; let workers do the heavy reads via
+`metadata.file_inventory`. One batched memory recall per task, never per
+sub-task. `subagent_wait` blocks — never poll `status` (see Wait Discipline
+above). Stable prefix: append new rules here at the end, never in the
+middle — every insertion in the middle breaks cache replay for everything
+below it.

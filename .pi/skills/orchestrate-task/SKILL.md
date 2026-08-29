@@ -41,60 +41,14 @@ turn). Stay light; let workers do the heavy reads.
 - Workers will read the full `AGENTS.md`/section they need; the orchestrator passes only `metadata.rules_hash` and `metadata.file_inventory` (see step 4.7).
 
 ### 3.5. Store Rules in dense-mem Memory (orchestrator-only)
-Project rules are cached in dense-mem as durable evidence keyed by the project rules hash. The disk files remain the deterministic fallback.
 
-**Rule keys by project type:**
-- frontend: `ui-conventions`, `testing-patterns`
-- backend: `api-standards`, `testing-patterns`
-- fullstack: `ui-conventions`, `api-standards`, `testing-patterns`
-- CLI/lib: `cli-conventions`, `testing-patterns`
-- infra: `infra-conventions`, `build-deploy`
-- content: `content-voice`
-- (always) the `rules-index` record
-
-**For each `rules_key` you read from disk:**
-1. Recall the existing record: `mcp__dense_mem__recall_memory(query="project-rules project:<project> key:<rules_key>")`.
-2. If found → parse `rules_hash:` from the first line of the result's `context` (results are `{ evidence_id, context, space_kind }`). If it matches the current `rules_hash` → skip, the cache is fresh.
-3. If not found OR hash mismatch → write a new record (the `relationship` is required by the v2.6 contract and makes the record recallable):
-   ```
-   mcp__dense_mem__remember({
-     evidence: [{
-       content: "rules_hash: <hash>\nkey: <rules_key>\nproject: <project>\ntags: project-rules,<rules_key>,<project>\n\n<actual section content from disk>",
-       source_type: "manual",
-       supersedes_evidence_ids: ["<old-uuid-if-superseding>"]
-     }],
-     relationships: [{
-       ref: "rules:<project>:<rules_key>:<hash>",
-       subject: { name: "<project>", entity_kind: "project" },
-       predicate: { proposed_key: "project:rules:<rules_key>" },
-       object: { entity: { name: "<rules_key>", entity_kind: "concept" } },
-       polarity: "+",
-       evidence_indices: [0]
-     }],
-     idempotency_key: "rules:<project>:<rules_key>:<hash>"
-   })
-   ```
-4. After all rule records → write the index record once:
-   ```
-   mcp__dense_mem__remember({
-     evidence: [{
-       content: "rules_index: <hash>\nproject: <project>\ntags: project-rules,index,<project>\nkeys: <comma-separated-list>",
-       source_type: "manual"
-     }],
-     relationships: [{
-       ref: "rules-index:<project>:<hash>",
-       subject: { name: "<project>", entity_kind: "project" },
-       predicate: { proposed_key: "project:rules:index" },
-       object: { entity: { name: "rules-index", entity_kind: "concept" } },
-       polarity: "+",
-       evidence_indices: [0]
-     }],
-     idempotency_key: "rules-index:<project>:<hash>"
-   })
-   ```
-5. On any MCP failure → log and continue. Never block orchestration on the cache write; disk is the source of truth.
-
-This step makes the read-side `execute-task/references/memory.md` load procedure actually find records. Without it, every worker task falls back to disk.
+Full procedure (rule keys, recall/remember shapes, index record, graceful
+degradation) lives in `references/rules-caching.md`. Read it when you reach
+this step. Summary: per project type, recall the existing `project-rules`
+records (keyed by `rules_hash`); write a new record on hash mismatch with
+the v2.6 `remember` contract (evidence + relationships + idempotency_key);
+write the `rules-index` record once; on MCP failure, log and continue —
+disk is the source of truth.
 
 ### 4. Recall Past Experience
 - Use `mcp__dense_mem__recall_memory` to find similar past plans, decisions, or patterns.
@@ -103,60 +57,19 @@ This step makes the read-side `execute-task/references/memory.md` load procedure
 - Graceful degradation: if MCP fails, continue without it.
 
 ### 4.5. Batched memory context for sub-tasks
-After decomposition but before delegation, do **one** batched recall that covers the whole task. Each sub-task will get the result via `metadata.memory_context` instead of doing its own recall.
 
-```
-combined_query = "<main goal> project:<project> type:<project_type>"
-memory_results = mcp__dense_mem__recall_memory(query=combined_query, limit=10)
-```
-
-Also recall anti-patterns:
-```
-anti_patterns = mcp__dense_mem__recall_memory(query="<main goal> project:<project> anti-pattern", limit=5)
-```
-
-Then for each sub-task in step 7, include in the delegated task JSON (the
-`metadata` object inside the `task` string):
-- `metadata.memory_context`: top-5 memory results as a single string, summarized from each result's `context` field (recall results are `{ evidence_id, context, space_kind }`; newest first, note the relevance)
-- `metadata.anti_patterns`: top-3 anti-patterns (use as warnings, do not act on directly)
-
-Graceful degradation: if recall returns nothing, pass `metadata.memory_context: ""` and let the sub-task proceed. The sub-task's `component.md` step 3 will skip recall when `metadata.memory_context` is present (even if empty).
-
-This saves N-1 embedding calls per N-sub-task task. For a 3-component backend feature, we drop from 3 recalls to 1.
+One batched recall for the whole task; pass the result to each sub-task via
+`metadata.memory_context`. Drops N-1 embedding calls per N-sub-task task.
+Full procedure (queries, fields, graceful degradation) lives in
+`references/memory-batching.md`. Read it when you reach this step.
 
 ### 4.7. Build a file inventory (orchestrator does NOT read)
 
-Heavy file reads belong to workers. The orchestrator builds an inventory (a
-list of paths) per sub-task and ships it inside the task JSON's `metadata`
-object. The worker reads what it needs from the inventory; the orchestrator
-never does.
-
-For each planned sub-task, produce a `file_inventory` array. Keep it short
-(≤ 30 paths) and **scoped to the sub-task**, not the whole project:
-
-```
-file_inventory = [
-  "AGENTS.md",                      # rules — worker reads its own section
-  "artifacts/design-spec.md",       # if architect already produced one
-  "src/api/handlers/<thing>.ts",    # the file(s) the sub-task will touch
-  "src/api/handlers/<thing>.test.ts",
-  "src/api/services/<svc>.ts",      # adjacent service(s) the sub-task reads
-  "package.json",                   # only if a script or dep is relevant
-]
-```
-
-How to build the inventory (orchestrator does, no reads):
-- `ls /workspace/<project>/src` (or relevant top dir) for the layout.
-- `find /workspace/<project>/src -maxdepth 3 -name "*.ts" -path "*<feature>*"`
-  for feature-scoped files.
-- `git diff --name-only origin/main...HEAD` for the in-flight change.
-- `grep -rln "<symbol>" /workspace/<project>/src` for callers/imports.
-- Trust the worker to do `cat`/`read`/`grep` on what you list; you do not paste contents.
-
-The inventory goes into `metadata.file_inventory` on each delegation. The
-worker is told (in the task JSON): "Read what you need from
-`metadata.file_inventory`. Do not read files outside that list unless
-required."
+Heavy file reads belong to workers. Build a `file_inventory` array per
+sub-task (≤ 30 paths, scoped to the sub-task) and ship it as
+`metadata.file_inventory`. The worker reads what it needs; the orchestrator
+never does. Full procedure (template, build commands, what to include) lives
+in `references/file-inventory.md`. Read it when you reach this step.
 
 ### 5. Decompose the Task
 
@@ -308,28 +221,10 @@ Per-worker mapping:
 
 ### 7.1. Persist Design Decisions (orchestrator, after architecture completes)
 
-After `frontend-architect` produces `artifacts/design-spec.md`, record the decision once so the complex gate (step 5.2) reuses it instead of re-running the architect:
-
-```
-mcp__dense_mem__remember({
-  evidence: [{
-    content: "project: <project>\ndesign: <feature-title>\ntags: design-decision,project:<project>,<relevant-concepts>\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<decision summary: architecture chosen, alternatives rejected, spec path — under 300 chars>",
-    source_type: "observation",
-    supersedes_evidence_ids: ["<old-design-record-for-this-feature-area-if-any>"]
-  }],
-  relationships: [{
-    ref: "design:<project>:<feature>:<hash>",
-    subject: { name: "<project>", entity_kind: "project" },
-    predicate: { proposed_key: "project:design:decision" },
-    object: { entity: { name: "<feature>", entity_kind: "concept" } },
-    polarity: "+",
-    evidence_indices: [0]
-  }],
-  idempotency_key: "design:<project>:<feature>:<hash>"
-})
-```
-
-If step 5.2 recalled an older design record for the same feature area, list it in `supersedes_evidence_ids`. On any MCP failure → log and continue; the spec on disk is the source of truth.
+Record the decision once so the complex gate (step 5.2) reuses it instead of
+re-running the architect. Full `remember` shape (v2.6 contract, TTL 90d,
+`supersedes_evidence_ids` for older records, graceful degradation) lives in
+`references/persist-design.md`. Read it when you reach this step.
 
 ### 8. Finalize Task (push to main)
 - After all components complete, delegate the finalize task to a `qa` subagent:
