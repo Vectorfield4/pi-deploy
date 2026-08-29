@@ -40,6 +40,11 @@ Subagents cannot run slash commands or hold tools only the main session loads �
 a push/merge/release never happens on this session either. The orchestrator
 delegates pushes to `qa`; the reviewer only decides, it never pushes.
 
+The `orchestrator` subagent has **no `edit`/`write` tools** — it is physically
+incapable of writing code and can only delegate. Never re-add those tools to
+its frontmatter; that is the anti-failure guarantee: an orchestrator that
+"learns" to implement answers directly exactly like a broken router.
+
 > If this contract is not being followed on the running system (the agent
 > replies to Telegram directly instead of delegating), check in order:
 > 1. `/workspace/.pi/SYSTEM.md` is present in the container — without it the
