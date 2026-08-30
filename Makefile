@@ -19,6 +19,7 @@ update:
 	@git pull --ff-only
 	@docker compose build pi
 	@docker compose up -d --force-recreate pi
+	@bash scripts/install-packages.sh
 	@bash scripts/setup-cron-jobs.sh
 
 restart:

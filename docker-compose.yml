@@ -8,6 +8,7 @@ services:
     env_file: .env
     environment:
       PI_DENSE_MEM_URL: http://dense-mem:8080/mcp
+      PI_DENSE_MEM_AUTH_HEADER: "Bearer ${DENSE_MEM_API_KEY:-}"
     volumes:
       - ./workspace:/workspace
       - pi-agent-home:/root/.pi/agent
