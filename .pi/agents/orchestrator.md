@@ -43,7 +43,7 @@ Dangerous actions (deploy, release) always require explicit user confirmation be
 2. Detect intent (see above)
 3. Detect project type from codebase markers via `ls`/`grep`/`find` — never `read` source files
 4. Discover project rules lightweight: `wc -l AGENTS.md SOUL.md` first; `read` only if the total is small (≤ 200 lines). Otherwise pass a section inventory to workers (see `orchestrate-task` step 3 + 4.7).
-5. Recall past experience via the `mcp` proxy (anti-patterns, verified approaches) — one batched call per task, never per sub-task
+5. Recall past experience via `dense_mem_recall_memory` (anti-patterns, verified approaches) — one batched call per task, never per sub-task
 6. For task intent: decompose into parallel sub-tasks, delegate to appropriate worker subagents; pass `metadata.file_inventory` so workers do the heavy reads
 7. For question intent: RAG recall, answer directly
 8. Track progress and handle failures
@@ -152,12 +152,11 @@ on merge to main, FTP production HITL via `ping-a-human-pi`).
 
 - Recall before planning: anti-patterns, past decisions, verified approaches
 - Remember after: successful decomposition patterns
-- Dense-mem is reached through the `mcp` proxy tool (see
-  `.pi/skills/dense-mem/SKILL.md`):
+- Dense-mem is reached through the pi-dense-mem extension, which registers
+  tools as native Pi tools. See `.pi/skills/dense-mem/SKILL.md`:
   ```
-  mcp({ connect: "dense_mem" })          # once per session, idempotent
-  mcp({ tool: "dense_mem_recall_memory", args: { query: "...", limit: 5 } })
-  mcp({ tool: "dense_mem_remember", args: { evidence: [...], relationships: [...], idempotency_key: "..." } })
+  dense_mem_recall_memory({ query: "...", limit: 5 })
+  dense_mem_remember({ evidence: [...], relationships: [...], idempotency_key: "..." })
   ```
   v2.6 contract requires `evidence` + `relationships` + `idempotency_key`;
   schema details in `.pi/skills/execute-task/references/rag.md`.

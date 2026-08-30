@@ -1,33 +1,20 @@
 ---
 name: dense-mem
-description: dense-mem MCP call syntax. Dense-mem is reached through the `mcp` proxy tool; the right call shape is `mcp({ tool: "<server>_<tool>", args: {...} })`.
+description: Native Pi tool syntax for dense-mem (pi-dense-mem extension). Tools are registered as `dense_mem_*` at session start; call them directly. No MCP proxy, no `mcp({ tool: ... })` wrapping.
 ---
 
-# Dense-mem call syntax (pi-subagents@0.58.0)
+# Dense-mem call syntax (pi-dense-mem@0.1.0)
 
-Workers and the orchestrator reach dense-mem through the `mcp` proxy tool,
-not through direct `mcp__dense_mem__*` namespace tools (the direct tools
-are not registered for these agents — the `mcp` meta-tool is). The
-`syntax` in skill prose that says `mcp__dense_mem__recall_memory(query=...)`
-does not work as written; it produced 4 failed `mcp({...})` attempts per
-`remember` in the last task. Use the shape below instead.
-
-## Connect (idempotent — once per session)
-
-```
-mcp({ connect: "dense_mem" })
-```
-
-If the server is already connected, this is a no-op. Do it once at the
-start of the task; subsequent calls reuse the live connection.
+Workers and the orchestrator call dense-mem tools **directly by name**. The
+pi-dense-mem extension registers them as native Pi tools at session start;
+there is no `mcp` proxy, no `connect` step, and no `mcp({ tool: ... })`
+wrapper. The previous `mcp__dense_mem__*` namespace tools and the
+`mcp({ tool: "<server>_<tool>", args: {...} })` shape are gone.
 
 ## Recall
 
 ```
-mcp({
-  tool: "dense_mem_recall_memory",
-  args: { query: "<query>", limit: 10 }
-})
+dense_mem_recall_memory({ query: "<query>", limit: 10 })
 ```
 
 - `query` is required; embed project/feature tags directly in the string
@@ -40,9 +27,7 @@ mcp({
 ## Remember (v2.6 contract — `evidence` + `relationships` + `idempotency_key`)
 
 ```
-mcp({
-  tool: "dense_mem_remember",
-  args: {
+dense_mem_remember({
     evidence: [{
       authority: "authoritative" | "primary" | "secondary" | "inferred" | "unknown",
       content: "<verbatim evidence text, ≤ 2000 chars>"
@@ -56,8 +41,7 @@ mcp({
       evidence_indices: [0]
     }],
     idempotency_key: "<key, e.g. 'task:my-app:frontend:42'>"
-  }
-})
+  })
 ```
 
 - `relationships` is **required** by the v2.6 schema — a submission
@@ -71,7 +55,7 @@ mcp({
   `dense_mem_get_submission_status` once if you need confirmation, but
   do not block the task on it.
 
-## Other tools (same `mcp({ tool: ... })` shape)
+## Other tools (same direct call shape)
 
 - `dense_mem_trace_memory({ evidence_id })` — find provenance of a
   recalled record.
@@ -87,6 +71,6 @@ mcp({
 
 ## Graceful degradation
 
-If `mcp({ tool: "dense_mem_*" })` returns an error or the server is
+If any `dense_mem_*` tool call returns an error or the server is
 "not connected", continue without memory. Disk `AGENTS.md` / `SOUL.md`
 remain the source of truth. Never block the task on a memory call.

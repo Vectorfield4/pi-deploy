@@ -7,7 +7,7 @@ Deployment + instruction repo for a Pi-based AI development system. No applicati
 ```
 .pi/
 ├── settings.json     # Pi config: model default, compaction, subagent model scope
-├── mcp.json          # dense-mem MCP server
+├── mcp.json          # MCP servers (empty by default; dense-mem served by pi-dense-mem)
 ├── models.json       # Provider + model registry (timeweb)
 ├── agents/           # Agent definitions; skills listed per agent in frontmatter
 └── skills/           # Skill packages (24 skills)
@@ -117,7 +117,7 @@ object anywhere.
 
 ## Memory layer
 
-**dense-mem** — self-hosted RAG memory (PostgreSQL + pgvector + TEI), contract `dense-mem.v2.6`, reached via MCP through `pi-mcp-adapter`. Stores durable append-only **evidence anchored by relationships**: `relationships` and `idempotency_key` required, `supersedes_evidence_ids` goes inside the evidence item, lifecycle via `retract_evidence`/`correct_relationship`. `source_type` enum: conversation/document/observation/manual. Recall is support-path gated and returns `{ evidence_id, context, space_kind }` — read `context`, never `content`.
+**dense-mem** — self-hosted RAG memory (PostgreSQL + pgvector + TEI), contract `dense-mem.v2.6`, reached via the `pi-dense-mem` extension. Stores durable append-only **evidence anchored by relationships**: `relationships` and `idempotency_key` required, `supersedes_evidence_ids` goes inside the evidence item, lifecycle via `retract_evidence`/`correct_relationship`. `source_type` enum: conversation/document/observation/manual. Recall is support-path gated and returns `{ evidence_id, context, space_kind }` — read `context`, never `content`.
 
 Usage patterns:
 - **Rule cache** (orchestrator writes, workers read): AGENTS.md sections as evidence, `idempotency_key: rules:<project>:<key>:<hash>`, `source_type: manual`, predicate `project:rules:<key>`.

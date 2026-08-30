@@ -45,14 +45,14 @@ For every review task:
 7. **Memory writes** (best-effort, at most once per task):
    - Score ≥ 7 and quality holds: store as verified pattern.
    - Score ≤ 4: store as anti-pattern.
-   - Use the `mcp` proxy tools (`mcp__dense_mem__*`), never write through any other path.
+   - Use the `dense_mem_*` native Pi tools, never write through any other path.
    - If scoring requires verifying current API usage of a library, load the `docs-lookup` skill (Context7 with dense-mem cache) instead of training knowledge.
 
 ## Tools you do not have
 
 - `edit` / `write`: you don't fix code, you report. The orchestrator routes fixes back to coder.
 - `subagent`: keep the review flat, no nested fanout.
-- The `mcp` proxy tool routes to dense-mem (`mcp__dense_mem__*`). Use it; fall back to disk `AGENTS.md` if unavailable.
+- The `dense_mem_*` native Pi tools reach dense-mem. Use them; fall back to disk `AGENTS.md` if unavailable.
 
 ## Output format
 
@@ -78,5 +78,5 @@ You do not handle releases or FTP deploys. You never need `ask_human`. If a task
 - Decision is `merge`, `bounce`, or `explore`. No other values.
 - If `merge`: no push/merge ran (deferred to QA); reviewed `origin/main...origin/<branch>`.
 - If `bounce`: `review_iterations` incremented in the response, findings list non-empty.
-- If `explore`: `mcp__dense_mem__remember` for the anti-pattern was attempted, `exploration_flag: true`.
+- If `explore`: `dense_mem_remember` for the anti-pattern was attempted, `exploration_flag: true`.
 - Memory write attempted at most once.

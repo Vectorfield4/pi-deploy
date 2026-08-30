@@ -51,8 +51,8 @@ write the `rules-index` record once; on MCP failure, log and continue —
 disk is the source of truth.
 
 ### 4. Recall Past Experience
-- Use `mcp__dense_mem__recall_memory` to find similar past plans, decisions, or patterns.
-- Recall anti-patterns: `mcp({ tool: "dense_mem_recall_memory", args: { query="<goal> project:<project> anti-pattern" } })`.
+- Use `dense_mem_recall_memory` to find similar past plans, decisions, or patterns.
+- Recall anti-patterns: `dense_mem_recall_memory({ query:"<goal> project:<project> anti-pattern" })`.
 - Include as advisory hints — project rules always take precedence.
 - Graceful degradation: if MCP fails, continue without it.
 
@@ -128,7 +128,7 @@ only when it is `true`.
 
 All frontend routing checks memory before the architect — memory is cheaper than asking the architect. On a `complex` task:
 
-1. One recall: `mcp({ tool: "dense_mem_recall_memory", args: { query="<goal> project:<project> design decision" } })`.
+1. One recall: `dense_mem_recall_memory({ query:"<goal> project:<project> design decision" })`.
 2. If a matching recent `design:*` record exists (predicate `project:design:decision`) → **skip the architect**. Route as "design-reuse": delegate to `frontend-implementer` with the recorded decision and spec path parsed from the record's `context`.
 3. Otherwise → call `frontend-architect` (step 7). When unsure whether a recalled decision matches the task scope, prefer calling the architect — reuse only genuinely same-scope decisions.
 

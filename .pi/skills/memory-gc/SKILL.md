@@ -24,7 +24,7 @@ Callers write the `valid_until` line as part of `evidence.content`. This skill n
 
 1. **Recall candidate evidence.**
    ```
-   mcp({ tool: "dense_mem_recall_memory", args: { query="memory evidence with valid_until date" } })
+   dense_mem_recall_memory({ query:"memory evidence with valid_until date" })
    ```
    The query is broad so it returns a mix of recent and old records. We do not aim for completeness on a single pass; the skill runs on every QA iteration, so over time most expired evidence is found.
 
@@ -36,11 +36,11 @@ Callers write the `valid_until` line as part of `evidence.content`. This skill n
 3. **Retract in batch.**
    For each expired evidence item, take `evidence_id` directly from the recall result, then:
    ```
-   mcp({ tool: "dense_mem_retract_evidence", args: {
+   dense_mem_retract_evidence({
      evidence_ids: ["<evidence_id>"],
      reason: "TTL expired (<original valid_until>)",
      idempotency_key: "memory-gc:retract:<evidence_id>:<YYYY-MM-DD>"
-   } })
+   })
    ```
    If `recall_memory` cannot supply the id (degraded result), fall back to `trace_memory` to look it up.
 

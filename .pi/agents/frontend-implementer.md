@@ -86,9 +86,9 @@ Use `docs-lookup` skill for up-to-date library docs. Never rely on training data
 
 ## Memory
 
-- Recall before implementing: `mcp({ tool: "dense_mem_recall_memory", args: { query="<goal>" } })`.
-- Recall anti-patterns: `mcp({ tool: "dense_mem_recall_memory", args: { query="<goal> project:<project> anti-pattern" } })`.
-- Remember after success: `mcp({ tool: "dense_mem_remember", args: { evidence: [{ content: "project: <project>\ntype: frontend\ntags: project:<project>,frontend\nconfidence: medium\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<short summary, under 200 chars>", source_type: "observation" }], relationships: [{ ref: "task:<project>:frontend:<task_id>", subject: { name: "<project>", entity_kind: "project" }, predicate: { proposed_key: "project:task:outcome" }, object: { entity: { name: "task:<task_id>", entity_kind: "concept" } }, polarity: "+", evidence_indices: [0] }], idempotency_key: "task:<project>:frontend:<task_id>" } })`. The `relationships` block is required by the v2.6 `remember` contract; without it the write is rejected.
+- Recall before implementing: `dense_mem_recall_memory({ query:"<goal>" })`.
+- Recall anti-patterns: `dense_mem_recall_memory({ query:"<goal> project:<project> anti-pattern" })`.
+- Remember after success: `dense_mem_remember({ evidence: [{ content: "project: <project>\ntype: frontend\ntags: project:<project>,frontend\nconfidence: medium\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<short summary, under 200 chars>", source_type: "observation" }], relationships: [{ ref: "task:<project>:frontend:<task_id>", subject: { name: "<project>", entity_kind: "project" }, predicate: { proposed_key: "project:task:outcome" }, object: { entity: { name: "task:<task_id>", entity_kind: "concept" } }, polarity: "+", evidence_indices: [0] }], idempotency_key: "task:<project>:frontend:<task_id>" })`. The `relationships` block is required by the v2.6 `remember` contract; without it the write is rejected.
 - Graceful degradation: if MCP fails, continue without context.
 
 ## Quality Targets

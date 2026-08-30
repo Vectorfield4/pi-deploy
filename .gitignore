@@ -4,3 +4,4 @@ backups/
 pi-data/
 *.log
 node_modules/
+/trace-logs

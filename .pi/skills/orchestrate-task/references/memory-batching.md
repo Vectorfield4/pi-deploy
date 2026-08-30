@@ -6,13 +6,13 @@ the whole task. Each sub-task will get the result via
 
 ```
 combined_query = "<main goal> project:<project> type:<project_type>"
-memory_results = mcp({ tool: "dense_mem_recall_memory", args: { query=combined_query, limit=10 } })
+memory_results = dense_mem_recall_memory({ query:combined_query, limit:10 })
 ```
 
 Also recall anti-patterns:
 
 ```
-anti_patterns = mcp({ tool: "dense_mem_recall_memory", args: { query="<main goal> project:<project> anti-pattern", limit=5 } })
+anti_patterns = dense_mem_recall_memory({ query:"<main goal> project:<project> anti-pattern", limit:5 })
 ```
 
 Then for each sub-task in step 7, include in the delegated task JSON (the
