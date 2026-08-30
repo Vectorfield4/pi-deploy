@@ -6,6 +6,8 @@ services:
     container_name: pi-agent
     restart: unless-stopped
     env_file: .env
+    environment:
+      PI_DENSE_MEM_URL: http://dense-mem:8080/mcp
     volumes:
       - ./workspace:/workspace
       - pi-agent-home:/root/.pi/agent

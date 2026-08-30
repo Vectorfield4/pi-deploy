@@ -40,7 +40,7 @@ skill degrades to "push the tag, CI builds and publishes".
 ### 5. Complete
 - Report the release URL.
 - Best-effort: store the verified release pattern in dense-mem
-  (`mcp__dense_mem__remember`, `project:release:verified`, TTL 90d).
+  (`dense_mem_remember`, `project:release:verified`, TTL 90d).
 - `execute-qa-task` runs `memory-gc` after you return.
 
 ## Verification

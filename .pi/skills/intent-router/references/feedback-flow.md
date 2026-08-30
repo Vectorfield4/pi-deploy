@@ -35,7 +35,7 @@ Triggered when intent = `feedback`. Processes user feedback about existing work.
 
    For memory writes (best-effort):
    ```
-   mcp({ tool: "dense_mem_remember", args: {
+   dense_mem_remember({
      evidence: [{
        content: "project: <project>\ntype: <feedback-type>\ntags: project:<project>,user-feedback,<intent-tag>\nconfidence: medium\nvalid_until: <YYYY-MM-DD, today + 60 days>\n\n<feedback summary, under 200 chars>",
        source_type: "observation"
@@ -49,7 +49,7 @@ Triggered when intent = `feedback`. Processes user feedback about existing work.
        evidence_indices: [0]
      }],
      idempotency_key: "feedback:<project>:<intent-tag>:<short-hash>"
-   } })
+   })
    ```
 
 4. **Reply**

@@ -75,7 +75,7 @@ You work with whatever stack the project uses. Before implementing:
 
 - Recall before implementing: past approaches, anti-patterns
 - Remember after: verified patterns, solutions
-- Dense-mem MCP tools via the `mcp` proxy: `mcp__dense_mem__recall_memory`, `mcp__dense_mem__remember`
+- Dense-mem via native Pi tools: `dense_mem_recall_memory`, `dense_mem_remember`
 
 ## Documentation Lookup
 
