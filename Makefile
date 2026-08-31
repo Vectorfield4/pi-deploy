@@ -22,7 +22,7 @@ update:
 	@docker compose up -d --force-recreate pi
 	@bash scripts/install-packages.sh
 	@bash scripts/setup-cron-jobs.sh
-	@docker compose up -d jaeger
+	@docker compose up -d jaeger # tolerant: extension drops until Jaeger up
 
 restart:
 	@docker compose up -d --force-recreate pi

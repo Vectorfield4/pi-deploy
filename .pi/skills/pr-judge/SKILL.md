@@ -14,7 +14,7 @@ Run from `/workspace/<project>` after `git fetch origin main <branch>`.
 
 | Dimension | Weight | What to check |
 |-----------|--------|---------------|
-| Code quality | 25% | Readability, naming, DRY, separation of concerns |
+| Code quality | 25% | Readability, naming, DRY, separation of concerns. Comments: short, inline where practical, only "why" (no restating, no banners/attribution) |
 | Tests | 25% | Coverage of new logic, edge cases, meaningful assertions |
 | Security | 25% | No hardcoded secrets, input validation, auth checks |
 | Docs | 25% | AGENTS.md adherence, JSDoc where needed |

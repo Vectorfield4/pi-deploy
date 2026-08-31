@@ -125,6 +125,7 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # Tolerant: extension drops batches until Jaeger is up, so no depends_on gate.
   jaeger:
     image: jaegertracing/all-in-one:1.62.0
     container_name: pi-jaeger

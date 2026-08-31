@@ -30,6 +30,7 @@ do not merge into `main` yourself.
 - Failure → report error with details to the orchestrator
 - Success → return summary to the orchestrator
 - Workspace: `/workspace/<project>-<task_id>` (worktree)
+- Comments: short, inline (same line where practical), only "why" (non-obvious intent/ordering/tolerance); never restate the code, no banners/section headers/attribution
 
 ## Quality Targets
 

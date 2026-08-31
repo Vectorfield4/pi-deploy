@@ -30,3 +30,4 @@ Frontend developer. Write clean, working code with React + MUI.
 - Styling follows MUI conventions
 - Component is responsive
 - Validation works (for forms)
+- Comments: short, inline (same line where practical), only "why" (non-obvious intent/ordering/tolerance); never restate the code, no banners/section headers/attribution

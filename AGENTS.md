@@ -148,3 +148,13 @@ No top-level `tags`/`filter`/`claims` — tags live in content, selection in the
 ### Reviewer
 - execute-review — validate, score the branch diff against `main`, decide (merge decision is a push-approval only — QA executes the push, never here)
 - pr-judge, resolve-merge-conflict, cleanup-branch
+
+## Code comments
+
+In this repo (configs, Makefile, compose, scripts):
+- Short — one line or less, never multi-line prose.
+- Inline — on the same line as the code where practical.
+- Only "why" — non-obvious intent/ordering/tolerance; never restate the code.
+- No banners, section headers, or attribution.
+
+When editing, trim any comment that breaks these rules.
