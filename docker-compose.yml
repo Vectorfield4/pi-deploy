@@ -9,6 +9,9 @@ services:
     environment:
       PI_DENSE_MEM_URL: http://dense-mem:8080/mcp
       PI_DENSE_MEM_AUTH_HEADER: "Bearer ${DENSE_MEM_API_KEY:-}"
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4318}
+      OTEL_SERVICE_NAME: pi-agent
+      PI_OTEL_ENABLED: ${PI_OTEL_ENABLED:-true}
     volumes:
       - ./workspace:/workspace
       - pi-agent-home:/root/.pi/agent
@@ -120,6 +123,24 @@ services:
       driver: json-file
       options:
         max-size: "10m"
+        max-file: "3"
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.62.0
+    container_name: pi-jaeger
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+      COLLECTOR_ZIPKIN_HOST_PORT: ""
+      METRICS_STORAGE_TYPE: ""
+      COLLECTOR_OTLP_HTTP_CORS_ALLOWED_ORIGINS: "*"
+    ports:
+      - "127.0.0.1:16686:16686"   # Jaeger UI
+      - "127.0.0.1:4318:4318"     # OTLP/HTTP traces from pi-agent
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
         max-file: "3"
 
 volumes:

@@ -1,4 +1,5 @@
-.PHONY: init up down logs setup restart backup install-packages update-skills update
+.PHONY: init up down logs setup restart backup install-packages update-skills update \
+	jaeger-up jaeger-down jaeger-logs jaeger-restart
 
 init:
 	@bash scripts/init.sh
@@ -33,3 +34,15 @@ logs:
 
 backup:
 	@bash scripts/backup.sh
+
+jaeger-up:
+	@docker compose up -d jaeger
+
+jaeger-down:
+	@docker compose stop jaeger
+
+jaeger-restart:
+	@docker compose restart jaeger
+
+jaeger-logs:
+	@docker compose logs -f jaeger
