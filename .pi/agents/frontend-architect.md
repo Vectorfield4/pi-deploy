@@ -1,7 +1,7 @@
 ---
 name: frontend-architect
 description: "Designs frontend architecture for a feature: Atomic Design structure, routes, state, data fetching. Outputs a spec for the implementer."
-model: deepseek/deepseek-v4-pro
+model: deepseek/deepseek-v4-flash
 thinking: medium
 systemPromptMode: replace
 inheritProjectContext: false

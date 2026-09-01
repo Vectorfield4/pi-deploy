@@ -16,7 +16,7 @@ description: "Breaks down complex development tasks into parallel sub-tasks for 
 ### 2. Detect Project Type
 Before decomposing, identify the project type:
 - **frontend**: package.json with React/Vue/Svelte/Angular → complexity gate (step 5.1): complex → `frontend-architect` + `frontend-implementer`, simple → `frontend-implementer` only
-- **backend**: package.json + Express/Fastify/Nest, or go.mod, requirements.txt, Cargo.toml → complexity gate (step 5.1a): complex → `coder` on Pro, simple → `coder`
+- **backend**: package.json + Express/Fastify/Nest, or go.mod, requirements.txt, Cargo.toml → complexity gate (step 5.1a): set `metadata.complex` on complex work; `coder`
 - **fullstack**: Monorepo or both frontend + backend markers → frontend: complexity gate (step 5.1) architect (complex) / implementer; backend: complexity gate (step 5.1a) → `coder`
 - **CLI/lib**: package.json with bin/main, or Makefile + src/ → complexity gate (step 5.1a) → `coder`
 - **infra**: docker-compose.yml, Dockerfile, .github/workflows → complexity gate (step 5.1a) → `coder`
@@ -40,15 +40,9 @@ turn). Stay light; let workers do the heavy reads.
 - Ensure `artifacts/` directory exists in the project root: `mkdir -p /workspace/<project>/artifacts`. This is where cross-skill design specs, content plans, and implementation plans are stored.
 - Workers will read the full `AGENTS.md`/section they need; the orchestrator passes only `metadata.rules_hash` and `metadata.file_inventory` (see step 4.7).
 
-### 3.5. Store Rules in dense-mem Memory (orchestrator-only)
+### 3.5. Load Rules from Disk (orchestrator-only)
 
-Full procedure (rule keys, recall/remember shapes, index record, graceful
-degradation) lives in `references/rules-caching.md`. Read it when you reach
-this step. Summary: per project type, recall the existing `project-rules`
-records (keyed by `rules_hash`); write a new record on hash mismatch with
-the v2.6 `remember` contract (evidence + relationships + idempotency_key);
-write the `rules-index` record once; on MCP failure, log and continue —
-disk is the source of truth.
+Rules live on disk (`AGENTS.md`/`SOUL.md`) and are read by whoever needs them — no dense-mem rules cache. The orchestrator passes `metadata.rules_hash` (from `git rev-parse HEAD`) and `metadata.file_inventory` so workers read the sections they need directly. Workers must not write rules anywhere; the orchestrator owns rule discovery. No memory call here — `rules_hash` already signals freshness.
 
 ### 4. Recall Past Experience
 - Use `dense_mem_recall_memory` to find similar past plans, decisions, or patterns.
@@ -79,7 +73,7 @@ in `references/file-inventory.md`. Read it when you reach this step.
 3. **Complex (no reuse)** → Architecture phase (Pro): delegate to `frontend-architect` — exactly one call with the full context bundle (step 7)
    - Input: full context bundle (steps 4.5, 7)
    - Output: `artifacts/design-spec.md` (Atomic Design structure, routes, state, data)
-4. **Implementation phase** (Flash): delegate to `frontend-implementer`
+4. **Implementation phase**: delegate to `frontend-implementer`
    - Input: architecture spec (complex), recalled decision + spec path (design-reuse), or feature description only (simple); acceptance criteria, project context
    - Output: working code, build passing, tests passing
 - Complex tasks: do NOT split into per-component sub-tasks — the architect creates a single spec, the implementer builds it all.
@@ -88,41 +82,42 @@ in `references/file-inventory.md`. Read it when you reach this step.
 
 ### 5.1. Assess Frontend Complexity
 
-Classify the frontend task as `simple` or `complex` before routing. The architect is a **cold path** — it must never run for well-scoped work.
+Classify the frontend task as `simple` or `complex` before routing. The architect is a **cold path** for well-scoped work: adding a 5th solution/service to an existing `data/*.ts` type that renders through the same page is **simple** and goes straight to the implementer.
 
 **Simple** (skip architect, delegate straight to `frontend-implementer`):
-- Single component/page with clear, well-scoped requirements
-- Existing patterns already cover the change (same route/layout, no new shared state)
-- No design decisions — the current architecture is sufficient
+- Single well-scoped change that reuses existing pages/layout/routes/state
+- Adding a new entry to an existing data-driven type already rendered by a page (a 5th service/solution)
+- Copying an existing component pattern onto a new instance, no new architecture
 
-**Complex** (route through `frontend-architect` first):
+**Complex** (route through `frontend-architect` first) — at least one of:
+- **Shared architecture touched**: `MainLayout`, the theme/tokens (`theme.ts`), the route registry in `App.tsx`, or shared providers — anything a new page depends on
+- **New page type**: a route that renders through a page, template, or organism that does not exist yet (e.g. list→detail→showcase progression)
+- **Cross-cutting state**: a new or non-trivial Zustand slice with real logic that multiple components share
+- **i18n dictionary parity risk**: the change adds user-facing strings under new keys that must exist in **all** of the project's locale dictionaries — treat as complex when the key structure grows or page-level dictionaries change
 - Vague requirements or open product/design tradeoffs
-- Architectural decisions: new routes/layouts, state management changes, cross-cutting concerns
-- Multi-page features or multiple screens sharing state
-- Design-system/Angular-structure decisions (Atomic Design) at scale
+- Design-system decisions (Atomic Design) at scale
 
 ### 5.1a. Assess Complexity for Non-Frontend
 
-The same cold-path rule applies to backend/infra/CLI/content: the Pro model is
-invoked only for genuinely complex work, and review follows Pro.
+The same gate applies to backend/infra/CLI/content: when requirements are
+vague or a wrong choice is expensive, route as complex (set `metadata.complex: true`);
+for backend the `coder` handles planning in its own run, with no separate architect agent.
 
-**Simple** (delegate `coder` on Flash, default model):
+**Simple** (delegate `coder`):
 - Well-scoped, 1-3 files, existing patterns cover the change
 - No schema/API contract changes, no cross-cutting concerns, no new services
 
-**Complex** (delegate `coder` with `model: "deepseek/deepseek-v4-pro"`):
+**Complex** (delegate `coder`, `metadata.complex: true`):
 - Vague requirements or open architecture tradeoffs
 - Schema/migration changes, new public APIs or contracts
 - Multi-module or cross-cutting changes (auth flow, shared state across services)
 - Anything where a wrong architectural choice is expensive to undo
 
-### 5.1b. Pro gate (`metadata.pro_invoked`)
+### 5.1b. Carry complexity to the review
 
-`metadata.pro_invoked` is `true` for a task iff **any delegation in its path
-used the Pro model**: `frontend-architect` invoked (complex frontend) OR a
-`coder` complex-path override. Design-reuse and simple tasks are `false`. This
-flag drives the review gate (`execute-qa-task`): the reviewer subagent runs
-only when it is `true`.
+The `metadata.complex` boolean in the task JSON tells the reviewer a change went
+through the architect path or was classified complex. The reviewer reads it as a
+high-risk signal to take extra care, and a repeat failure may escalate to `explore`.
 
 ### 5.2. Reuse Past Design Decisions (before any cost)
 
@@ -175,26 +170,26 @@ Never run more than one recall here. If it returns nothing, proceed to the archi
 ```
 subagent({
   agent: "<agent>",
-  task: `{"type":"...","task_id":"...","description":"...","acceptance_criteria":["..."],"project":"...","branch":"...","rules_hash":"...","metadata":{"memory_context":"...","anti_patterns":["..."],"pro_invoked":<bool>,"file_inventory":["<path1>","<path2>"]}}`,
+  task: `{"type":"...","task_id":"...","description":"...","acceptance_criteria":["..."],"project":"...","branch":"...","rules_hash":"...","metadata":{"memory_context":"...","anti_patterns":["..."],"complex":<bool>,"file_inventory":["<path1>","<path2>"]}}`,
   skill: "<skill>"
 })
 ```
 
 Payload fields: top-level `type`/`task_id`/`description`/`acceptance_criteria`/
 `project`/`branch`/`rules_hash`; `metadata` carries `memory_context` (from
-step 4.5), `anti_patterns`, `pro_invoked` (step 5.1b), `file_inventory` (from
+step 4.5), `anti_patterns`, `complex` (step 5.1b), `file_inventory` (from
 step 4.7), and task-specific fields. Pass `""` / `[]` / `false` for empty
 values — never omit the structure. Workers read fields as `task.metadata.*`.
 
 | Work | `agent` | `skill` |
 |------|---------|---------|
 | backend/infra/content/CLI component | `coder` | `execute-task` |
-| complex component (any non-frontend) | `coder` + `model: "deepseek/deepseek-v4-pro"` | `execute-task` |
+| complex component (any non-frontend) | `coder` (`metadata.complex: true`) | `execute-task` |
 | frontend architecture (complex only) | `frontend-architect` | `ui-architect` |
 | frontend implementation | `frontend-architect` or `frontend-implementer` | `ui-architect` / `ui-implementer` |
 | finalize: review gate + push to main | `qa` | `execute-qa-task` |
 | release / deploy | `qa` | `execute-qa-task` |
-| branch review (via QA, complex only) | `reviewer` | `execute-review` |
+| branch review (every coding task) | `reviewer` | `execute-review` |
 
 - Frontend complex (architect + implementer): delegate `frontend-architect`
   **once** with full context; it creates `artifacts/design-spec.md`. After
@@ -204,8 +199,8 @@ values — never omit the structure. Workers read fields as `task.metadata.*`.
 - Frontend simple / design-reuse: delegate to `frontend-implementer`
   directly (no architect).
 - Backend/infra/content: split into per-component sub-tasks; each `coder`
-  in its own worktree. Complex → `model: "deepseek/deepseek-v4-pro"`,
-  `metadata.pro_invoked: true`. Simple → Flash, `pro_invoked: false`.
+  in its own worktree. Complex → `metadata.complex: true`. Simple →
+  `complex: false`.
 
 ### 7.1. Persist Design Decisions (orchestrator, after architecture completes)
 
@@ -217,11 +212,12 @@ in `references/persist-design.md`. Read it when you reach this step.
 ### 8. Finalize Task (push to main)
 
 ```
-subagent({ agent: "qa", task: '{"type":"push","project":"<project>","branch":"<branch>","metadata":{"pro_invoked":<bool>}}', skill: "execute-qa-task" })
+subagent({ agent: "qa", task: '{"type":"push","project":"<project>","branch":"<branch>","rules_hash":"<rules_hash>","metadata":{"complex":<bool>,"file_inventory":["<path1>","<path2>"]}}', skill: "execute-qa-task" })
 ```
 
-QA runs the reviewer subagent only when `pro_invoked == true`; simple tasks
-skip the reviewer and push straight to `main`. No PR, no human gate.
+QA runs the reviewer on **every** coding task (the quality loop), then pushes
+the branch into `main` on `decision: merge` (or bounces findings back to the
+orchestrator on `decision: bounce`). No PR, no human gate.
 
 ### 8.5. Wait Discipline (notification-based; don't poll)
 
@@ -233,10 +229,20 @@ duplicated acceptance reports. `subagent_wait` is the exception path for
 `pi -p` non-interactive runs where there is no next turn to receive the
 notification.
 
-- Launch all sibling workers in a single turn (fan-out budget 64); end
+**One LLM pass authors all sibling launches.** Compose every independent
+worker's `task` in a single generation — multiple `subagent` tool calls in
+one turn, or a `workflowScript` using `runs.all([{ key, agent, task }, ...])`
+where the tasks are literal values. Pi fans the children out; it never asks
+the model to re-decide a child's task. Do not launch siblings across separate
+turns, which forces a fresh model call per worker.
+
+- Launch all sibling workers in a single pass (fan-out budget 64); end
   the turn. Each completion arrives as its own notification turn, in
   finish order. Track outstanding workers by which notifications you
   have already received.
+- Prefer `runs.all` for independent siblings: one `subagent` call returns
+  when all complete, no per-child call. Reserve per-child `subagent` calls
+  for dependent work (a step that must start after an earlier child finishes).
 - `subagent({ action: "status", id, view: "transcript", lines: 30 })` —
   one-shot diagnostic only (events.jsonl under
   `/tmp/pi-subagents-uid-0/async-subagent-runs/<id>/` for crashes).
@@ -254,6 +260,6 @@ notification.
 - Finalize task (push to main) created and delegated
 - No task remains in intermediate state
 - `frontend-architect` invoked at most once per task (complex path only, never for simple or design-reuse)
-- `metadata.pro_invoked` set to `true` iff Pro was actually invoked (architect invoked, or `coder` complex override)
-- Reviewer was NOT invoked for tasks with `pro_invoked: false`
+- `metadata.complex` set to `true` iff the task is architectural/cross-cutting (architect invoked, or complex change)
+- Reviewer invoked for every coding task via `qa` (quality loop); `bounce` findings are routed back to the worker
 - Wait discipline (step 8.5): workers' results are received via the result-watcher `<subagent_notification>` injection, not via `subagent_wait` or `status` polling loops. `subagent status` only as a one-shot diagnostic, never as a wait primitive.

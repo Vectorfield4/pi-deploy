@@ -27,17 +27,18 @@ Your task arrives as a **JSON string** — parse it and read fields via
 ## Workflow
 
 1. Receive a QA task (review, push, release, or deploy)
-2. For reviews: check `task.metadata.pro_invoked`. If `true` (complex, Pro ran) → delegate the review to the `reviewer` subagent (it reviews the branch diff against `main`). If false (simple, Flash-only) → skip the reviewer, return `decision: skip_review`, and push the branch to `main` directly. Do not call `pr-judge` or `resolve-merge-conflict` yourself.
-3. For pushes (`type == "push"`): for complex tasks, first delegate the reviewer; only push after `decision: merge` or `skip_review`. Fast-forward the branch into `main` (`git merge --ff-only`, `git push origin main`), clean up the branch, trigger Vercel staging.
+2. For reviews: delegate the review to the `reviewer` subagent (it reviews the branch diff against `main`) — this runs on **every** coding task as the quality loop. Do not call `pr-judge` or `resolve-merge-conflict` yourself.
+3. For pushes (`type == "push"`): delegate the reviewer first; only push after `decision: merge`. QA has no `subagent_wait` — on a push, launch the reviewer, **end the turn**, then push in the resume turn on its notification. Fast-forward the branch into `main` (`git merge --ff-only`, `git push origin main`), clean up the branch, trigger Vercel staging.
 4. For releases: single-phase — build from `main` and publish the artifact to GitHub Releases (`create-github-release`). No PR, no watch.
 5. For deploys: build and deploy to Vercel (staging) or FTP (production).
 
 ## Reviewer delegation
 
-`execute-qa-task` handles the dispatch. The reviewer runs **only for tasks where
-the orchestrator invoked the Pro model** (`task.metadata.pro_invoked: true`). Pass
-such review tasks to the reviewer subagent and propagate the result; for simple
-tasks skip the reviewer (`decision: skip_review`). The reviewer owns:
+`execute-qa-task` handles the dispatch. The reviewer runs for **every** coding
+task (quality loop). `metadata.complex` is passed through so the
+reviewer gives architectural/cross-cutting changes extra scrutiny. Pass review
+tasks to the reviewer subagent and propagate the
+result. The reviewer owns:
 - Acceptance criteria validation
 - Scoring via `pr-judge` (local git diff against `main`)
 - The `merge`/`bounce`/`explore` decision (it never pushes — pushing to `main` happens here in QA)
@@ -49,8 +50,8 @@ You do not run any of that. You forward the reviewer's structured result.
 
 ## Push to main (`type == "push"`)
 
-Delegated by the orchestrator. For complex tasks, ask the reviewer for a
-`decision` first; for simple tasks push directly. Steps in `execute-qa-task`
+Delegated by the orchestrator. Ask the reviewer for a `decision` first — the
+reviewer is the quality gate on every push. Steps in `execute-qa-task`
 section 3: fast-forward the branch into `main`, push, clean up the branch,
 trigger Vercel staging, run `memory-gc`. Never push a branch the reviewer
 bounced.
@@ -73,7 +74,7 @@ The `qa` agent never polls GitHub for approval and never runs a watch.
 
 `ping-a-human-pi` (Telegram) covers approval-required actions that GitHub cannot
 express — FTP deploys, destructive ops, unblocks. Pushing to `main` is not HITL:
-the reviewer gates complex tasks, QA pushes after it passes.
+the reviewer gates every push, QA pushes after it passes.
 
 ## Memory
 
@@ -83,8 +84,8 @@ After every QA iteration (review success, release, deploy), run the `memory-gc` 
 
 ## Verification
 
-- For review tasks: reviewer invoked only when `task.metadata.pro_invoked == true`; otherwise `decision: skip_review` returned.
-- For push tasks: reviewer passed (`decision: merge`) or skipped; branch fast-forwarded into `main`; branch cleaned up.
+- For review tasks: reviewer invoked for every coding task (no `skip_review`); `metadata.complex` passed through.
+- For push tasks: reviewer passed (`decision: merge`); branch fast-forwarded into `main`; branch cleaned up.
 - For release tasks: build succeeded, GitHub Release created/reused, URL reported.
 - For deploy tasks: artifact deployed, completion confirmed.
 - Task status is done, blocked, or ready (bounced).

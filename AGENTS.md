@@ -20,7 +20,23 @@ AGENTS.md             # This file — interactive-session instructions
 
 ## How it runs
 
-One Pi process (interactive, PTY, Telegram via `@bytesbrains/pi-telegram-bridge`) + 3 memory containers (PostgreSQL+pgvector, TEI embeddings, dense-mem RAG). No slash commands — users write naturally. The interactive session routes every message to the `orchestrator` subagent (intent: task/question/feedback/deploy/...), which delegates to workers (`frontend-architect`/`frontend-implementer` for frontend, `coder` otherwise). The Pro model is a cold path, invoked only for complex tasks (`metadata.pro_invoked`), and the `reviewer` (score decision) runs **only** for those tasks. Work lands on a feature branch and is pushed to `main` directly — no PR, no human approval gate. Released/deployed by `qa`.
+One Pi process (interactive, PTY, Telegram via `@bytesbrains/pi-telegram-bridge`) + 3 memory containers (PostgreSQL+pgvector, TEI embeddings, dense-mem RAG). No slash commands — users write naturally. The interactive session routes every message to the `orchestrator` subagent (intent: task/question/feedback/deploy/...), which delegates to workers (`frontend-architect`/`frontend-implementer` for frontend, `coder` otherwise). Execution models are flash; tasks that need the architecture gate set `metadata.complex: true`. The `reviewer` (score decision) runs on **every** coding task as the quality loop — it returns deficient work via `bounce` before anything is pushed. Work lands on a feature branch and is pushed to `main` directly — no PR, no human approval gate. Released/deployed by `qa`.
+
+Single responsibility: each agent owns its one job and never narrates another's.
+Skills/agents describe only the actor's own workflow — never "X is done by Y" or
+"when Z happens, Y does Q". Delegate, don't instruct.
+
+No prose: skills/agents state rules as terse, imperative bullets — no narrative
+filler, no context-less meta-commentary ("as noted", "for clarity"), no repeated
+A-not-B phrasing. Say it once, plainly. Model/config specifics live in headers
+(frontmatter `model:`) and config files, not body text.
+
+"Why" discipline: drop procedural why — anything restating the mechanism
+("so the embedding match is precise", "to repeat the earlier step"). Keep
+decision why only — terse rationale at a constraint or decision point
+("for isolation", "kept write-less so it cannot answer directly",
+"so the complex gate reuses it instead of re-running the architect"). If the
+"why" does not gate a choice, omit it.
 
 ## How the main session works (router)
 
@@ -92,7 +108,7 @@ Frontend skills load only when the project is detected as frontend.
 
 ## Task flow
 
-Telegram → Orchestrator → workers (frontend-architect, frontend-implementer, coder) on a feature branch → Reviewer only for complex/Pro tasks (score decision; simple tasks skip) → QA (push branch into main + release/deploy)
+Telegram → Orchestrator → workers (frontend-architect, frontend-implementer, coder) on a feature branch → Reviewer on every coding task (score decision / quality loop; `bounce` returns deficient work) → QA (push branch into main + release/deploy)
 
 ## Subagent task contract (`task` is a JSON string)
 
@@ -107,9 +123,9 @@ therefore serialize into the string as JSON:
 - Orchestrator → workers (coder / frontend-architect / frontend-implementer /
   qa / reviewer): `task` is a JSON string carrying `type`, `task_id`,
   `description`, `acceptance_criteria`, `project`, `branch`, `rules_hash`, and
-  a `metadata` object (`memory_context`, `anti_patterns`, `pro_invoked`, plus
+  a `metadata` object (`memory_context`, `anti_patterns`, `complex`, plus
   review/target-file fields). See `orchestrate-task` step 7.
-- Finalize/branch-push → `qa`: `{"type":"push","project":...,"branch":...,"metadata":{"pro_invoked":...}}`.
+- Finalize/branch-push → `qa`: `{"type":"push","project":...,"branch":...,"metadata":{"complex":...}}`.
 
 Read-side: every delegated agent parses its incoming task string as JSON and
 reads fields via `task.type`, `task.metadata.*`, etc. Do not pass `task` as an
@@ -120,27 +136,26 @@ object anywhere.
 **dense-mem** — self-hosted RAG memory (PostgreSQL + pgvector + TEI), contract `dense-mem.v2.6`, reached via the `pi-dense-mem` extension. Stores durable append-only **evidence anchored by relationships**: `relationships` and `idempotency_key` required, `supersedes_evidence_ids` goes inside the evidence item, lifecycle via `retract_evidence`/`correct_relationship`. `source_type` enum: conversation/document/observation/manual. Recall is support-path gated and returns `{ evidence_id, context, space_kind }` — read `context`, never `content`.
 
 Usage patterns:
-- **Rule cache** (orchestrator writes, workers read): AGENTS.md sections as evidence, `idempotency_key: rules:<project>:<key>:<hash>`, `source_type: manual`, predicate `project:rules:<key>`.
 - **Task outcomes** (workers): `source_type: observation`, predicate `project:task:outcome`, keyed on `task_id`.
 - **Design decisions** (orchestrator, after frontend architecture): `source_type: observation`, predicate `project:design:decision`, idempotency `design:<project>:<feature>:<hash>`, TTL 90d. The complex frontend gate recalls it first — if a matching decision exists, the architect is skipped.
 - **Review verdicts** (reviewer): `source_type: observation`, predicate `project:review:verified`, `confidence` in content.
+- **Bounce findings** (reviewer): `source_type: observation`, predicate `project:review:bounce`, keyed on `task_id`, 7-day TTL — lets the re-review check the fix delta instead of re-scoring from scratch.
 - **Exploration anti-patterns** (reviewer): `source_type: observation`, predicate `project:exploration:anti-pattern`, polarity `-`, TTL 30d.
-- **Docs cache** (docs-lookup): `source_type: document`, predicate `library:docs:cache`, 7-day TTL, ≤2000 chars.
-- **Memory GC** (QA): parses `valid_until` from `context`, `retract_evidence` on expiry (rules/meta never, task/verified/design 90d, feedback 60d, exploration 30d).
+- **Memory GC** (QA): parses `valid_until` from `context`, `retract_evidence` on expiry (meta never, task/verified/design 90d, feedback 60d, exploration 30d).
 
-No top-level `tags`/`filter`/`claims` — tags live in content, selection in the query. Ownership: retract/correct only on own records (coder↔task, orchestrator↔rules, reviewer↔reviews). Session memory (orchestrator scratchpad) is separate — `pi-memory`, not dense-mem.
+No top-level `tags`/`filter`/`claims` — tags live in content, selection in the query. Ownership: retract/correct only on own records (coder↔task, reviewer↔reviews). Session memory (orchestrator scratchpad) is separate — `pi-memory`, not dense-mem. Rules and docs caches live as plain on-disk files, not dense-mem.
 
 ## Skills catalog
 
 ### Universal
 - intent-router, orchestrate-task, execute-task, setup-ci, project-init, content-strategist, narrative-designer, project-discover
-- docs-lookup — Context7 with 7-day dense-mem cache; use instead of `resolve-library-id`/`query-docs` directly
+- docs-lookup — Context7 with 7-day file cache; use instead of `resolve-library-id`/`query-docs` directly
 
 ### Frontend (loaded only for frontend projects)
 - ui-architect, ui-implementer, integration-specialist, threejs-scene-builder
 
 ### QA
-- execute-qa-task — dispatcher; delegates review to `reviewer` for complex tasks, pushes branches into `main` (no PR), runs `memory-gc` after each iteration
+- execute-qa-task — dispatcher; delegates review to `reviewer` on every coding task (quality loop), pushes branches into `main` and bounces deficient work back (no PR), runs `memory-gc` after each iteration
 - create-github-release — single-phase: build from main + publish artifact to GitHub Releases (no PR, no watch)
 - deploy-vercel, deploy-ftp — staging (auto on push to main) / production (manual HITL)
 - memory-gc — retire evidence with expired `valid_until`

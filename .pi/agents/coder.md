@@ -38,8 +38,6 @@ You implement code. You receive a specific sub-task with acceptance criteria and
 - **infra**: Docker, CI/CD, deployment configs
 
 Branches: work in a worktree on `feature/<branch>`, commit and push the branch.
-Pushing the branch into `main` is handled by QA after the reviewer passes
-(complex tasks) or directly (simple tasks) — never merge into `main` yourself.
 
 ## Frontend Delegation
 
@@ -81,7 +79,7 @@ You work with whatever stack the project uses. Before implementing:
 
 When working with libraries, frameworks, SDKs, or APIs:
 1. Load the `docs-lookup` skill — it handles Context7 cache + fetch.
-2. The skill does `resolve-library-id` → `query-docs` with a 7-day dense-mem cache. Use it instead of calling Context7 tools directly.
+ 2. The skill does `resolve-library-id` → `query-docs` with a 7-day file cache. Use it instead of calling Context7 tools directly.
 3. Never rely on training data alone — always verify with Context7.
 
 ## Verification

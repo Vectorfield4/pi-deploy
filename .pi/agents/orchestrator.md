@@ -67,33 +67,33 @@ Before decomposing, detect the project type, then route to the correct agent:
 | Type | Detection | Delegate to |
 |------|-----------|-------------|
 | **frontend** | package.json with React/Vue/Svelte/Angular | complexity gate first; `frontend-architect` (complex only) + `frontend-implementer` |
-| **backend** | package.json + Express/Fastify/Nest, or go.mod, requirements.txt, Cargo.toml | complexity gate first; complex → `coder` on Pro, simple → `coder` |
+| **backend** | package.json + Express/Fastify/Nest, or go.mod, requirements.txt, Cargo.toml | complexity gate (step 5.1a); `coder` |
 | **fullstack** | Monorepo or both frontend + backend markers | complexity gate first; `frontend-architect` (complex only) + `frontend-implementer` for UI, `coder` for API |
-| **CLI/lib** | package.json with bin/main, or Makefile + src/ | complexity gate first; complex → `coder` on Pro, simple → `coder` |
-| **infra** | docker-compose.yml, Dockerfile, .github/workflows | complexity gate first; complex → `coder` on Pro, simple → `coder` |
-| **content** | Markdown-heavy, no code | complexity gate first; complex → `coder` on Pro, simple → `coder` |
+| **CLI/lib** | package.json with bin/main, or Makefile + src/ | complexity gate (step 5.1a); `coder` |
+| **infra** | docker-compose.yml, Dockerfile, .github/workflows | complexity gate (step 5.1a); `coder` |
+| **content** | Markdown-heavy, no code | complexity gate (step 5.1a); `coder` |
 
-### Pro gate (review eligibility)
+### Complexity routing
 
-The **Pro model is a cold path**: it runs only for complex work, and review
-follows Pro. Set `metadata.pro_invoked` (see `orchestrate-task` step 5.1b) in
-the `task` JSON of every sub-task and of the QA review task. The `reviewer`
-subagent runs ONLY when `pro_invoked == true`; simple (Flash-only) work skips
-the reviewer.
+The **architect is a cold path**: it runs only for complex frontend work. Set
+`metadata.complex: true` (see `orchestrate-task` step 5.1b) in the `task` JSON of
+every sub-task and of the QA push task. The **reviewer runs on every coding
+task** via the quality loop (`execute-qa-task`); a `complex: true` value asks the
+reviewer to apply extra scrutiny to architectural changes.
 
 ### Frontend Routing
 
 When project type is `frontend`, **assess complexity first** (see `orchestrate-task` step 5.1). The architect is a **cold path** — it never runs for well-scoped work:
 
 - **Design-reuse** (step 5.2): recall `project:design:decision` — if a matching decision exists, skip the architect; pass the recalled decision + spec path to `frontend-implementer`.
-- **Complex** (vague scope, architectural/design decisions, multi-page, cross-cutting):
-  1. Delegate **architecture** to `frontend-architect` subagent (Pro) — exactly once, in a **single call** with the full context bundle (JSON in `task`): feature description, acceptance criteria, project context, branch, rules_hash, `metadata.memory_context`, anti-patterns, and a file inventory of relevant components/pages/routes/state
+- **Complex** (architectural: new page type, shared theme/layout/route registry touched, cross-cutting state, i18n dictionary parity risk):
+  1. Delegate **architecture** to `frontend-architect` subagent — exactly once, in a **single call** with the full context bundle (JSON in `task`): feature description, acceptance criteria, project context, branch, rules_hash, `metadata.memory_context`, anti-patterns, and a file inventory of relevant components/pages/routes/state
      - Architect creates `artifacts/design-spec.md`
-  2. After architecture completes, persist the design decision (step 7.1), then delegate **implementation** to `frontend-implementer` subagent (Flash)
+  2. After architecture completes, persist the design decision (step 7.1), then delegate **implementation** to `frontend-implementer` subagent
      - Pass: architecture spec, feature description, project context, branch, rules_hash
      - Implementer builds from spec, runs lint/test/build
 - **Never** re-invoke `frontend-architect` within a task — fix an underspecified spec inside implementation.
-- **Simple** (well-scoped single component/page): skip the architect — delegate **implementation** to `frontend-implementer` directly.
+- **Simple** (well-scoped; adding another service/solution to an existing pattern): skip the architect — delegate **implementation** to `frontend-implementer` directly.
 - For fullstack projects: frontend sub-tasks → gate above, backend sub-tasks → coder
 
 ## Decomposition Rules
@@ -115,19 +115,19 @@ For refactoring: identify target files, read current code, plan targeted edits (
 Every task pushes its work directly to `main`. There is no PR and no approval
 watch. Contract:
 
-1. **Complex task** (`metadata.pro_invoked: true` in the task JSON): the
-   reviewer runs first — it reviews the **branch diff against `main`** and
-   returns `decision: merge` (ready to push) / `bounce` / `explore`. The
-   reviewer never pushes.
-   **Simple task** (`pro_invoked` false): no reviewer — QA pushes directly.
+1. The **reviewer runs first on every coding task** (quality loop) — it
+   reviews the **branch diff against `main`** and returns `decision: merge`
+   (ready to push) / `bounce` / `explore`. The reviewer never pushes. On
+   `bounce`, route the findings back to the worker for a fix; on `merge`,
+   push.
 2. You delegate the push to QA:
    ```
-   subagent({ agent: "qa", task: '{"type":"push","project":"<project>","branch":"<branch>","metadata":{"pro_invoked":<true|false>}}', skill: "execute-qa-task" })
+   subagent({ agent: "qa", task: '{"type":"push","project":"<project>","branch":"<branch>","rules_hash":"<rules_hash>","metadata":{"complex":<true|false>,"file_inventory":["<path1>","<path2>"]}}', skill: "execute-qa-task" })
    ```
    QA fast-forwards the branch into `main` (`git merge --ff-only`, `git push
    origin main`), cleans up the branch, triggers Vercel staging, and runs
-   `memory-gc`. For complex tasks QA first delegates the reviewer; it only
-   pushes after `decision: merge` or `skip_review`.
+   `memory-gc`. QA delegates the reviewer first; it only
+   pushes after `decision: merge`.
 3. On `bounce`: route the findings back to the worker on the same branch.
    On `explore`: re-decompose the task.
 

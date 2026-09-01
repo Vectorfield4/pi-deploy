@@ -21,9 +21,7 @@ The task arrives as a **JSON string** — parse it and read fields via
 - `type == "review"` → load `references/memory.md` → `references/rag.md` → `references/review-fix.md`
 - Otherwise → report "Unknown task type"
 
-Work on the branch, commit and push it. Merging the branch into `main` is QA's
-job (after the reviewer passes for complex tasks; directly for simple tasks) —
-do not merge into `main` yourself.
+Work on the branch, commit and push it.
 
 ## Conventions
 

@@ -11,10 +11,11 @@ Decay mechanism for dense-mem. Every `remember` call writes `valid_until: YYYY-M
 
 | Idempotency key prefix | TTL | Notes |
 |------------------------|-----|-------|
-| `rules:*`, `rules-index:*`, `project-meta:*` | never | config and metadata |
+| `project-meta:*` | never | config and metadata |
 | `task:*` | 90 days | task outcomes, decisions, patterns |
 | `design:*` | 90 days | frontend architecture decisions (predicate `project:design:decision`) |
 | `review-verified:*` | 90 days | verified review verdicts |
+| `review-bounce:*` | 7 days | bounce findings; short-lived, superseded by the fix or exploration |
 | `feedback:*` | 60 days | user feedback |
 | `exploration:*` | 30 days | anti-patterns; decay fast as practices evolve |
 
@@ -42,7 +43,7 @@ Callers write the `valid_until` line as part of `evidence.content`. This skill n
      idempotency_key: "memory-gc:retract:<evidence_id>:<YYYY-MM-DD>"
    })
    ```
-   If `recall_memory` cannot supply the id (degraded result), fall back to `trace_memory` to look it up.
+   If `recall_memory` cannot supply the id (degraded result), skip the record — GC runs every iteration, so expired entries are caught on the next pass.
 
 4. **Cap per-call work.** Process at most 20 records per call. More than that → return early and run again next iteration. This keeps the call cheap.
 

@@ -45,6 +45,11 @@ For each organism/molecule in the spec:
 - Responsive (mobile, tablet, desktop)
 - TypeScript types for props
 
+#### i18n (all locales)
+- Never hardcode user-facing text. Add keys to **all** locale dictionaries the
+  project defines (e.g. `src/i18n/<locale>.ts`) together — a missing
+  translation in any one is a defect.
+
 #### Forms (if spec says so)
 - `react-hook-form` + `zod` with validation
 - Proper error handling
@@ -56,6 +61,11 @@ For each organism/molecule in the spec:
 #### Data (if spec says so)
 - TanStack Query hooks for fetching
 - Zustand for global state (only if spec requires)
+
+### 3.5. Write Storybook stories
+- For each presentational component (organism/molecule/atom), add a
+  `.stories.tsx` next to it that mirrors the existing story setup — no stories
+  for route-level pages or data/query wiring.
 
 ### 4. 3D Scenes (if spec says so)
 - Load skill: `threejs-scene-builder`
@@ -86,9 +96,12 @@ Use `docs-lookup` skill for up-to-date library docs. Never rely on training data
 
 ## Memory
 
-- Recall before implementing: `dense_mem_recall_memory({ query:"<goal>" })`.
-- Recall anti-patterns: `dense_mem_recall_memory({ query:"<goal> project:<project> anti-pattern" })`.
-- Remember after success: `dense_mem_remember({ evidence: [{ content: "project: <project>\ntype: frontend\ntags: project:<project>,frontend\nconfidence: medium\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<short summary, under 200 chars>", source_type: "observation" }], relationships: [{ ref: "task:<project>:frontend:<task_id>", subject: { name: "<project>", entity_kind: "project" }, predicate: { proposed_key: "project:task:outcome" }, object: { entity: { name: "task:<task_id>", entity_kind: "concept" } }, polarity: "+", evidence_indices: [0] }], idempotency_key: "task:<project>:frontend:<task_id>" })`. The `relationships` block is required by the v2.6 `remember` contract; without it the write is rejected.
+- The orchestrator pre-batches one recall per task (see `orchestrate-task` step
+  4.5). If `metadata.memory_context` / `metadata.anti_patterns` are present and
+  non-empty, use them — do not recall again.
+- Otherwise (no pre-batched context): `dense_mem_recall_memory({ query:"<goal>" })`
+  and `dense_mem_recall_memory({ query:"<goal> project:<project> anti-pattern" })`.
+- Remember after success **only if a reusable lesson** (non-obvious approach, pitfall, or decision) — skip routine/mechanical work: `dense_mem_remember({ evidence: [{ content: "project: <project>\ntype: frontend\ntags: project:<project>,frontend\nconfidence: medium\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<the reusable lesson, under 200 chars>", source_type: "observation" }], relationships: [{ ref: "task:<project>:frontend:<task_id>", subject: { name: "<project>", entity_kind: "project" }, predicate: { proposed_key: "project:task:outcome" }, object: { entity: { name: "task:<task_id>", entity_kind: "concept" } }, polarity: "+", evidence_indices: [0] }], idempotency_key: "task:<project>:frontend:<task_id>" })`. The `relationships` block is required by the v2.6 `remember` contract; without it the write is rejected.
 - Graceful degradation: if MCP fails, continue without context.
 
 ## Quality Targets

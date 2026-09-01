@@ -17,8 +17,7 @@
       "enforce": true,
       "strict": true,
       "allow": [
-        "timeweb/deepseek/deepseek-v4-flash",
-        "timeweb/deepseek/deepseek-v4-pro"
+        "timeweb/deepseek/deepseek-v4-flash"
       ]
     }
   },

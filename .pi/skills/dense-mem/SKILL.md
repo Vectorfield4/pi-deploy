@@ -51,23 +51,28 @@ dense_mem_remember({
   `manual`); older `task_outcome` / `review_outcome` / `tool_output`
   values are rejected.
 - Tags/confidence/valid_until are content lines, not API fields.
-- `remember` is async (returns `submission_id`); poll
-  `dense_mem_get_submission_status` once if you need confirmation, but
-  do not block the task on it.
+- `remember` is async (fire-and-forget): it returns a `submission_id`.
+  Do not poll `get_submission_status` in the task flow — a failed async
+  write is harmless (memory is advisory) and the poll is a wasted
+  round-trip.
 
 ## Other tools (same direct call shape)
 
-- `dense_mem_trace_memory({ evidence_id })` — find provenance of a
-  recalled record.
 - `dense_mem_retract_evidence({ evidence_ids: [...], reason: "...",
-  idempotency_key: "..." })` — retire evidence you own.
-- `dense_mem_correct_relationship({ relationship_id, ... })` — correct
-  an active relationship you own.
-- `dense_mem_get_submission_status({ submission_id })` — one-shot check
-  on an async `remember`.
-- `dense_mem_export_memory_pack(...)` — full memory dump; **do not** call
-  this in the orchestrator or worker flow — it is heavy and not needed
-  for normal operation.
+  idempotency_key: "..." })` — retire evidence you own. Default for a
+  bug-fix correction: the recall result gives you the `evidence_id`
+  directly, so this is the actionable path.
+- `dense_mem_correct_relationship({ relationship_id, expected_version,
+  action, patch, supports, reason, idempotency_key })` — re-supported
+  replacement of an active relationship **you own**. Only usable when you
+  already hold the `relationship_id` and its `expected_version` — the
+  recall result does not supply these, so this is the exception path, not
+  the bug-fix default.
+- `dense_mem_get_submission_status({ submission_id })` — diagnostic only;
+  not part of the task flow.
+- `dense_mem_trace_memory({ relationship_id })` — map a `relationship_id`
+  through its supporting evidence and lineage. Takes `relationship_id`,
+  not `evidence_id`; only reachable if you have one.
 
 ## Graceful degradation
 

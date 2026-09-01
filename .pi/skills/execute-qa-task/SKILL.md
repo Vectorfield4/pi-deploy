@@ -22,17 +22,15 @@ The task arrives as a **JSON string** — parse it and read fields via
 - **Otherwise (review task)** → continue with step 4
 
 ### 3. Push to main (delegated by the orchestrator)
-The orchestrator delegates the direct push. For **complex tasks**
-(`task.metadata.pro_invoked == true`) the reviewer must pass first — delegate
-the review (step 4) and only push after `decision: merge`. For simple tasks,
-push directly.
+The reviewer must pass first — delegate the review (step 4) and only push
+after `decision: merge`. QA has no `subagent_wait`: on a `push` task, launch
+the reviewer, **end the turn**, and push in the resume turn after the
+`<subagent_notification>` carries `decision: merge`. Never block in-turn.
 
-1. Review gate (complex only):
-   - If `task.metadata.pro_invoked == true` → delegate the reviewer (step 4),
-     wait for its decision.
-   - `decision: merge` → continue. `bounce` / `explore` → do NOT push; return
-     the reviewer result to the orchestrator.
-   - `decision: skip_review` → continue.
+1. Review gate (always):
+   - Delegate the reviewer (step 4), end the turn.
+   - Resume on its notification. `decision: merge` → continue. `bounce` /
+     `explore` → do NOT push; return the reviewer result to the orchestrator.
 2. Fast-forward the branch into `main`:
    ```
    cd /workspace/<project>
@@ -50,26 +48,27 @@ push directly.
 
 ### 4. Review task — delegate to the reviewer subagent
 
-The reviewer runs **only for complex tasks where the orchestrator invoked the
-Pro model** (`task.metadata.pro_invoked == true`). Simple (Flash-only) tasks
-skip the reviewer entirely and push straight to `main`.
+The reviewer runs for **every** coding task. It reviews the branch diff against
+`main`, scores it, and returns `merge` / `bounce` / `explore`. On `bounce`, the
+orchestrator routes the findings back to the worker for a fix; QA does not push
+until a `merge`. The reviewer task is a **string** — build it as its own
+JSON string (never an object):
 
-1. **`task.metadata.pro_invoked` is not `true`** → skip the reviewer:
-   - Return: `decision: skip_review`. The orchestrator/Qa push to `main` without
-     waiting on a reviewer.
-2. **Otherwise** → full review. `task` is a **string** — build the reviewer
-   task as its own JSON string (never an object):
 ```
 subagent({
   agent: "reviewer",
-  task: `{"type":"review","project":"<project>","branch":"<branch>","metadata":{"acceptance_criteria":["<...>"],"review_iterations":<n>,"exploration_triggered":<bool>,"pro_invoked":true}}`,
+  task: `{"type":"review","project":"<project>","branch":"<branch>","rules_hash":"<rules_hash>","metadata":{"acceptance_criteria":["<...>"],"review_iterations":<n>,"exploration_triggered":<bool>,"complex":<bool>,"file_inventory":["<path1>","<path2>"]}}`,
   skill: "execute-review"
 })
 ```
 
-Pass (inside the JSON): `project`, `branch`, and the
+Pass (inside the JSON): `project`, `branch`, `rules_hash`, and the
 `metadata` fields `acceptance_criteria`, `review_iterations`,
-`exploration_triggered`.
+`exploration_triggered`, `complex`, `file_inventory`. On a re-review after `bounce`,
+pass `review_iterations + 1`; pass `exploration_triggered: true` on the 3rd+ pass
+so the reviewer can escalate to `explore` instead of bouncing a 4th time.
+`rules_hash` and `file_inventory` come from the orchestrator's push task; forward
+them unchanged.
 
 The reviewer reviews the **branch diff against `main`** (local git) and returns
 a structured result. This agent does not call `pr-judge` or
@@ -77,11 +76,7 @@ a structured result. This agent does not call `pr-judge` or
 
 ### 5. Handle the reviewer's result
 
-**decision: `skip_review`** (simple task, `task.metadata.pro_invoked` not set)
-- The branch needs no reviewer. For a `push` task, continue to section 3
-  step 2. No review memory is written.
-
-**decision: `merge`** (complex task, reviewer passed)
+**decision: `merge`** (reviewer passed)
 - The reviewer validated the branch but did NOT push. For a `push` task, push
   it to `main` (section 3). Do NOT push for a task that was review-only — return
   `decision: merge` to the orchestrator, which delegates the push.
@@ -89,6 +84,10 @@ a structured result. This agent does not call `pr-judge` or
 **decision: `bounce`**
 - Forward `findings` to the orchestrator. The orchestrator routes back to coder.
   Do not push the branch.
+- The re-review (after coder fixes) re-launches the reviewer with
+  `review_iterations` incremented. QA owns the bump: read the count from the
+  persisted bounce record (step 4 of `execute-review` writes `review_iterations: <n>`),
+  pass `n + 1` on the next reviewer delegation.
 
 **decision: `explore`**
 - Forward `exploration_flag: true` and the summary. The orchestrator
@@ -106,10 +105,11 @@ Best-effort, never blocks the flow. If it fails, the next QA iteration retries.
 
 ## Verification
 
-- Review tasks delegate to `reviewer` only when `task.metadata.pro_invoked == true`;
-  otherwise they return `decision: skip_review` (no score, no memory writes).
-- `type == "push"` runs only after the reviewer's `decision: merge` (complex) or
-  a `skip_review` (simple); the branch is fast-forwarded into `main`;
-  branch cleaned up; `memory-gc` attempted.
+- Review tasks delegate to `reviewer` for **every** coding task (no `skip_review`);
+  `metadata.complex` is passed through for extra scrutiny.
+- `type == "push"` runs only after the reviewer's `decision: merge`; the branch
+  is fast-forwarded into `main`; branch cleaned up; `memory-gc` attempted.
+- `decision: bounce` / `explore` → the branch is NOT pushed; findings are
+  forwarded to the orchestrator for routing back to the worker.
 - Release and deploy tasks still work via their own skills.
 - No memory writes happen here (except best-effort verified outcomes).

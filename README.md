@@ -9,9 +9,10 @@ Natural-language dev system on [Pi](https://pi.dev). Detects project type (front
 Long-term memory for the agents, self-hosted RAG via dense-mem (PostgreSQL + pgvector + TEI embeddings). Records are durable, append-only evidence anchored by relationships, with lifecycle hooks for replacement and removal.
 
 Used for:
-- Rule cache and library docs cache
 - Task outcomes and review verdicts
 - Exploration anti-patterns (TTL, cleaned by memory GC)
+
+Rule and library docs caches are plain on-disk files, not dense-mem — deterministic lookups don't warrant an embedding call.
 
 Session memory (the orchestrator's scratchpad) is separate — pi-memory.
 
@@ -44,16 +45,15 @@ make logs          # Check logs
 ## Task flow
 
 ```
-Telegram → Orchestrator → Subagents (frontend/coder) on a feature branch → push to main →
-   (complex/Pro tasks only) Reviewer reviews the branch diff vs main first
+Telegram → Orchestrator → Subagents (frontend/coder) on a feature branch →
+   Reviewer reviews the branch diff vs main first (every coding task, quality loop) → push to main
 ```
 
-The Pro model (`deepseek/deepseek-v4-pro`) is a cold path: it runs only for
-complex tasks (frontend via `frontend-architect`, other types via a model
-override on `coder`). Simple (Flash-only) tasks skip the reviewer and push
-straight to `main`. There is no PR and no human approval gate — pushes to `main`
-happen via `git merge --ff-only` on the already-reviewed (complex) or skipped
-(simple) branch.
+Execution models are flash. The reviewer
+(a score decision / quality loop) runs on **every** coding task and returns
+deficient work via `bounce` before anything is pushed. There is no PR and no
+human approval gate — pushes to `main`
+happen via `git merge --ff-only` after the reviewer passes the branch.
 
 ## Pi extensions
 
@@ -66,7 +66,7 @@ Versions pinned in `.pi/settings.json`. Makefile reads the list and installs via
 | `@bytesbrains/pi-telegram-bridge` | 1.4.1 | Telegram bot bridge inside the Pi interactive session | Pi container entrypoint | The path from Telegram into Pi. Polls in the background. |
 | `ping-a-human-pi` | 0.1.1 | Generic human-in-the-loop notifications | QA agent for FTP deploy blocks | Used where GitHub polling doesn't apply (FTP deploys, destructive ops). |
 | `pi-memory` | 0.4.2 | Session memory with qmd semantic search across daily logs and scratchpad | Pi main session | Separate from dense-mem evidence. Orchestrator scratchpad lives here. |
-| `@upstash/context7-pi` | 0.1.2 | Library docs via Context7 | coder, frontend-implementer, reviewer (via the `docs-lookup` skill) | Workers use `docs-lookup` (Context7 + 7-day dense-mem cache) instead of trusting training data; never call `resolve-library-id`/`query-docs` directly. |
+| `@upstash/context7-pi` | 0.1.2 | Library docs via Context7 | coder, frontend-implementer, reviewer (via the `docs-lookup` skill) | Workers use `docs-lookup` (Context7 + 7-day file cache) instead of trusting training data; never call `resolve-library-id`/`query-docs` directly. |
 
 ### What is not installed
 
@@ -75,8 +75,8 @@ Versions pinned in `.pi/settings.json`. Makefile reads the list and installs via
 ## Human-in-the-loop
 
 Two scenarios block the flow and wait for you. Vercel staging deploys are
-automatic and not on this list; pushes to `main` are not HITL either (complex
-tasks are gated by the reviewer, simple ones skip review).
+automatic and not on this list; pushes to `main` are not HITL either (every
+push is reviewed by the reviewer, then QA fast-forwards into `main`).
 
 | Block | When it triggers | What's blocked | What you do | Timeout | Progress |
 |-------|------------------|----------------|-------------|---------|----------|

@@ -20,7 +20,7 @@ Create `/workspace/<project>/AGENTS.md` listing:
 - No Tailwind, no ESLint/Prettier — Biome instead
 
 ### 3. Scaffold
-Create files: `index.html`, `vite.config.ts`, `tsconfig.json`, `biome.json`, `src/main.tsx`, `src/App.tsx`, `src/stores/useAppStore.ts`, MSW setup, Storybook config, `.gitignore`.
+Create files: `index.html`, `vite.config.ts`, `tsconfig.json`, `biome.json`, `src/main.tsx`, `src/App.tsx`, `src/stores/useAppStore.ts`, MSW **test** setup (`src/test/server.ts`, `src/test/setup.ts`), Storybook config, `.gitignore`. Do NOT create a browser MSW worker (`src/mocks/browser.ts`) or `/api/health` handler — those only belong if the project gains a real backend to mock. Keep `src/mocks/handlers.ts` empty/removable for tests.
 
 ### 4. Create package.json
 Load template from `references/package.json`. Replace `<project_name>`.
@@ -47,7 +47,7 @@ Run `npm install`. Retry on network errors.
 Commit scaffold to main branch and push.
 
 ### 10. Set up CI
-Delegate to `setup-ci` subagent.
+Load and follow the `setup-ci` skill in-place (create `.github/workflows/ci.yml`, commit, push). No subagent — it is a deterministic file write.
 
 ### 11. Return
 Report: cloned repo, scaffolded files, deps installed, Vercel link status, deploy URL, CI status.

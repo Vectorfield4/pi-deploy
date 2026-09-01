@@ -38,7 +38,7 @@ the context bundle into it.)
 
 5. **Implement the component**
    - Follow the skill instructions provided by the orchestrator for this task type.
-   - For library docs: load the `docs-lookup` skill (Context7 with a 7-day dense-mem cache) — do not call `resolve-library-id`/`query-docs` directly.
+   - For library docs: load the `docs-lookup` skill (Context7 with a 7-day file cache) — do not call `resolve-library-id`/`query-docs` directly.
    - Note: frontend tasks (UI components, 3D scenes, page assembly) are delegated to the `frontend-implementer` agent (complex ones also use `frontend-architect`) by the orchestrator. If you receive a frontend task, report it back.
 
 6. **Quality check and commit**
@@ -47,11 +47,14 @@ the context bundle into it.)
    - Push conflict → fetch → rebase → push. On persistent failure, apply the retry protocol.
 
 7. **Complete**
-   - Success: store experience in memory (best-effort, don't block):
+   - Success: store experience in memory **only if the task produced a
+     reusable lesson** — a non-obvious approach, a pitfall, or a decision
+     a future task should reuse. Skip routine/mechanical/plumbing tasks;
+     writing trivial outcomes is wasted LLM cost. Best-effort, don't block:
      ```
      dense_mem_remember({
        evidence: [{
-         content: "project: <project>\ntype: <type>\ntags: project:<project>,<type>,<relevant-concepts>\nconfidence: medium\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<what was done, key decisions, patterns used — under 200 chars>",
+         content: "project: <project>\ntype: <type>\ntags: project:<project>,<type>,<relevant-concepts>\nconfidence: medium\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<the reusable lesson — what to do or avoid — under 200 chars>",
          source_type: "observation"
        }],
        relationships: [{
