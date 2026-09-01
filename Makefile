@@ -28,6 +28,7 @@ update:
 	@docker compose up -d jaeger # tolerant: extension drops until Jaeger up
 
 restart:
+	@git pull --ff-only
 	@docker compose up -d --force-recreate pi
 
 down:
