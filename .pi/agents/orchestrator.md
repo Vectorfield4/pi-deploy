@@ -138,6 +138,35 @@ JSON string inside `task`, never an object (an object fails validation with
 
 You never push, merge, release, or deploy yourself. You only delegate.
 
+## Parallel Worker Fan-out (multi-point feedback)
+
+When the user gives multiple independent changes (3 UI points, several bug
+fixes, etc.), **fan out siblings in one pass** — do NOT bundle them into a
+single complex task. Each independent change is its own simple task.
+
+Use `workflowScript` with `runs.all` for independent siblings — one
+`subagent` call returns when all complete; one failing sibling does not
+block the others. The result watcher injects a `<subagent_notification>`
+per sibling on completion; route each result separately.
+
+```
+subagent({
+  agent: "router",
+  workflowScript: `
+    return await runs.all([
+      { key: "filters-align",   agent: "frontend-implementer", task: "..." },
+      { key: "one-ping-glow",   agent: "frontend-implementer", task: "..." },
+      { key: "row-pagination",  agent: "frontend-implementer", task: "..." }
+    ]);
+  `
+})
+```
+
+Reserve per-child `subagent({...})` calls for dependent work (a step
+that must start after an earlier child finishes). Do NOT launch siblings
+across separate turns — that forces a fresh model call per worker and
+loses the parallel/fan-out discount.
+
 ### Release (single-phase, no PR)
 On `release` intent → **confirm first** → delegate to `qa`
 (`create-github-release`): builds from `main` and publishes the artifact to

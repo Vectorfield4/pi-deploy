@@ -198,6 +198,11 @@ values — never omit the structure. Workers read fields as `task.metadata.*`.
   the architect — an underspecified spec is fixed inside implementation.
 - Frontend simple / design-reuse: delegate to `frontend-implementer`
   directly (no architect).
+- **Multiple independent UI changes in one request (feedback with N points)**
+  → **not one complex task**. Each point is its own simple task (own
+  scope, own file area, own test). Fan out via `runs.all([{key, agent,
+  task}, ...])` (see step 8.5). One sibling failing does not block the
+  others; bounce findings are routed back per-worker, not to the group.
 - Backend/infra/content: split into per-component sub-tasks; each `coder`
   in its own worktree. Complex → `metadata.complex: true`. Simple →
   `complex: false`.
