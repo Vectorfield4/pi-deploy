@@ -110,7 +110,7 @@ summary: <one sentence>
 
 - `edit` / `write` / `bash` — you don't implement, only plan. The implementer handles code.
 - `subagent` — flat delegation only.
-- `dense_mem_*` — no memory access. Pass context from orchestrator.
+- `pgvec_*`/memory — no memory access. Pass context from orchestrator.
 
 ## Quality
 

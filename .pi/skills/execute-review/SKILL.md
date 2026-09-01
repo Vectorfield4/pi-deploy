@@ -36,20 +36,20 @@ The task arrives as a **JSON string** — parse it as `task` and read fields via
 ## Steps
 
 ### 1. Load context
-Read project rules from disk: `/workspace/<project>/AGENTS.md` and `/workspace/<project>/SOUL.md` (if present). The disk files are the source of truth — there is no dense-mem rules cache. `task.rules_hash` is informational only.
+Read project rules from disk: `/workspace/<project>/AGENTS.md` and `/workspace/<project>/SOUL.md` (if present). The disk files are the source of truth. `task.rules_hash` is informational only.
 
 Recall past anti-patterns:
-`dense_mem_recall_memory({ query:"<feature summary> project:<project> anti-pattern" })`. If recalled, these are known failures — use a different approach.
+`pgvec_recall_memory({ query:"<feature summary> <project>", tag:"anti-pattern" })`. If recalled, these are known failures — use a different approach.
 
 If this is a re-review (the branch was bounced before), recall the prior bounce
 findings so you check the **fix delta** against them instead of re-scoring from
 scratch:
-`dense_mem_recall_memory({ query:"<feature summary> project:<project> review bounce" })`.
+`pgvec_recall_memory({ query:"<feature summary> <project>", tag:"review-bounce" })`.
 Match by `task_id`. If a prior record exists, verify each prior finding is
 resolved in the new diff, then score only what changed.
 
 If `exploration_triggered == true` in `task.metadata`, also recall exploration anti-patterns:
-`dense_mem_recall_memory({ query:"<feature summary> project:<project> anti-pattern exploration" })` and avoid repeating the same approach.
+`pgvec_recall_memory({ query:"<feature summary> <project>", tag:"anti-pattern" })` and avoid repeating the same approach.
 
 ### 2. Wait for CI
 - `gh run list --branch <branch> --limit 3 --json status` (the branch is pushed; CI may run on it).
@@ -93,19 +93,11 @@ If total added/removed lines exceed 3000, do not run the full diff inline; score
 Record the exact failure reasons so a re-review checks the fix delta, not a cold
 re-score, and coder can recall them without relying on the transient reply:
 ```
-dense_mem_remember({
-  evidence: [{
-    content: "project: <project>\ntype: bounce\ntags: review-bounce,project:<project>\nvalid_until: <YYYY-MM-DD, today + 7 days>\n\ntask_id: <task_id> review_iterations: <n>\nFindings: <one line per issue>",
-    source_type: "observation"
-  }],
-  relationships: [{
-    ref: "review-bounce:<project>:<task_id>:<n>",
-    subject: { name: "<project>", entity_kind: "project" },
-    predicate: { proposed_key: "project:review:bounce" },
-    object: { entity: { name: "task:<task_id>", entity_kind: "concept" } },
-    polarity: "-",
-    evidence_indices: [0]
-  }],
+pgvec_remember({
+  content: "project: <project>\ntype: bounce\ntags: review-bounce,project:<project>\nvalid_until: <YYYY-MM-DD, today + 7 days>\n\ntask_id: <task_id> review_iterations: <n>\nFindings: <one line per issue>",
+  tags: ["review-bounce", "project:<project>"],
+  source_type: "observation",
+  valid_until: "<YYYY-MM-DD, today + 7 days>",
   idempotency_key: "review-bounce:<project>:<task_id>:<n>"
 })
 ```
@@ -121,19 +113,12 @@ main`, no `gh pr merge`, no `deploy-vercel` here.
 ### 7. Exploration escalation (only on `decision: explore`)
 Write an anti-pattern (best-effort):
 ```
-dense_mem_remember({
-  evidence: [{
-    content: "project: <project>\ntype: exploration\ntags: anti-pattern,exploration,project:<project>\nconfidence: high\nvalid_until: <YYYY-MM-DD, today + 30 days>\n\nTask '<title>' failed <N> iterations. Recurring: <pattern>. Orchestrator must re-decompose.",
-    source_type: "observation"
-  }],
-  relationships: [{
-    ref: "exploration:<project>:<task_id>",
-    subject: { name: "<project>", entity_kind: "project" },
-    predicate: { proposed_key: "project:exploration:anti-pattern" },
-    object: { entity: { name: "task:<task_id>", entity_kind: "concept" } },
-    polarity: "-",
-    evidence_indices: [0]
-  }],
+pgvec_remember({
+  content: "project: <project>\ntype: exploration\ntags: anti-pattern,exploration,project:<project>\nconfidence: high\nvalid_until: <YYYY-MM-DD, today + 30 days>\n\nTask '<title>' failed <N> iterations. Recurring: <pattern>. Orchestrator must re-decompose.",
+  tags: ["anti-pattern", "exploration", "project:<project>"],
+  source_type: "observation",
+  valid_until: "<YYYY-MM-DD, today + 30 days>",
+  confidence: "high",
   idempotency_key: "exploration:<project>:<task_id>"
 })
 ```
@@ -144,19 +129,12 @@ Set `exploration_flag: true` in the result. Do not bounce to coder, do not appro
   technique, pattern, or architectural decision worth repeating) → write
   verified pattern:
   ```
-  dense_mem_remember({
-    evidence: [{
-      content: "project: <project>\ntype: verified\ntags: verified,project:<project>\nconfidence: high\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<reusable approach, under 200 chars>",
-      source_type: "observation"
-    }],
-    relationships: [{
-      ref: "review-verified:<project>:<task_id>",
-      subject: { name: "<project>", entity_kind: "project" },
-      predicate: { proposed_key: "project:review:verified" },
-      object: { entity: { name: "task:<task_id>", entity_kind: "concept" } },
-      polarity: "+",
-      evidence_indices: [0]
-    }],
+  pgvec_remember({
+    content: "project: <project>\ntype: verified\ntags: verified,project:<project>\nconfidence: high\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<reusable approach, under 200 chars>",
+    tags: ["verified", "project:<project>"],
+    source_type: "observation",
+    valid_until: "<YYYY-MM-DD, today + 90 days>",
+    confidence: "high",
     idempotency_key: "review-verified:<project>:<task_id>"
   })
   ```

@@ -35,16 +35,3 @@ else
   fi
   echo "✅ Generated POSTGRES_PASSWORD"
 fi
-
-# Generate CONTROL_PORTAL_TOKEN if empty/missing (required by dense-mem startup)
-if grep -q '^CONTROL_PORTAL_TOKEN=.\+' .env 2>/dev/null; then
-  echo "✅ CONTROL_PORTAL_TOKEN already set"
-else
-  token="$(openssl rand -hex 32 2>/dev/null || head -c 64 /dev/urandom | tr -dc 'a-f0-9' | head -c 64)"
-  if grep -q '^CONTROL_PORTAL_TOKEN=' .env 2>/dev/null; then
-    sed "s|^CONTROL_PORTAL_TOKEN=.*|CONTROL_PORTAL_TOKEN=${token}|" .env > .env.tmp && mv .env.tmp .env
-  else
-    echo "CONTROL_PORTAL_TOKEN=${token}" >> .env
-  fi
-  echo "✅ Generated CONTROL_PORTAL_TOKEN"
-fi

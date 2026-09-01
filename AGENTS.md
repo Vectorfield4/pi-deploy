@@ -7,12 +7,12 @@ Deployment + instruction repo for a Pi-based AI development system. No applicati
 ```
 .pi/
 ├── settings.json     # Pi config: model default, compaction, subagent model scope
-├── mcp.json          # MCP servers (empty by default; dense-mem served by pi-dense-mem)
+├── mcp.json          # MCP servers (empty; memory served by the pgvec extension)
 ├── models.json       # Provider + model registry (timeweb)
 ├── agents/           # Agent definitions; skills listed per agent in frontmatter
 └── skills/           # Skill packages (24 skills)
 scripts/              # Bash scripts (init, setup, cloud-init, backup, setup-cron-jobs, update-on-push)
-docker-compose.yml    # Pi + memory stack (3 services; embeddings/verifier remote)
+docker-compose.yml    # Pi + memory stack (3 services; embeddings remote)
 Dockerfile.pi         # Pi container image
 AGENTS.md             # This file — interactive-session instructions
 .env                  # Secrets (gitignored)
@@ -20,7 +20,7 @@ AGENTS.md             # This file — interactive-session instructions
 
 ## How it runs
 
-One Pi process (interactive, PTY, Telegram via `@bytesbrains/pi-telegram-bridge`) + 2 memory containers (PostgreSQL+pgvector, dense-mem RAG; embeddings + claim verification hosted remote). No slash commands — users write naturally. The interactive session routes every message to the `orchestrator` subagent (intent: task/question/feedback/deploy/...), which delegates to workers (`frontend-architect`/`frontend-implementer` for frontend, `coder` otherwise). Execution models are flash; tasks that need the architecture gate set `metadata.complex: true`. The `reviewer` (score decision) runs on **every** coding task as the quality loop — it returns deficient work via `bounce` before anything is pushed. Work lands on a feature branch and is pushed to `main` directly — no PR, no human approval gate. Released/deployed by `qa`.
+One Pi process (interactive, PTY, Telegram via `@bytesbrains/pi-telegram-bridge`) + 2 memory containers (PostgreSQL+pgvector, `pi-pgvector-api-embeddings` RAG; embeddings via remote API). No slash commands — users write naturally. The interactive session routes every message to the `orchestrator` subagent (intent: task/question/feedback/deploy/...), which delegates to workers (`frontend-architect`/`frontend-implementer` for frontend, `coder` otherwise). Execution models are flash; tasks that need the architecture gate set `metadata.complex: true`. The `reviewer` (score decision) runs on **every** coding task as the quality loop — it returns deficient work via `bounce` before anything is pushed. Work lands on a feature branch and is pushed to `main` directly — no PR, no human approval gate. Released/deployed by `qa`.
 
 Single responsibility: each agent owns its one job and never narrates another's.
 Skills/agents describe only the actor's own workflow — never "X is done by Y" or
@@ -133,17 +133,17 @@ object anywhere.
 
 ## Memory layer
 
-**dense-mem** — self-hosted RAG memory (PostgreSQL + pgvector; embeddings + verifier remote), contract `dense-mem.v2.6`, reached via the `pi-dense-mem` extension. Stores durable append-only **evidence anchored by relationships**: `relationships` and `idempotency_key` required, `supersedes_evidence_ids` goes inside the evidence item, lifecycle via `retract_evidence`/`correct_relationship`. `source_type` enum: conversation/document/observation/manual. Recall is support-path gated and returns `{ evidence_id, context, space_kind }` — read `context`, never `content`.
+**pi-pgvector-api-embeddings** — self-hosted lightweight RAG memory (PostgreSQL + pgvector; embeddings via remote API), reached via the `pgvec` extension. Stores flat records: free-text `content`, `tags` array, `source_type`, `valid_until`, `confidence`, `owner`, and an `idempotency_key` for dedupe. `source_type` enum is `conversation|document|observation|manual`; `content` and `idempotency_key` and `source_type` are required, unknown keys are rejected (`additionalProperties: false`) — no `predicate`/`entity`/`polarity`. Recall is cosine-similarity over the embedding with an optional `tag` filter; returns `{ evidence_id, content, tags, space_kind, valid_until, confidence }` — read `content`, never a partial view.
 
-Usage patterns:
-- **Task outcomes** (workers): `source_type: observation`, predicate `project:task:outcome`, keyed on `task_id`.
-- **Design decisions** (orchestrator, after frontend architecture): `source_type: observation`, predicate `project:design:decision`, idempotency `design:<project>:<feature>:<hash>`, TTL 90d. The complex frontend gate recalls it first — if a matching decision exists, the architect is skipped.
-- **Review verdicts** (reviewer): `source_type: observation`, predicate `project:review:verified`, `confidence` in content.
-- **Bounce findings** (reviewer): `source_type: observation`, predicate `project:review:bounce`, keyed on `task_id`, 7-day TTL — lets the re-review check the fix delta instead of re-scoring from scratch.
-- **Exploration anti-patterns** (reviewer): `source_type: observation`, predicate `project:exploration:anti-pattern`, polarity `-`, TTL 30d.
-- **Memory GC** (QA): parses `valid_until` from `context`, `retract_evidence` on expiry (meta never, task/verified/design 90d, feedback 60d, exploration 30d).
+Usage patterns (tag drives the recall filter; `source_type: observation` for experiential, `manual` for metadata):
+- **Task outcomes** (workers): tag `project:<project>`,`<type>`, `source_type: observation`, TTL 90d.
+- **Design decisions** (orchestrator, after frontend architecture): tag `design-decision`, idempotency `design:<project>:<feature>:<hash>`, TTL 90d. The complex frontend gate recalls it (tag `design-decision`) first — if a matching decision exists, the architect is skipped.
+- **Review verdicts** (reviewer): tag `verified`, `source_type: observation`, TTL 90d.
+- **Bounce findings** (reviewer): tag `review-bounce`, keyed on idempotency `review-bounce:<project>:<task_id>:<n>`, 7-day TTL — lets the re-review check the fix delta instead of re-scoring from scratch.
+- **Exploration anti-patterns** (reviewer): tag `anti-pattern`, TTL 30d.
+- **Memory GC** (QA): `pgvec_gc` retires records whose `valid_until` has passed (meta never, task/verified/design 90d, feedback 60d, exploration 30d).
 
-No top-level `tags`/`filter`/`claims` — tags live in content, selection in the query. Ownership: retract/correct only on own records (coder↔task, reviewer↔reviews). Session memory (orchestrator scratchpad) is separate — `pi-memory`, not dense-mem. Rules and docs caches live as plain on-disk files, not dense-mem.
+Tags live in both the content prefix and the flat `tags` array; recall filters on the array via `tag`. Ownership: retract only on own records (coder↔task, reviewer↔reviews). Session memory (orchestrator scratchpad) is separate — `pi-memory`. Rules and docs caches live as plain on-disk files.
 
 ## Skills catalog
 

@@ -1,6 +1,6 @@
 # Project Rules (read from disk)
 
-Loaded by `execute-task` before component flows. Project rules in `AGENTS.md` (and `SOUL.md` if present) are read from disk — the deterministic source of truth. There is no dense-mem rules cache; `rules_hash` (from `git rev-parse HEAD`) signals freshness.
+Loaded by `execute-task` before component flows. Project rules in `AGENTS.md` (and `SOUL.md` if present) are read from disk — the deterministic source of truth. `rules_hash` (from `git rev-parse HEAD`) signals freshness.
 
 The task arrives as a **JSON string** (the `subagent` tool accepts only a
 string). Parse it as `task` and read fields via `task.project`,

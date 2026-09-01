@@ -39,8 +39,8 @@ skill degrades to "push the tag, CI builds and publishes".
 
 ### 5. Complete
 - Report the release URL.
-- Best-effort: store the verified release pattern in dense-mem
-  (`dense_mem_remember`, `project:release:verified`, TTL 90d).
+- Best-effort: store the verified release pattern in memory
+  (`pgvec_remember`, tag `release-verified`, TTL 90d).
 - `execute-qa-task` runs `memory-gc` after you return.
 
 ## Verification

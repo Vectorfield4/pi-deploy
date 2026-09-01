@@ -42,11 +42,11 @@ turn). Stay light; let workers do the heavy reads.
 
 ### 3.5. Load Rules from Disk (orchestrator-only)
 
-Rules live on disk (`AGENTS.md`/`SOUL.md`) and are read by whoever needs them — no dense-mem rules cache. The orchestrator passes `metadata.rules_hash` (from `git rev-parse HEAD`) and `metadata.file_inventory` so workers read the sections they need directly. Workers must not write rules anywhere; the orchestrator owns rule discovery. No memory call here — `rules_hash` already signals freshness.
+Rules live on disk (`AGENTS.md`/`SOUL.md`) and are read by whoever needs them. The orchestrator passes `metadata.rules_hash` (from `git rev-parse HEAD`) and `metadata.file_inventory` so workers read the sections they need directly. Workers must not write rules anywhere; the orchestrator owns rule discovery. No memory call here — `rules_hash` already signals freshness.
 
 ### 4. Recall Past Experience
-- Use `dense_mem_recall_memory` to find similar past plans, decisions, or patterns.
-- Recall anti-patterns: `dense_mem_recall_memory({ query:"<goal> project:<project> anti-pattern" })`.
+- Use `pgvec_recall_memory` to find similar past plans, decisions, or patterns.
+- Recall anti-patterns: `pgvec_recall_memory({ query:"<goal> <project>", tag:"anti-pattern" })`.
 - Include as advisory hints — project rules always take precedence.
 - Graceful degradation: if MCP fails, continue without it.
 
@@ -69,7 +69,7 @@ in `references/file-inventory.md`. Read it when you reach this step.
 
 #### For frontend projects:
 1. **Assess complexity** (step 5.1): classify `complex` vs `simple`.
-2. **Check design-reuse** (step 5.2): recall `project:design:decision` — matching record → skip architect, go to implementation with the recalled decision + spec path.
+2. **Check design-reuse** (step 5.2): recall `tag:"design-decision"` — matching record → skip architect, go to implementation with the recalled decision + spec path.
 3. **Complex (no reuse)** → Architecture phase (Pro): delegate to `frontend-architect` — exactly one call with the full context bundle (step 7)
    - Input: full context bundle (steps 4.5, 7)
    - Output: `artifacts/design-spec.md` (Atomic Design structure, routes, state, data)
@@ -123,8 +123,8 @@ high-risk signal to take extra care, and a repeat failure may escalate to `explo
 
 All frontend routing checks memory before the architect — memory is cheaper than asking the architect. On a `complex` task:
 
-1. One recall: `dense_mem_recall_memory({ query:"<goal> project:<project> design decision" })`.
-2. If a matching recent `design:*` record exists (predicate `project:design:decision`) → **skip the architect**. Route as "design-reuse": delegate to `frontend-implementer` with the recorded decision and spec path parsed from the record's `context`.
+1. One recall: `pgvec_recall_memory({ query:"<goal> <project>", tag:"design-decision" })`.
+2. If a matching recent `design:*` record exists (tag `design-decision`) → **skip the architect**. Route as "design-reuse": delegate to `frontend-implementer` with the recorded decision and spec path parsed from the record's `context`.
 3. Otherwise → call `frontend-architect` (step 7). When unsure whether a recalled decision matches the task scope, prefer calling the architect — reuse only genuinely same-scope decisions.
 
 Never run more than one recall here. If it returns nothing, proceed to the architect.

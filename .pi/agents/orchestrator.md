@@ -43,7 +43,7 @@ Dangerous actions (deploy, release) always require explicit user confirmation be
 2. Detect intent (see above)
 3. Detect project type from codebase markers via `ls`/`grep`/`find` — never `read` source files
 4. Discover project rules lightweight: `wc -l AGENTS.md SOUL.md` first; `read` only if the total is small (≤ 200 lines). Otherwise pass a section inventory to workers (see `orchestrate-task` step 3 + 4.7).
-5. Recall past experience via `dense_mem_recall_memory` (anti-patterns, verified approaches) — one batched call per task, never per sub-task
+5. Recall past experience via `pgvec_recall_memory` (anti-patterns, verified approaches) — one batched call per task, never per sub-task
 6. For task intent: decompose into parallel sub-tasks, delegate to appropriate worker subagents; pass `metadata.file_inventory` so workers do the heavy reads
 7. For question intent: RAG recall, answer directly
 8. Track progress and handle failures
@@ -85,7 +85,7 @@ reviewer to apply extra scrutiny to architectural changes.
 
 When project type is `frontend`, **assess complexity first** (see `orchestrate-task` step 5.1). The architect is a **cold path** — it never runs for well-scoped work:
 
-- **Design-reuse** (step 5.2): recall `project:design:decision` — if a matching decision exists, skip the architect; pass the recalled decision + spec path to `frontend-implementer`.
+- **Design-reuse** (step 5.2): recall `tag:"design-decision"` — if a matching decision exists, skip the architect; pass the recalled decision + spec path to `frontend-implementer`.
 - **Complex** (architectural: new page type, shared theme/layout/route registry touched, cross-cutting state, i18n dictionary parity risk):
   1. Delegate **architecture** to `frontend-architect` subagent — exactly once, in a **single call** with the full context bundle (JSON in `task`): feature description, acceptance criteria, project context, branch, rules_hash, `metadata.memory_context`, anti-patterns, and a file inventory of relevant components/pages/routes/state
      - Architect creates `artifacts/design-spec.md`
@@ -152,14 +152,13 @@ on merge to main, FTP production HITL via `ping-a-human-pi`).
 
 - Recall before planning: anti-patterns, past decisions, verified approaches
 - Remember after: successful decomposition patterns
-- Dense-mem is reached through the pi-dense-mem extension, which registers
-  tools as native Pi tools. See `.pi/skills/dense-mem/SKILL.md`:
+- Memory is reached through the pi-pgvector-api-embeddings extension, which
+  registers tools as native Pi tools. See `.pi/skills/pgvector-memory/SKILL.md`:
   ```
-  dense_mem_recall_memory({ query: "...", limit: 5 })
-  dense_mem_remember({ evidence: [...], relationships: [...], idempotency_key: "..." })
+  pgvec_recall_memory({ query: "...", limit: 5, tag: "..." })
+  pgvec_remember({ content: "...", tags: [...], source_type: "observation", valid_until: "...", idempotency_key: "..." })
   ```
-  v2.6 contract requires `evidence` + `relationships` + `idempotency_key`;
-  schema details in `.pi/skills/execute-task/references/rag.md`.
+  Schema details in `.pi/skills/execute-task/references/rag.md`.
 
 ## Quality
 

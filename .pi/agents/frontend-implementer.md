@@ -99,9 +99,9 @@ Use `docs-lookup` skill for up-to-date library docs. Never rely on training data
 - The orchestrator pre-batches one recall per task (see `orchestrate-task` step
   4.5). If `metadata.memory_context` / `metadata.anti_patterns` are present and
   non-empty, use them — do not recall again.
-- Otherwise (no pre-batched context): `dense_mem_recall_memory({ query:"<goal>" })`
-  and `dense_mem_recall_memory({ query:"<goal> project:<project> anti-pattern" })`.
-- Remember after success **only if a reusable lesson** (non-obvious approach, pitfall, or decision) — skip routine/mechanical work: `dense_mem_remember({ evidence: [{ content: "project: <project>\ntype: frontend\ntags: project:<project>,frontend\nconfidence: medium\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<the reusable lesson, under 200 chars>", source_type: "observation" }], relationships: [{ ref: "task:<project>:frontend:<task_id>", subject: { name: "<project>", entity_kind: "project" }, predicate: { proposed_key: "project:task:outcome" }, object: { entity: { name: "task:<task_id>", entity_kind: "concept" } }, polarity: "+", evidence_indices: [0] }], idempotency_key: "task:<project>:frontend:<task_id>" })`. The `relationships` block is required by the v2.6 `remember` contract; without it the write is rejected.
+- Otherwise (no pre-batched context): `pgvec_recall_memory({ query:"<goal>" })`
+  and `pgvec_recall_memory({ query:"<goal> <project>", tag:"anti-pattern" })`.
+- Remember after success **only if a reusable lesson** (non-obvious approach, pitfall, or decision) — skip routine/mechanical work: `pgvec_remember({ content: "project: <project>\ntype: frontend\ntags: project:<project>,frontend\nconfidence: medium\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<the reusable lesson, under 200 chars>", tags: ["project:<project>", "frontend"], source_type: "observation", valid_until: "<YYYY-MM-DD, today + 90 days>", confidence: "medium", idempotency_key: "task:<project>:frontend:<task_id>" })`.
 - Graceful degradation: if MCP fails, continue without context.
 
 ## Quality Targets

@@ -8,11 +8,11 @@ Loaded by `execute-task` when QA moved the task back for fixes. Same branch is r
 
 2. **Read QA findings**
    - Extract issues from the task description / latest comment passed by the orchestrator.
-   - Recall the persisted bounce record too: `dense_mem_recall_memory({ query:"<feature> project:<project> review bounce" })` — match by `task_id`; the `context` holds the issue list.
+   - Recall the persisted bounce record too: `pgvec_recall_memory({ query:"<feature> <project>", tag:"review-bounce" })` — match by `task_id`; the `context` holds the issue list.
    - If none from either → return "No QA findings in task" to the orchestrator.
 
 3. **Retract proven-wrong evidence** (best-effort)
-   - If the failing code came from memory recall and the recalled record is wrong → `dense_mem_retract_evidence({ evidence_ids:["<evidence_id from recall>"], reason:"<fixed bug>", idempotency_key:"..." })`. The recall result supplies the `evidence_id`, so no relationship lookup is needed.
+   - If the failing code came from memory recall and the recalled record is wrong → `pgvec_retract_evidence({ evidence_ids:["<evidence_id from recall>"], reason:"<fixed bug>" })`. The recall result supplies the `evidence_id`, so no relationship lookup is needed.
 
 4. **Apply fixes**
    - `cd /workspace/<project>-<task_id>`

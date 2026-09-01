@@ -1,6 +1,6 @@
 #!/bin/bash
-# Full stack bootstrap: syncs repo, starts memory stack + Pi, then bootstraps
-# dense-mem and installs Pi packages. Safe to re-run.
+# Full stack bootstrap: syncs repo, starts memory stack + Pi, then installs Pi
+# packages. Safe to re-run.
 set -eu
 
 echo "🔄 Syncing repo with origin..."
@@ -13,14 +13,11 @@ fi
 echo "🔄 Initializing .env and directories..."
 bash scripts/init.sh
 
-echo "🔄 Starting memory stack (memory-db, dense-mem)..."
-docker compose up -d memory-db dense-mem
+echo "🔄 Building and starting memory stack (memory-db, pgvec-memory)..."
+bash scripts/build-memory.sh
 
 echo "🔄 Building and starting Pi..."
 docker compose up -d --build pi
-
-echo "🔄 Bootstrapping dense-mem..."
-bash scripts/memory-bootstrap.sh
 
 echo "🔄 Installing Pi packages..."
 bash scripts/install-packages.sh

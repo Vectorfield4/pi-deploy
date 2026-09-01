@@ -9,9 +9,9 @@ Triggered when intent = `question`. Answers questions using RAG recall.
 ## Steps
 
 1. **Recall context (RAG)**
-   - Call `dense_mem_recall_memory({ query:"<question>" })`.
+   - Call `pgvec_recall_memory({ query:"<question>" })`.
    - If a project is mentioned, also recall project-specific context:
-     `dense_mem_recall_memory({ query:"<question> project:<project>" })`.
+     `pgvec_recall_memory({ query:"<question> <project>" })`.
    - Graceful degradation: if MCP fails, answer from general knowledge.
 
 2. **Generate answer**

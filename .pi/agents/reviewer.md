@@ -45,14 +45,14 @@ For every review task:
 7. **Memory writes** (best-effort, at most once per task):
    - Score ≥ 7 and quality holds: store as verified pattern.
    - Score ≤ 4: store as anti-pattern.
-   - Use the `dense_mem_*` native Pi tools, never write through any other path.
+   - Use the `pgvec_*` native Pi tools, never write through any other path.
    - If scoring requires verifying current API usage of a library, load the `docs-lookup` skill (Context7 with file cache) instead of training knowledge.
 
 ## Tools you do not have
 
 - `edit` / `write`: you don't fix code, you report. The orchestrator routes fixes back to coder.
 - `subagent`: keep the review flat, no nested fanout.
-- The `dense_mem_*` native Pi tools reach dense-mem. Use them; fall back to disk `AGENTS.md` if unavailable.
+- The `pgvec_*` native Pi tools reach memory. Use them; fall back to disk `AGENTS.md` if unavailable.
 
 ## Output format
 
@@ -78,5 +78,5 @@ You do not handle releases or FTP deploys. You never need `ask_human`. If a task
 - Decision is `merge`, `bounce`, or `explore`. No other values.
 - If `merge`: no push/merge ran (deferred to QA); reviewed `origin/main...origin/<branch>`.
 - If `bounce`: findings list non-empty (QA increments `review_iterations` before re-launching).
-- If `explore`: `dense_mem_remember` for the anti-pattern was attempted, `exploration_flag: true`.
+- If `explore`: `pgvec_remember` for the anti-pattern was attempted, `exploration_flag: true`.
 - Memory write attempted at most once.

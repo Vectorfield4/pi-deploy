@@ -6,13 +6,13 @@ Natural-language dev system on [Pi](https://pi.dev). Detects project type (front
 
 ### 🧠 Memory Stack
 
-Long-term memory for the agents, self-hosted RAG via dense-mem (PostgreSQL + pgvector). Records are durable, append-only evidence anchored by relationships, with lifecycle hooks for replacement and removal. Embeddings + claim verification are hosted (remote OpenAI-compatible endpoint) — no local embedding container.
+Long-term memory for the agents, self-hosted lightweight RAG (`pi-pgvector-api-embeddings`: PostgreSQL + pgvector) with remote API embeddings. Records carry content plus optional tags / predicate / polarity / TTL; recall is cosine-similarity over the embedding plus optional tag filter. Embeddings are hosted (remote OpenAI-compatible endpoint) — no local embedding container.
 
 Used for:
 - Task outcomes and review verdicts
 - Exploration anti-patterns (TTL, cleaned by memory GC)
 
-Rule and library docs caches are plain on-disk files, not dense-mem — deterministic lookups don't warrant an embedding call.
+Rule and library docs caches are plain on-disk files — deterministic lookups don't warrant an embedding call.
 
 Session memory (the orchestrator's scratchpad) is separate — pi-memory.
 
@@ -39,9 +39,9 @@ make logs          # Check logs
 |---|---|
 | `pi` | Pi agent + subagents (orchestrator/coder/qa) |
 | `memory-db` | PostgreSQL + pgvector |
-| `dense-mem` | RAG MCP server |
+| `pgvec-memory` | RAG memory server (`pi-pgvector-api-embeddings`) |
 
-Embeddings + claim verification are hosted on a remote OpenAI-compatible endpoint (configured via `AI_API_*` / `AI_VERIFIER_*` in `.env`) — no local embedding container.
+Embeddings are hosted on a remote OpenAI-compatible endpoint (configured via `AI_API_*` in `.env`) — no local embedding container.
 
 ## Task flow
 
@@ -63,10 +63,10 @@ Versions pinned in `.pi/settings.json`. Makefile reads the list and installs via
 | Extension | Version | Role | Used by | Why it's here |
 |-----------|---------|------|---------|---------------|
 | `pi-subagents` | 0.58.0 | Multi-agent orchestration with strict tool allowlists, async runs, model overrides per role | All agents under `.pi/agents/` | Reads `model` and `tools` from each agent's frontmatter. |
-| `pi-dense-mem` | 0.1.0 | Native Pi extension that exposes dense-mem MCP tools (`dense_mem_*`) directly, without the MCP proxy | All agents (orchestrator, coder, frontend-implementer, reviewer, qa) | Replaces `pi-mcp-adapter` for dense-mem. Discovers the server's tool catalog on `session_start` and registers only what the server serves. Memory is best-effort, never a hard dependency. |
+| `pi-pgvector-memory` | local | Native Pi extension that exposes the pgvec memory tools (`pgvec_*`) directly, without the MCP proxy | All agents (orchestrator, coder, frontend-implementer, reviewer, qa) | Thin proxy to the `pgvec-memory` server. Memory is best-effort, never a hard dependency. |
 | `@bytesbrains/pi-telegram-bridge` | 1.4.1 | Telegram bot bridge inside the Pi interactive session | Pi container entrypoint | The path from Telegram into Pi. Polls in the background. |
 | `ping-a-human-pi` | 0.1.1 | Generic human-in-the-loop notifications | QA agent for FTP deploy blocks | Used where GitHub polling doesn't apply (FTP deploys, destructive ops). |
-| `pi-memory` | 0.4.2 | Session memory with qmd semantic search across daily logs and scratchpad | Pi main session | Separate from dense-mem evidence. Orchestrator scratchpad lives here. |
+| `pi-memory` | 0.4.2 | Session memory with qmd semantic search across daily logs and scratchpad | Pi main session | Separate from pgvec evidence. Orchestrator scratchpad lives here. |
 | `@upstash/context7-pi` | 0.1.2 | Library docs via Context7 | coder, frontend-implementer, reviewer (via the `docs-lookup` skill) | Workers use `docs-lookup` (Context7 + 7-day file cache) instead of trusting training data; never call `resolve-library-id`/`query-docs` directly. |
 
 ### What is not installed

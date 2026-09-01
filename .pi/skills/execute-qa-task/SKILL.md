@@ -95,7 +95,7 @@ a structured result. This agent does not call `pr-judge` or
 
 ### 5.5. Run memory-gc
 After any successful review/release/push/deploy, load and run the `memory-gc`
-skill. It retires dense-mem evidence whose `valid_until` has passed.
+skill. It retires memory evidence whose `valid_until` has passed.
 Best-effort, never blocks the flow. If it fails, the next QA iteration retries.
 
 ### 6. Complete

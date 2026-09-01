@@ -5,14 +5,14 @@ the whole task. Each sub-task will get the result via
 `metadata.memory_context` instead of doing its own recall.
 
 ```
-combined_query = "<main goal> project:<project> type:<project_type>"
-memory_results = dense_mem_recall_memory({ query:combined_query, limit:10 })
+combined_query = "<main goal> <project>"
+memory_results = pgvec_recall_memory({ query:combined_query, limit:10 })
 ```
 
 Also recall anti-patterns:
 
 ```
-anti_patterns = dense_mem_recall_memory({ query:"<main goal> project:<project> anti-pattern", limit:5 })
+anti_patterns = pgvec_recall_memory({ query:"<main goal> <project>", tag:"anti-pattern", limit:5 })
 ```
 
 Then for each sub-task in step 7, include in the delegated task JSON (the

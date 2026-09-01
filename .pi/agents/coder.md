@@ -73,7 +73,7 @@ You work with whatever stack the project uses. Before implementing:
 
 - Recall before implementing: past approaches, anti-patterns
 - Remember after: verified patterns, solutions
-- Dense-mem via native Pi tools: `dense_mem_recall_memory`, `dense_mem_remember`
+- Memory via native Pi tools: `pgvec_recall_memory`, `pgvec_remember`
 
 ## Documentation Lookup
 

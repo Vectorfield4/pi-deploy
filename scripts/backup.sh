@@ -11,7 +11,7 @@ if [ -z "${POSTGRES_PASSWORD:-}" ] || [ -z "${POSTGRES_PASSWORD// }" ]; then
 fi
 
 # ── Memory backup (PostgreSQL) ──────────────────────────────────────
-echo "💾 Creating memory backup (dense-mem PostgreSQL)..."
+echo "💾 Creating memory backup (PostgreSQL)..."
 docker exec pi-memory-db sh -c \
   "PGPASSWORD='${POSTGRES_PASSWORD}' pg_dump -U densemem -d densemem --no-owner" \
   > "$BACKUP_DIR/memory_$TIMESTAMP.sql"

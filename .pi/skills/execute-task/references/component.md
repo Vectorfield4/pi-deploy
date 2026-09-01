@@ -27,7 +27,7 @@ the context bundle into it.)
 
 3. **Recall experience (RAG)** — load `references/rag.md` if not loaded.
    - If `task.metadata.memory_context` is present and non-empty (orchestrator pre-batched): use it as context. Skip the recall call. Also read `task.metadata.anti_patterns` if present and apply as warnings.
-   - If `task.metadata.memory_context` is absent or empty: call `dense_mem_recall_memory({ query:"<concise goal> project:<project>" })`. On failure → continue without context.
+   - If `task.metadata.memory_context` is absent or empty: call `pgvec_recall_memory({ query:"<concise goal> <project>" })`. On failure → continue without context.
 
 4. **Fetch latest and rebase**
    ```
@@ -52,21 +52,14 @@ the context bundle into it.)
      a future task should reuse. Skip routine/mechanical/plumbing tasks;
      writing trivial outcomes is wasted LLM cost. Best-effort, don't block:
      ```
-     dense_mem_remember({
-       evidence: [{
-         content: "project: <project>\ntype: <type>\ntags: project:<project>,<type>,<relevant-concepts>\nconfidence: medium\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<the reusable lesson — what to do or avoid — under 200 chars>",
-         source_type: "observation"
-       }],
-       relationships: [{
-         ref: "task:<project>:<type>:<task_id>",
-         subject: { name: "<project>", entity_kind: "project" },
-         predicate: { proposed_key: "project:task:outcome" },
-         object: { entity: { name: "task:<task_id>", entity_kind: "concept" } },
-         polarity: "+",
-         evidence_indices: [0]
-       }],
-       idempotency_key: "task:<project>:<type>:<task_id>"
-     })
+      pgvec_remember({
+        content: "project: <project>\ntype: <type>\ntags: project:<project>,<type>,<relevant-concepts>\nconfidence: medium\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<the reusable lesson — what to do or avoid — under 200 chars>",
+        tags: ["project:<project>", "<type>", "<relevant-concepts>"],
+        source_type: "observation",
+        valid_until: "<YYYY-MM-DD, today + 90 days>",
+        confidence: "medium",
+        idempotency_key: "task:<project>:<type>:<task_id>"
+      })
      ```
    - Failure: return error details to the orchestrator.
    - Cleanup: `cd /workspace/<project> && git worktree remove --force /workspace/<project>-<task_id> 2>/dev/null || true`

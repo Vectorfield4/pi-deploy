@@ -35,19 +35,12 @@ Triggered when intent = `feedback`. Processes user feedback about existing work.
 
    For memory writes (best-effort):
    ```
-   dense_mem_remember({
-     evidence: [{
-       content: "project: <project>\ntype: <feedback-type>\ntags: project:<project>,user-feedback,<intent-tag>\nconfidence: medium\nvalid_until: <YYYY-MM-DD, today + 60 days>\n\n<feedback summary, under 200 chars>",
-       source_type: "observation"
-     }],
-     relationships: [{
-       ref: "feedback:<project>:<intent-tag>:<short-hash>",
-       subject: { name: "<project>", entity_kind: "project" },
-       predicate: { proposed_key: "project:user:feedback" },
-       object: { entity: { name: "<intent-tag>", entity_kind: "concept" } },
-       polarity: "+",
-       evidence_indices: [0]
-     }],
+   pgvec_remember({
+     content: "project: <project>\ntype: <feedback-type>\ntags: project:<project>,user-feedback,<intent-tag>\nconfidence: medium\nvalid_until: <YYYY-MM-DD, today + 60 days>\n\n<feedback summary, under 200 chars>",
+     tags: ["project:<project>", "user-feedback", "<intent-tag>"],
+     source_type: "observation",
+     valid_until: "<YYYY-MM-DD, today + 60 days>",
+     confidence: "medium",
      idempotency_key: "feedback:<project>:<intent-tag>:<short-hash>"
    })
    ```
