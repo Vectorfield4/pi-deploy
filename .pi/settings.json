@@ -1,6 +1,7 @@
 {
   "defaultProvider": "timeweb",
   "defaultModel": "deepseek/deepseek-v4-flash",
+  "defaultTools": [],
   "theme": "dark",
   "compaction": {
     "enabled": true,
