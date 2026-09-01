@@ -3,7 +3,7 @@
 # one credential (API key), then exports DENSE_MEM_API_KEY to .env.
 #
 # Prerequisites:
-#   - memory stack running: docker compose up -d memory-db embedding dense-mem
+#   - memory stack running: docker compose up -d memory-db dense-mem
 #   - CONTROL_PORTAL_TOKEN — auto-resolved by script if not set, or set manually in .env
 # Usage: bash scripts/memory-bootstrap.sh
 #

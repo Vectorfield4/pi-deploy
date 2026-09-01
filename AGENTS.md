@@ -12,7 +12,7 @@ Deployment + instruction repo for a Pi-based AI development system. No applicati
 ├── agents/           # Agent definitions; skills listed per agent in frontmatter
 └── skills/           # Skill packages (24 skills)
 scripts/              # Bash scripts (init, setup, cloud-init, backup, setup-cron-jobs, update-on-push)
-docker-compose.yml    # Pi + memory stack (4 services)
+docker-compose.yml    # Pi + memory stack (3 services; embeddings/verifier remote)
 Dockerfile.pi         # Pi container image
 AGENTS.md             # This file — interactive-session instructions
 .env                  # Secrets (gitignored)
@@ -20,7 +20,7 @@ AGENTS.md             # This file — interactive-session instructions
 
 ## How it runs
 
-One Pi process (interactive, PTY, Telegram via `@bytesbrains/pi-telegram-bridge`) + 3 memory containers (PostgreSQL+pgvector, TEI embeddings, dense-mem RAG). No slash commands — users write naturally. The interactive session routes every message to the `orchestrator` subagent (intent: task/question/feedback/deploy/...), which delegates to workers (`frontend-architect`/`frontend-implementer` for frontend, `coder` otherwise). Execution models are flash; tasks that need the architecture gate set `metadata.complex: true`. The `reviewer` (score decision) runs on **every** coding task as the quality loop — it returns deficient work via `bounce` before anything is pushed. Work lands on a feature branch and is pushed to `main` directly — no PR, no human approval gate. Released/deployed by `qa`.
+One Pi process (interactive, PTY, Telegram via `@bytesbrains/pi-telegram-bridge`) + 2 memory containers (PostgreSQL+pgvector, dense-mem RAG; embeddings + claim verification hosted remote). No slash commands — users write naturally. The interactive session routes every message to the `orchestrator` subagent (intent: task/question/feedback/deploy/...), which delegates to workers (`frontend-architect`/`frontend-implementer` for frontend, `coder` otherwise). Execution models are flash; tasks that need the architecture gate set `metadata.complex: true`. The `reviewer` (score decision) runs on **every** coding task as the quality loop — it returns deficient work via `bounce` before anything is pushed. Work lands on a feature branch and is pushed to `main` directly — no PR, no human approval gate. Released/deployed by `qa`.
 
 Single responsibility: each agent owns its one job and never narrates another's.
 Skills/agents describe only the actor's own workflow — never "X is done by Y" or
@@ -133,7 +133,7 @@ object anywhere.
 
 ## Memory layer
 
-**dense-mem** — self-hosted RAG memory (PostgreSQL + pgvector + TEI), contract `dense-mem.v2.6`, reached via the `pi-dense-mem` extension. Stores durable append-only **evidence anchored by relationships**: `relationships` and `idempotency_key` required, `supersedes_evidence_ids` goes inside the evidence item, lifecycle via `retract_evidence`/`correct_relationship`. `source_type` enum: conversation/document/observation/manual. Recall is support-path gated and returns `{ evidence_id, context, space_kind }` — read `context`, never `content`.
+**dense-mem** — self-hosted RAG memory (PostgreSQL + pgvector; embeddings + verifier remote), contract `dense-mem.v2.6`, reached via the `pi-dense-mem` extension. Stores durable append-only **evidence anchored by relationships**: `relationships` and `idempotency_key` required, `supersedes_evidence_ids` goes inside the evidence item, lifecycle via `retract_evidence`/`correct_relationship`. `source_type` enum: conversation/document/observation/manual. Recall is support-path gated and returns `{ evidence_id, context, space_kind }` — read `context`, never `content`.
 
 Usage patterns:
 - **Task outcomes** (workers): `source_type: observation`, predicate `project:task:outcome`, keyed on `task_id`.

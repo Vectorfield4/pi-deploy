@@ -20,8 +20,6 @@ services:
     depends_on:
       memory-db:
         condition: service_healthy
-      embedding:
-        condition: service_healthy
       dense-mem:
         condition: service_healthy
     stdin_open: true
@@ -59,30 +57,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  embedding:
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.2.1
-    container_name: pi-embedding
-    restart: unless-stopped
-    environment:
-      HF_MODEL_ID: sentence-transformers/all-MiniLM-L6-v2
-      MAX_BATCH_TOKENS: "8192"
-      MAX_CLIENT_BATCH_SIZE: "32"
-    ports:
-      - "127.0.0.1:8081:8080"
-    volumes:
-      - embedding-cache:/data
-    healthcheck:
-      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080; printf \"GET /health HTTP/1.0\\r\\n\\r\\n\" >&3; grep -q \"200 OK\" <&3' || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
   dense-mem:
     image: ghcr.io/markhuangai/dense-mem:latest
     container_name: pi-dense-mem
@@ -99,10 +73,10 @@ services:
       POSTGRES_SSLMODE: disable
       REDIS_ADDR: ""
       DISTRIBUTED_COORDINATION_REQUIRED: "false"
-      AI_API_URL: http://embedding:8080/v1
-      AI_API_KEY: tei
-      AI_API_EMBEDDING_MODEL: all-MiniLM-L6-v2
-      AI_API_EMBEDDING_DIMENSIONS: "384"
+      AI_API_URL: ${AI_API_URL}
+      AI_API_KEY: ${AI_API_KEY}
+      AI_API_EMBEDDING_MODEL: ${AI_API_EMBEDDING_MODEL}
+      AI_API_EMBEDDING_DIMENSIONS: ${AI_API_EMBEDDING_DIMENSIONS}
       AI_VERIFIER_API_URL: ${AI_VERIFIER_API_URL}
       AI_VERIFIER_API_KEY: ${AI_VERIFIER_API_KEY}
       AI_VERIFIER_MODEL: ${AI_VERIFIER_MODEL}
@@ -112,12 +86,8 @@ services:
     ports:
       - "127.0.0.1:${DENSE_MEM_PORT:-8080}:8080"
       - "127.0.0.1:${CONTROL_PORTAL_PORT:-8090}:8090"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     depends_on:
       memory-db:
-        condition: service_healthy
-      embedding:
         condition: service_healthy
     logging:
       driver: json-file
@@ -147,4 +117,3 @@ services:
 volumes:
   pi-agent-home:
   memory-db-data:
-  embedding-cache:

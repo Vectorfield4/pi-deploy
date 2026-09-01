@@ -13,8 +13,8 @@ fi
 echo "🔄 Initializing .env and directories..."
 bash scripts/init.sh
 
-echo "🔄 Starting memory stack (memory-db, embedding, dense-mem)..."
-docker compose up -d memory-db embedding dense-mem
+echo "🔄 Starting memory stack (memory-db, dense-mem)..."
+docker compose up -d memory-db dense-mem
 
 echo "🔄 Building and starting Pi..."
 docker compose up -d --build pi

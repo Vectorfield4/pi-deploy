@@ -6,7 +6,7 @@ Natural-language dev system on [Pi](https://pi.dev). Detects project type (front
 
 ### 🧠 Memory Stack
 
-Long-term memory for the agents, self-hosted RAG via dense-mem (PostgreSQL + pgvector + TEI embeddings). Records are durable, append-only evidence anchored by relationships, with lifecycle hooks for replacement and removal.
+Long-term memory for the agents, self-hosted RAG via dense-mem (PostgreSQL + pgvector). Records are durable, append-only evidence anchored by relationships, with lifecycle hooks for replacement and removal. Embeddings + claim verification are hosted (remote OpenAI-compatible endpoint) — no local embedding container.
 
 Used for:
 - Task outcomes and review verdicts
@@ -39,8 +39,9 @@ make logs          # Check logs
 |---|---|
 | `pi` | Pi agent + subagents (orchestrator/coder/qa) |
 | `memory-db` | PostgreSQL + pgvector |
-| `embedding` | TEI (all-MiniLM-L6-v2) |
 | `dense-mem` | RAG MCP server |
+
+Embeddings + claim verification are hosted on a remote OpenAI-compatible endpoint (configured via `AI_API_*` / `AI_VERIFIER_*` in `.env`) — no local embedding container.
 
 ## Task flow
 
