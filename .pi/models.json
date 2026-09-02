@@ -15,6 +15,7 @@
       ]
     },
     "image": {
+      "api": "openai-completions",
       "baseUrl": "$IMAGE_API_URL",
       "apiKey": "$IMAGE_API_KEY",
       "models": [
