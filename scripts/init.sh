@@ -9,9 +9,9 @@ set -eu
 mkdir -p workspace backups
 
 # Discard local changes to tracked files so silent diffs can't break
-# `git pull --ff-only` next tick. Untracked files (workspace, backups,
-# .env, .pi/npm/, logs, artifacts) are left alone.
-git checkout -- scripts/ AGENTS.md Makefile docker-compose.yml Dockerfile.pi .pi/ 2>/dev/null || true
+# `git pull --ff-only` next tick. Untracked files (.env, workspace/,
+# backups/, .pi/npm/, etc.) are in .gitignore and ignored either way.
+git checkout -- . 2>/dev/null || true
 
 # Ignore chmod-only diffs so cron-safe `+x` doesn't block future pulls.
 git config core.fileMode false
