@@ -93,9 +93,10 @@ a structured result. This agent does not call `pr-judge` or
   re-decomposes the task. Do NOT bounce to coder a 4th time.
 
 ### 5.5. Run memory-gc
-After any successful review/release/push/deploy, load and run the `memory-gc`
-skill. It retires memory evidence whose `valid_until` has passed.
-Best-effort, never blocks the flow. If it fails, the next QA iteration retries.
+After a successful **push/release/deploy** (NOT after a bounce or review-only
+iteration — those write no memory), load and run the `memory-gc` skill. It
+retires memory evidence whose `valid_until` has passed. Best-effort, never
+blocks the flow. If it fails, the next push iteration retries.
 
 ### 6. Complete
 - Forward the result. No memory writes from this skill (reviewer owns review

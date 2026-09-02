@@ -32,11 +32,10 @@ turn). Stay light; let workers do the heavy reads.
 - Pull latest: `git pull origin dev` (or `main` if `dev` doesn't exist).
 - Get git hash: `git rev-parse HEAD` → `rules_hash`.
 - Run `wc -l AGENTS.md SOUL.md 2>/dev/null` first. If the total is **≤ 200
-  lines** → `read` both fully. Otherwise:
-  - `grep -nE '^## ' AGENTS.md SOUL.md` to get a section inventory.
-  - For project-type-relevant sections, `read` only that section
-    (`head -n <end> AGENTS.md | tail -n +<start>` or similar).
-- Extract key rule sections relevant to the project type.
+  lines** → `read` both fully. Otherwise: **stop**. Do not read sections, do
+  not `grep` then `head/tail` — every `read` token replays as cacheRead on
+  every subsequent turn. Pass `metadata.file_inventory` (step 4.7) and let
+  the worker read what it needs from the inventory.
 - Ensure `artifacts/` directory exists in the project root: `mkdir -p /workspace/<project>/artifacts`. This is where cross-skill design specs, content plans, and implementation plans are stored.
 - Workers will read the full `AGENTS.md`/section they need; the orchestrator passes only `metadata.rules_hash` and `metadata.file_inventory` (see step 4.7).
 
@@ -68,8 +67,8 @@ in `references/file-inventory.md`. Read it when you reach this step.
 ### 5. Decompose the Task
 
 #### For frontend projects:
-1. **Assess complexity** (step 5.1): classify `complex` vs `simple`.
-2. **Check design-reuse** (step 5.2): recall `tag:"design-decision"` — matching record → skip architect, go to implementation with the recalled decision + spec path.
+1. **Check design-reuse first** (step 5.2, mandatory before complexity gate): one `pgvec_recall_memory({ query:"<goal> <project>", tag:"design-decision" })`. Matching record → skip both architect and complexity gate, go to implementation with the recalled decision + spec path.
+2. **No design-reuse → Assess complexity** (step 5.1): classify `complex` vs `simple`.
 3. **Complex (no reuse)** → Architecture phase (Pro): delegate to `frontend-architect` — exactly one call with the full context bundle (step 7)
    - Input: full context bundle (steps 4.5, 7)
    - Output: `artifacts/design-spec.md` (Atomic Design structure, routes, state, data)
@@ -82,7 +81,7 @@ in `references/file-inventory.md`. Read it when you reach this step.
 
 ### 5.1. Assess Frontend Complexity
 
-Classify the frontend task as `simple` or `complex` before routing. The architect is a **cold path** for well-scoped work: adding a 5th solution/service to an existing `data/*.ts` type that renders through the same page is **simple** and goes straight to the implementer.
+Classify the frontend task as `simple` or `complex` before routing. This step runs **after** design-reuse (step 5.2). The architect is a **cold path** for well-scoped work: adding a 5th solution/service to an existing `data/*.ts` type that renders through the same page is **simple** and goes straight to the implementer.
 
 **Simple** (skip architect, delegate straight to `frontend-implementer`):
 - Single well-scoped change that reuses existing pages/layout/routes/state
@@ -119,15 +118,15 @@ The `metadata.complex` boolean in the task JSON tells the reviewer a change went
 through the architect path or was classified complex. The reviewer reads it as a
 high-risk signal to take extra care, and a repeat failure may escalate to `explore`.
 
-### 5.2. Reuse Past Design Decisions (before any cost)
+### 5.2. Reuse Past Design Decisions (mandatory first step)
 
-All frontend routing checks memory before the architect — memory is cheaper than asking the architect. On a `complex` task:
+All frontend routing checks memory before the architect — memory is cheaper than asking the architect. This step runs **always**, before any complexity assessment or architect delegation:
 
 1. One recall: `pgvec_recall_memory({ query:"<goal> <project>", tag:"design-decision" })`.
-2. If a matching recent `design:*` record exists (tag `design-decision`) → **skip the architect**. Route as "design-reuse": delegate to `frontend-implementer` with the recorded decision and spec path parsed from the record's `context`.
-3. Otherwise → call `frontend-architect` (step 7). When unsure whether a recalled decision matches the task scope, prefer calling the architect — reuse only genuinely same-scope decisions.
+2. If a matching recent `design:*` record exists (tag `design-decision`) → **skip both the complexity gate and the architect**. Route as "design-reuse": delegate to `frontend-implementer` with the recorded decision and spec path parsed from the record's `context`.
+3. Otherwise → proceed to complexity gate (step 5.1). When unsure whether a recalled decision matches the task scope, prefer calling the architect — reuse only genuinely same-scope decisions.
 
-Never run more than one recall here. If it returns nothing, proceed to the architect.
+Never run more than one recall here. If it returns nothing, proceed to the complexity gate.
 
 #### For backend projects (Layered Architecture):
 1. route/endpoint → handler → service → repository → model
@@ -209,10 +208,10 @@ values — never omit the structure. Workers read fields as `task.metadata.*`.
 
 ### 7.1. Persist Design Decisions (orchestrator, after architecture completes)
 
-Record the decision once so the complex gate (step 5.2) reuses it instead
-of re-running the architect. Full `remember` shape (v2.6 contract, TTL 90d,
-`supersedes_evidence_ids` for older records, graceful degradation) lives
-in `references/persist-design.md`. Read it when you reach this step.
+Record the decision once so the design-reuse step (step 5.2) reuses it
+instead of re-running the architect. Full `remember` shape (v2.6 contract,
+TTL 90d, `supersedes_evidence_ids` for older records, graceful degradation)
+lives in `references/persist-design.md`. Read it when you reach this step.
 
 ### 8. Finalize Task (push to main)
 
@@ -265,6 +264,7 @@ turns, which forces a fresh model call per worker.
 - Finalize task (push to main) created and delegated
 - No task remains in intermediate state
 - `frontend-architect` invoked at most once per task (complex path only, never for simple or design-reuse)
+- Design-reuse (step 5.2) checked **before** complexity gate for every frontend task; matching record skips architect
 - `metadata.complex` set to `true` iff the task is architectural/cross-cutting (architect invoked, or complex change)
 - Reviewer invoked for every coding task via `qa` (quality loop); `bounce` findings are routed back to the worker
 - Wait discipline (step 8.5): workers' results are received via the result-watcher `<subagent_notification>` injection, not via `subagent_wait` or `status` polling loops. `subagent status` only as a one-shot diagnostic, never as a wait primitive.

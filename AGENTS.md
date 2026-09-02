@@ -210,7 +210,7 @@ Tags live in both the content prefix and the flat `tags` array; recall filters o
 - ui-architect, ui-implementer, integration-specialist, threejs-scene-builder
 
 ### QA
-- execute-qa-task — dispatcher; delegates review to `reviewer` on every coding task (quality loop), pushes branches into `main` and bounces deficient work back (no PR), runs `memory-gc` after each iteration
+- execute-qa-task — dispatcher; delegates review to `reviewer` on every coding task (quality loop), pushes branches into `main` and bounces deficient work back (no PR), runs `memory-gc` after each push/release
 - create-github-release — single-phase: build from main + publish artifact to GitHub Releases (no PR, no watch)
 - deploy-vercel, deploy-ftp — staging (auto on push to main) / production (manual HITL)
 - memory-gc — retire evidence with expired `valid_until`

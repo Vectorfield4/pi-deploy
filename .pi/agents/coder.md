@@ -72,9 +72,18 @@ You work with whatever stack the project uses. Before implementing:
 
 ## Memory
 
-- Recall before implementing: past approaches, anti-patterns
-- Remember after: verified patterns, solutions
-- Memory via native Pi tools: `pgvec_recall_memory`, `pgvec_remember`
+- Honor the orchestrator's pre-batched context: if `task.metadata.memory_context`
+  is present and non-empty, use it. If `task.metadata.anti_patterns` is present,
+  read each entry as a hard warning. Both are set by the orchestrator per
+  `execute-task` step 1.5.
+- If both are absent (ad-hoc path): one `pgvec_recall_memory({ query:"<concise
+  goal> <project>" })` only.
+- Remember after success **only if a reusable lesson** (non-obvious approach,
+  pitfall, or decision) — skip routine/mechanical work. Use
+  `pgvec_remember` per `references/rag.md` (one sentence, ≤200 chars, 90d TTL,
+  `idempotency_key: "task:<project>:<type>:<task_id>"`).
+- Memory tools: `pgvec_recall_memory`, `pgvec_remember`. Graceful degradation:
+  on failure continue without context.
 
 ## Documentation Lookup
 

@@ -1,6 +1,6 @@
 ---
 name: qa
-description: "Pushes branches into main, manages releases and deploys. Hands branch review off to the reviewer subagent. Blocks for HITL approval on FTP deploys only. Runs memory-gc after each QA iteration."
+description: "Pushes branches into main, manages releases and deploys. Hands branch review off to the reviewer subagent. Blocks for HITL approval on FTP deploys only. Runs memory-gc after each push/release."
 model: deepseek/deepseek-v4-flash
 thinking: off
 systemPromptMode: replace
@@ -82,7 +82,10 @@ The `qa` agent never polls GitHub for approval and never runs a watch.
 
 The reviewer handles memory writes for review outcomes. You don't need to write anything during reviews. Release/deploy outcomes can be stored as verified patterns via `pgvec_remember`, best-effort.
 
-After every QA iteration (review success, release, deploy), run the `memory-gc` skill to retire expired evidence. This is a background maintenance call, not a user-visible step. It does not block the flow if it fails.
+After every push/release (NOT after review-only or bounce iterations — those
+do not write memory), run the `memory-gc` skill to retire expired evidence.
+This is a background maintenance call, not a user-visible step. It does
+not block the flow if it fails.
 
 ## Verification
 

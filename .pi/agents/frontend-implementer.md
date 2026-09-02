@@ -98,10 +98,13 @@ Use `docs-lookup` skill for up-to-date library docs. Never rely on training data
 ## Memory
 
 - The orchestrator pre-batches one recall per task (see `orchestrate-task` step
-  4.5). If `metadata.memory_context` / `metadata.anti_patterns` are present and
-  non-empty, use them — do not recall again.
-- Otherwise (no pre-batched context): `pgvec_recall_memory({ query:"<goal>" })`
-  and `pgvec_recall_memory({ query:"<goal> <project>", tag:"anti-pattern" })`.
+  4.5). If `metadata.memory_context` is present and non-empty, use it. If
+  `metadata.anti_patterns` is present, treat each as a hard warning.
+- If `metadata.memory_context` is absent or empty AND this is a complex/
+  design-reuse path → one recall only: `pgvec_recall_memory({ query:"<goal> <project>" })`.
+  Do **not** run a second recall for anti-patterns — the orchestrator already
+  pre-batched those into `metadata.anti_patterns`. Running twice wastes an
+  embedding call and breaks the batched-recall contract.
 - Remember after success **only if a reusable lesson** (non-obvious approach, pitfall, or decision) — skip routine/mechanical work: `pgvec_remember({ content: "project: <project>\ntype: frontend\ntags: project:<project>,frontend\nconfidence: medium\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<the reusable lesson, under 200 chars>", tags: ["project:<project>", "frontend"], source_type: "observation", valid_until: "<YYYY-MM-DD, today + 90 days>", confidence: "medium", idempotency_key: "task:<project>:frontend:<task_id>" })`.
 - Graceful degradation: if MCP fails, continue without context.
 
