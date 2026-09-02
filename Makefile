@@ -21,6 +21,7 @@ update-skills:
 
 update:
 	@git pull --ff-only
+	@chmod +x scripts/*.sh # pull may reset to 100644 in index; cron needs +x
 	@docker compose build pi
 	@docker compose up -d --force-recreate pi
 	@bash scripts/install-packages.sh
@@ -29,6 +30,7 @@ update:
 
 restart:
 	@git pull --ff-only
+	@chmod +x scripts/*.sh
 	@docker compose up -d --force-recreate pi
 
 down:
