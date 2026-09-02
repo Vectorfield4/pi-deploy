@@ -82,12 +82,11 @@ a structured result. This agent does not call `pr-judge` or
   `decision: merge` to the orchestrator, which delegates the push.
 
 **decision: `bounce`**
-- Forward `findings` to the orchestrator. The orchestrator routes back to coder.
-  Do not push the branch.
-- The re-review (after coder fixes) re-launches the reviewer with
-  `review_iterations` incremented. QA owns the bump: read the count from the
-  persisted bounce record (step 4 of `execute-review` writes `review_iterations: <n>`),
-  pass `n + 1` on the next reviewer delegation.
+- Call `telegram_ask(question="QA блок: <one-line>. Автофикс?", options=["Автофикс","Отменяю"], expects_answer=true)` (via `ping-a-human-pi`).
+- Do not end the turn. Do not write a prose summary above the ask. Do not paste `findings`.
+- "Автофикс" → forward `findings` to orchestrator; do not push.
+- "Отменяю" → report `cancelled` to orchestrator; end turn.
+- Re-review: read `review_iterations` from the persisted bounce record (written by `execute-review` step 4), launch reviewer with `n + 1`.
 
 **decision: `explore`**
 - Forward `exploration_flag: true` and the summary. The orchestrator
@@ -102,6 +101,18 @@ Best-effort, never blocks the flow. If it fails, the next QA iteration retries.
 - Forward the result. No memory writes from this skill (reviewer owns review
   memory; release/push outcomes can be stored as verified patterns best-effort).
 - This skill is the dispatcher. It does not write rules, scores, or anti-patterns.
+
+## Final-message contract
+
+- `push` → `✅ <project>@<sha> on main. reviewer: <merge|bounce|explore>. staging: <url|n/a>.` (≤4 lines)
+- `release` / `deploy` → `✅ <action> complete: <url|artifact>.`
+- `review` + `bounce` → `telegram_ask` is the message. No prose above it.
+- `review` + `merge` / `explore` → one-line decision + why. No JSON, no fenced code, no verbatim report. Detail → `artifacts/<task_id>-review.md`.
+
+## Tool-call discipline
+
+- One `telegram_notify(kind="task", status="complete")` per turn. Never per sub-step.
+- `telegram_ask(expects_answer=true)` → do not end the turn. Wait for reply or timeout/cancel.
 
 ## Verification
 

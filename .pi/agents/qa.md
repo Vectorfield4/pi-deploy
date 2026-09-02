@@ -72,9 +72,10 @@ The `qa` agent never polls GitHub for approval and never runs a watch.
 
 ## HITL
 
-`ping-a-human-pi` (Telegram) covers approval-required actions that GitHub cannot
-express — FTP deploys, destructive ops, unblocks. Pushing to `main` is not HITL:
-the reviewer gates every push, QA pushes after it passes.
+- `decision: bounce` → `telegram_ask(expects_answer=true)`. Do not end turn. Awaiting reply. The next turn resumes on the answer.
+- `push` after `decision: merge` → no ask. Push and `telegram_notify`.
+- FTP prod / release / destructive ops → `telegram_ask(expects_answer=true)`. Awaiting reply.
+- Mechanical (push after merge, `memory-gc`, branch cleanup) → do, then `telegram_notify`. No ask.
 
 ## Memory
 
