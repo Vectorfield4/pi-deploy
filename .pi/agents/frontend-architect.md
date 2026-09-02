@@ -6,6 +6,7 @@ thinking: medium
 systemPromptMode: replace
 inheritProjectContext: false
 tools: read, grep, find, ls
+maxSubagentDepth: 0
 skills:
   - ui-architect
 ---

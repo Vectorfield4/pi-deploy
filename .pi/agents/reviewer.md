@@ -6,6 +6,7 @@ thinking: medium
 systemPromptMode: replace
 inheritProjectContext: false
 tools: read, bash, grep, find, ls, mcp
+maxSubagentDepth: 0
 skills:
   - execute-review
   - pr-judge

@@ -6,6 +6,7 @@ thinking: off
 systemPromptMode: replace
 inheritProjectContext: false
 tools: read, bash, grep, find, ls, subagent, subagent_wait, mcp
+maxSubagentDepth: 1
 skills:
   - orchestrate-task
   - intent-router

@@ -6,6 +6,7 @@ thinking: off
 systemPromptMode: replace
 inheritProjectContext: false
 tools: read, bash, grep, find, ls, edit, write, mcp
+maxSubagentDepth: 0
 skills:
   - ui-implementer
   - threejs-scene-builder
