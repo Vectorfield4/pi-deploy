@@ -1,0 +1,7 @@
+{
+  "defaultProvider": "image",
+  "defaultModel": "black_forest_labs/flux-2-pro",
+  "save": "custom",
+  "saveDir": "/root/.pi/agent/generated-images",
+  "timeout": 600
+}

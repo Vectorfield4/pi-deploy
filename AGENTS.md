@@ -205,6 +205,7 @@ Tags live in both the content prefix and the flat `tags` array; recall filters o
 ### Universal
 - intent-router, orchestrate-task, execute-task, setup-ci, project-init, content-strategist, narrative-designer, project-discover
 - docs-lookup — Context7 with 7-day file cache; use instead of `resolve-library-id`/`query-docs` directly
+- image-gen (pi-image-gen) — exposed to `frontend-implementer` only. Provider in `.pi/models.json` (sibling of `timeweb`); default model `black_forest_labs/flux-2-pro` (set in `.pi/settings/pi-image-gen.json`; second registered model is `gemini/gemini-3.1-flash-image-preview`, switch via `/image-model`). Save: cache in `/root/.pi/agent/generated-images/`, copy to project `src/assets/images/`. Whitelist before generation: `hero | cover | og | illustration | concept | background | avatar | thumbnail | diagram`.
 
 ### Frontend (loaded only for frontend projects)
 - ui-architect, ui-implementer, integration-specialist, threejs-scene-builder

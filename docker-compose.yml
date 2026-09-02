@@ -16,6 +16,7 @@ services:
       - ./workspace:/workspace
       - pi-agent-home:/root/.pi/agent
       - ./.pi:/workspace/.pi
+      - ./.pi/settings/pi-image-gen.json:/root/.pi/agent/settings/pi-image-gen.json
       - ./extensions:/extensions:ro
       - ./.pi/models.json:/root/.pi/agent/models.json:ro
     depends_on:

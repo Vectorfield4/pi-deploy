@@ -128,6 +128,30 @@ All frontend routing checks memory before the architect. Memory is cheaper than 
 
 Never run more than one recall here. If it returns nothing, proceed to the complexity gate.
 
+### 5.3. Pre-batch asset table (frontend only, after the spec exists)
+
+When `artifacts/design-spec.md` contains an `## Asset Table`, build the asset
+list for the implementer before delegation. Skip if the spec has no asset
+table or if it is a design-reuse path (the recalled decision already covers
+assets).
+
+1. Parse `## Asset Table`. Each row: `slug`, `type`, `prompt`, `aspect`,
+   `source`.
+2. For each `source: generate` row, run
+   `git -C /workspace/<project> ls-files src/assets/images | grep -i <slug>`.
+   If a match exists, rewrite the row to `source: existing:<path>` and drop
+   it from the generation list.
+3. For each remaining `source: generate` row, validate `type` against the
+   whitelist in `ui-implementer/SKILL.md`. The architect gate should already
+   have caught this; if one slipped through, rewrite to
+   `source: stock-*:...` and attach `findings: blacklisted-asset` (or
+   `unclassified-asset`). Do not bounce the whole task for one row.
+4. Ship the list as
+   `task.metadata.assets: [{slug, type, prompt, aspect, source, repo_path}, ...]`,
+   where `repo_path` is `src/assets/images/<slug>.<ext>` (the `<ext>` is set
+   by the implementer from the first `generate_image` result). The
+   implementer iterates the list and does not re-decide what to generate.
+
 #### For backend projects (Layered Architecture):
 1. route/endpoint → handler → service → repository → model
 2. Data flow, validation, error handling

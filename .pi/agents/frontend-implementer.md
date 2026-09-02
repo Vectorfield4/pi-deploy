@@ -5,7 +5,7 @@ model: deepseek/deepseek-v4-flash
 thinking: off
 systemPromptMode: replace
 inheritProjectContext: false
-tools: read, bash, grep, find, ls, edit, write, mcp
+tools: read, bash, grep, find, ls, edit, write, mcp, image-gen
 maxSubagentDepth: 0
 skills:
   - ui-implementer
@@ -94,6 +94,16 @@ For each organism/molecule in the spec:
 React 19, Vite 7, TypeScript 5, MUI 7, Zustand 5, TanStack Query 5, React Router 7, GSAP 3, Three.js/R3F 9, Vitest 3, MSW 2, Biome 2, Storybook 9.
 
 Use `docs-lookup` skill for up-to-date library docs. Never rely on training data.
+
+## Image generation
+
+`generate_image` is exposed on this agent only. Call shape: `prompt`,
+`aspectRatio` (default `1:1`), `save="custom"`, `saveDir` from
+`pi-image-gen.json`. No `imageSize`, no `quality`. The tool returns
+`details.savedPath`; copy the file to
+`src/assets/images/<slug>.<ext>`. The cache name is the tool's, the repo name
+is yours. Run the gate (whitelist/blacklist in `ui-implementer/SKILL.md`)
+before each call.
 
 ## Memory
 

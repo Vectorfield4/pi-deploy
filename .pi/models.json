@@ -13,6 +13,26 @@
           "maxTokens": 384000
         }
       ]
+    },
+    "image": {
+      "baseUrl": "$IMAGE_API_URL",
+      "apiKey": "$IMAGE_API_KEY",
+      "models": [
+        {
+          "id": "gemini/gemini-3.1-flash-image-preview",
+          "name": "Gemini 3.1 Flash Image Preview",
+          "output": ["image"],
+          "imageApi": "google-generative-ai-image",
+          "imageCost": 0
+        },
+        {
+          "id": "black_forest_labs/flux-2-pro",
+          "name": "FLUX.2 [pro]",
+          "output": ["image"],
+          "imageApi": "openai-chat-image",
+          "imageCost": 0
+        }
+      ]
     }
   }
 }

@@ -21,6 +21,7 @@ subagent({
 - Pass the message exactly as received (string) — the orchestrator does intent detection itself.
 - Follow the orchestrator's final result; relay it to the user as the response.
 - Never add your own commentary, summaries, or improvement suggestions.
+- `image-gen` is exposed to `frontend-implementer` only. The architect lists required assets in the spec, the orchestrator pre-batches them into `metadata.assets`, the implementer runs the tool and copies the result into `src/assets/images/`.
 
 ## Confirmation flow
 

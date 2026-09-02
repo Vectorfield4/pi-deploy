@@ -28,7 +28,25 @@ Design page architecture using Atomic Design levels. Stack: React + MUI.
    - Global state (Zustand)
    - Data fetching (TanStack Query)
 
-5. Save to `artifacts/design-spec.md`.
+5. Save to `artifacts/design-spec.md`. Append an `## Asset Table` at the end
+   listing every image the page needs:
+
+   ```
+   ## Asset Table
+
+   | slug | type | prompt | aspect | source |
+   |------|------|--------|--------|--------|
+   | hero-main | hero | "Wide cinematic shot of..." | 16:9 | generate |
+   | feature-card-1 | illustration | "..." | 4:3 | generate |
+   | arrow-icon | icon | — | 1:1 | stock-mui:<IconName> |
+   ```
+
+   `type` is the asset class. The full whitelist is
+   `hero | cover | og | illustration | concept | background | avatar | thumbnail | diagram`.
+   Anything outside it must use `source: stock-*:...` (stock-mui, stock-lucide,
+   stock-antd, stock-heroicons) or `existing:...`. Icons, logos, favicons,
+   screenshots, charts, text-images, QR codes, and photos of real people are
+   never `generate`.
 
 ## Final-message contract
 

@@ -83,6 +83,34 @@ Use the `pr-judge` skill to score:
 
 If total added/removed lines exceed 3000, do not run the full diff inline; score from per-file reads.
 
+### 4a. Asset coverage (when `task.metadata.assets` is present)
+
+Skip if `task.metadata.assets` is missing or empty.
+
+For each row in the array:
+- If `source: generate`:
+  - `git -C /workspace/<project> ls-files <row.repo_path>` must return a hit.
+  - If missing → `findings[]: missing-asset: <row.slug>`.
+  - Verify the row's `type` is on the whitelist in `ui-implementer/SKILL.md`.
+    If not → `findings[]: blacklisted-asset: <row.slug>`. The architect gate
+    catches this upstream; the reviewer is the second line.
+- If `source: stock-*:...`:
+  - `grep -ri "<name>" src/` must return at least one import or use.
+  - If not → `findings[]: stock-mismatch: <row.slug>`. Note, not bounce.
+- If `source: existing:...`:
+  - `git -C /workspace/<project> ls-files <path>` must return a hit.
+  - If missing → `findings[]: missing-existing: <row.slug>`.
+
+Then scan the diff for image references outside `metadata.assets`:
+```
+git diff origin/main...origin/<branch> | grep -E '\.(png|jpg|jpeg|webp|gif)'
+```
+A hit not in `metadata.assets` → `findings[]: untracked-asset: <path>`.
+
+`missing-asset`, `blacklisted-asset`, `untracked-asset`, and
+`missing-existing` each trigger `decision: bounce`. `stock-mismatch` is a
+note only.
+
 ### 5. Decide
 - `score >= SCORE_PASS` → `decision: merge`
 - `SCORE_NEEDS_FIXES <= score < SCORE_PASS` → `decision: bounce`, persist findings (step 5.5)
