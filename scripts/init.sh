@@ -8,6 +8,10 @@ set -eu
 # Create required directories
 mkdir -p workspace backups
 
+# Ensure all scripts are executable; git checkout may leave them 0644
+# when the repo was committed without +x bits, which silently breaks cron.
+chmod +x scripts/*.sh
+
 # Create or merge .env
 if [ ! -f .env ]; then
   cp .env.example .env
