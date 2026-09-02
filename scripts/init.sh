@@ -8,6 +8,11 @@ set -eu
 # Create required directories
 mkdir -p workspace backups
 
+# Discard local changes to tracked files so silent diffs can't break
+# `git pull --ff-only` next tick. Untracked files (workspace, backups,
+# .env, .pi/npm/, logs, artifacts) are left alone.
+git checkout -- scripts/ AGENTS.md Makefile docker-compose.yml Dockerfile.pi .pi/ 2>/dev/null || true
+
 # Ensure all scripts are executable; git checkout may leave them 0644
 # when the repo was committed without +x bits, which silently breaks cron.
 chmod +x scripts/*.sh

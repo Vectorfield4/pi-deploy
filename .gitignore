@@ -2,6 +2,7 @@
 workspace/
 backups/
 pi-data/
+.pi/npm/
 *.log
 node_modules/
 /trace-logs
