@@ -4,8 +4,7 @@
 # Always:  *.broken, *.bak (incl. __RETIRED.jsonl.bak), __RETIRED_*_scratch/ dirs.
 # Age:     *.jsonl whose mtime is older than AGE_HOURS (default 24) plus its
 #          sibling directory of the same name if one exists. Same sibling-dir
-#          rule also fires for *.broken and *.bak files (the .jsonl itself
-#          may not exist if the session never opened, but the dir does).
+#          rule also fires for *.broken and *.bak files.
 # Idempotent. Dry-run by default; --apply to actually remove.
 # Cron entry is managed by scripts/setup-cron-jobs.sh.
 set -euo pipefail
@@ -27,34 +26,34 @@ done
 mkdir -p "$(dirname "$LOG")"
 : >> "$LOG"
 
-# Run inside the container — sessions live on the pi-agent-home volume.
-CANDIDATES=$(
-  docker exec "$CT" sh -c "
-    set -e
-    # broken + bak at any depth; per-file rule covers the .jsonl.broken/.jsonl.bak cases.
-    find '$SESSIONS_DIR' -type f \\( -name '*.broken' -o -name '*.bak' \\) 2>/dev/null \
-      | grep -v '/subagent-artifacts/' \
-      | awk '{print \"F \" \$0}'
-    # scratch dirs from retired sessions (literal glob, must be quoted).
-    find '$SESSIONS_DIR' -maxdepth 4 -type d -name '__RETIRED_*_scratch' 2>/dev/null \
-      | awk '{print \"D \" \$0}'
-    # old jsonl + their sibling dirs.
-    find '$SESSIONS_DIR' -maxdepth 2 -type f -name '*.jsonl' -mmin +$((AGE_HOURS * 60)) 2>/dev/null \
-      | awk '{print \"F \" \$0; sub(/\.jsonl\$/, \"\"); print \"D \" \$0}'
-  "
-)
+# Run inside the container with bash, not sh — /bin/sh in pi-agent is dash,
+# which pathologically expands globs in heredoc argument strings before find
+# sees them, so wildcards in -name are consumed before the call.
+run_in() {
+  docker exec "$CT" bash -c "$1"
+}
 
-# Resolve sibling dirs for the *.broken/*.bak files (the jsonl may not exist,
-# but the dir usually does). Strip the .broken/.bak suffix and probe.
-CANDIDATES="$CANDIDATES
-$(
-  docker exec "$CT" sh -c "
-    for f in \$(find '$SESSIONS_DIR' -type f \\( -name '*.broken' -o -name '*.bak' \\) 2>/dev/null | grep -v '/subagent-artifacts/'); do
-      base=\"\${f%.broken}\"; base=\"\${base%.bak}\"
-      if [ -d \"\$base\" ]; then echo \"D \$base\"; fi
-    done
-  "
-)"
+# Collect candidates. Each line: <kind> <path>. kind = F (file) or D (dir).
+# We use bash, single-quote the -name patterns, and pass SESSIONS_DIR + age
+# via env to dodge quoting gymnastics.
+CANDIDATES=$(
+  SESSIONS_DIR="$SESSIONS_DIR" AGE_HOURS="$AGE_HOURS" run_in '
+    set -e
+    find "$SESSIONS_DIR" -type f \( -name "*.broken" -o -name "*.bak" \) 2>/dev/null \
+      | grep -v "/subagent-artifacts/" \
+      | awk "{print \"F \" \$0}"
+    find "$SESSIONS_DIR" -maxdepth 4 -type d -name "__RETIRED_*_scratch" 2>/dev/null \
+      | awk "{print \"D \" \$0}"
+    find "$SESSIONS_DIR" -maxdepth 2 -type f -name "*.jsonl" -mmin +$((AGE_HOURS * 60)) 2>/dev/null \
+      | awk "{print \"F \" \$0; sub(/\.jsonl\$/, \"\"); print \"D \" \$0}"
+    # Sibling dirs of *.broken/*.bak when the .jsonl never opened.
+    while IFS= read -r f; do
+      [ -z "$f" ] && continue
+      base="${f%.broken}"; base="${base%.bak}"
+      [ -d "$base" ] && echo "D $base"
+    done < <(find "$SESSIONS_DIR" -type f \( -name "*.broken" -o -name "*.bak" \) 2>/dev/null | grep -v "/subagent-artifacts/")
+  '
+)
 
 # Dedupe and drop the protected top-level subagent-artifacts.
 ACTIONS=()
@@ -79,7 +78,7 @@ fi
 TOTAL=0
 for line in "${ACTIONS[@]}"; do
   p="${line#* }"
-  sz=$(docker exec "$CT" sh -c "[ -e '$p' ] && ( [ -d '$p' ] && du -sb '$p' | awk '{print \$1}' || stat -c %s '$p' )" 2>/dev/null || echo 0)
+  sz=$(docker exec "$CT" bash -c "[ -e '$p' ] && ( [ -d '$p' ] && du -sb '$p' | awk '{print \$1}' || stat -c %s '$p' )" 2>/dev/null || echo 0)
   TOTAL=$((TOTAL + ${sz:-0}))
 done
 
@@ -92,7 +91,7 @@ done
 if [ "$APPLY" -eq 1 ]; then
   for line in "${ACTIONS[@]}"; do
     p="${line#* }"
-    docker exec "$CT" rm -rf -- "$p" >> "$LOG" 2>&1 || true
+    docker exec "$CT" bash -c "rm -rf -- '$p'" >> "$LOG" 2>&1 || true
   done
   echo "[$(date -Iseconds)] done" >> "$LOG"
 else
