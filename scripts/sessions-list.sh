@@ -28,40 +28,45 @@ for arg in "$@"; do
   esac
 done
 
-# Emit TSV: kind<TAB>name<TAB>size_bytes<TAB>mtime_epoch
+# Emit TSV: kind<TAB>name<TAB>size_bytes<TAB>mtime_epoch.
+# All $-vars in the docker block are escaped (\$) so my host shell does not
+# interpolate them — the inner bash sees $f, $d, $base, etc. literally.
 ROWS=$(
-  docker exec "$CT" bash -c "
+  docker exec "$CT" bash -c '
     set -e
-    cd '$SESSIONS_DIR/--workspace--' 2>/dev/null || exit 0
-    now=\$(date +%s)
-    cutoff=\$(( now - $AGE_HOURS * 3600 ))
+    cd "$1/--workspace--" 2>/dev/null || exit 0
+    shift
+    now=$(date +%s)
+    cutoff=$(( now - $1 * 3600 ))
     # Live + dead: top-level .jsonl.
     for f in *.jsonl; do
-      [ -e \"\$f\" ] || continue
-      mt=\$(stat -c %Y \"\$f\")
-      sz=\$(stat -c %s \"\$f\")
-      kind=live; [ \"\$mt\" -lt \"\$cutoff\" ] && kind=dead
-      printf '%s\t%s\t%s\t%s\n' \"\$kind\" \"\$f\" \"\$sz\" \"\$mt\"
+      [ -e "$f" ] || continue
+      mt=$(stat -c %Y "$f")
+      sz=$(stat -c %s "$f")
+      kind=live; [ "$mt" -lt "$cutoff" ] && kind=dead
+      printf "%s\t%s\t%s\t%s\n" "$kind" "$f" "$sz" "$mt"
     done
     # Broken + bak.
     for f in *.jsonl.broken *.jsonl.bak; do
-      [ -e \"\$f\" ] || continue
-      mt=\$(stat -c %Y \"\$f\"); sz=\$(stat -c %s \"\$f\")
-      case \"\$f\" in
+      [ -e "$f" ] || continue
+      mt=$(stat -c %Y "$f"); sz=$(stat -c %s "$f")
+      case "$f" in
         *.broken) kind=broken ;;
         *) kind=bak ;;
       esac
-      printf '%s\t%s\t%s\t%s\n' \"\$kind\" \"\$f\" \"\$sz\" \"\$mt\"
+      printf "%s\t%s\t%s\t%s\n" "$kind" "$f" "$sz" "$mt"
     done
-    # Retired scratch dirs.
+    # Retired scratch dirs. Strip trailing / before case-match (bash * in
+    # case does not cross /).
     for d in */; do
-      case \"\$d\" in
-        __RETIRED_*_scratch/)
-          mt=\$(stat -c %Y \"\$d\"); sz=\$(du -sb \"\$d\" 2>/dev/null | awk '{print \$1}')
-          printf 'retired\t%s\t%s\t%s\n' \"\$d\" \"\${sz:-0}\" \"\$mt\" ;;
+      base="${d%/}"
+      case "$base" in
+        __RETIRED_*_scratch)
+          mt=$(stat -c %Y "$d"); sz=$(du -sb "$d" 2>/dev/null | awk "{print \$1}")
+          printf "retired\t%s\t%s\t%s\n" "$d" "${sz:-0}" "$mt" ;;
       esac
     done
-  "
+  ' _ "$SESSIONS_DIR" "$AGE_HOURS"
 )
 
 if [ "$SUMMARY" -eq 1 ]; then
