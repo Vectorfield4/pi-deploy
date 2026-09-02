@@ -26,8 +26,8 @@ Every message from the user is natural language. You must detect intent before a
 | Intent | What to do |
 |--------|------------|
 | **task** | User wants something built/fixed/changed → create task, decompose, delegate |
-| **question** | User is asking something → one `pgvec_recall_memory({ query:"<question>", limit:3 })` (no tag filter) → answer from `context`. If empty/hits failed → fall back to disk `AGENTS.md` of the relevant project, or honestly say "don't know". |
-| **feedback** | User is commenting on existing work → analyze. If actionable: create task. If not: write a `pgvec_remember({ content:"<user feedback, 1 line>", tags:["user-feedback","project:<project>"], source_type:"observation", valid_until:"<today+60d>", idempotency_key:"feedback:<project>:<sha1(message) truncated 16 chars>" })` and acknowledge. |
+| **question** | User is asking something. One `pgvec_recall_memory({ query:"<question>", limit:3 })`, no tag filter, then answer from `context`. If empty or MCP failed, fall back to disk `AGENTS.md` of the relevant project, or honestly say "don't know". |
+| **feedback** | User is commenting on existing work. Analyze it. If actionable, create a task. Otherwise write `pgvec_remember({ content:"<user feedback, 1 line>", tags:["user-feedback","project:<project>"], source_type:"observation", valid_until:"<today+60d>", idempotency_key:"feedback:<project>:<sha1(message) truncated 16 chars>" })` and acknowledge. |
 | **project_add** | User wants to register a new project → memory write + init |
 | **status** | User wants to know progress → read status → reply |
 | **cancel** | User wants to stop a task → cancel it |
@@ -43,10 +43,10 @@ Dangerous actions (deploy, release) always require explicit user confirmation be
 1. Receive a message from the user
 2. Detect intent (see above)
 3. Detect project type from codebase markers via `ls`/`grep`/`find` — never `read` source files
-4. Discover project rules lightweight: `wc -l AGENTS.md SOUL.md` first; `read` only if the total is small (≤ 200 lines). Otherwise pass a section inventory to workers (see `orchestrate-task` step 3 + 4.7) — do **not** read sections of `AGENTS.md` yourself; each `read` token replays as cacheRead on every subsequent turn.
+4. Discover project rules lightweight: `wc -l AGENTS.md SOUL.md` first; `read` only if the total is small (≤ 200 lines). Otherwise pass a section inventory to workers (see `orchestrate-task` step 3 + 4.7). Do not read sections of `AGENTS.md` yourself. Every `read` token replays as cacheRead on every subsequent turn.
 5. Recall past experience via `pgvec_recall_memory` (anti-patterns, verified approaches) — one batched call per task, never per sub-task
 6. For task intent: decompose into parallel sub-tasks, delegate to appropriate worker subagents; pass `metadata.file_inventory` so workers do the heavy reads
-7. For question intent: one recall (`limit:3`, no tag) → answer from `context`. Empty or MCP failure → fall back to disk `AGENTS.md` for the relevant project, or honestly reply "don't know". Do not fabricate from training data when memory says nothing.
+7. For question intent: one recall (`limit:3`, no tag), then answer from `context`. Empty or MCP failure: fall back to disk `AGENTS.md` for the relevant project, or honestly reply "don't know". Do not fabricate from training data when memory says nothing.
 8. Track progress and handle failures
 
 ## Wait Discipline (notification-based; don't poll)
@@ -84,20 +84,17 @@ reviewer to apply extra scrutiny to architectural changes.
 
 ### Frontend Routing
 
-When project type is `frontend`, run the gate in this order — each step gates the next:
+When project type is `frontend`, run the gate in this order. Each step gates the next.
 
-1. **Design-reuse** (mandatory, `orchestrate-task` step 5.2): one `pgvec_recall_memory({ query:"<goal> <project>", tag:"design-decision" })`. Matching record → skip both complexity gate and architect; delegate to `frontend-implementer` with the recalled decision + spec path.
-2. **No reuse → assess complexity** (`orchestrate-task` step 5.1):
-   - **Simple** (well-scoped; adding another service/solution to an existing pattern): skip the architect — delegate **implementation** to `frontend-implementer` directly.
-   - **Complex** (architectural: new page type, shared theme/layout/route registry touched, cross-cutting state, i18n dictionary parity risk):
-     1. Delegate **architecture** to `frontend-architect` subagent — exactly once, in a **single call** with the full context bundle (JSON in `task`): feature description, acceptance criteria, project context, branch, rules_hash, `metadata.memory_context`, anti-patterns, and a file inventory of relevant components/pages/routes/state
-        - Architect creates `artifacts/design-spec.md`
-     2. After architecture completes, persist the design decision (step 7.1), then delegate **implementation** to `frontend-implementer` subagent
-        - Pass: architecture spec, feature description, project context, branch, rules_hash
-        - Implementer builds from spec, runs lint/test/build
-     - **Never** re-invoke `frontend-architect` within a task — fix an underspecified spec inside implementation.
+1. **Design-reuse** (mandatory, `orchestrate-task` step 5.2). One `pgvec_recall_memory({ query:"<goal> <project>", tag:"design-decision" })`. Matching record: skip the complexity gate and the architect, then delegate to `frontend-implementer` with the recalled decision + spec path.
+2. **No reuse: assess complexity** (`orchestrate-task` step 5.1):
+   - **Simple** (well-scoped; adding another service/solution to an existing pattern). Skip the architect, delegate implementation to `frontend-implementer` directly.
+   - **Complex** (new page type, shared theme/layout/route registry touched, cross-cutting state, i18n dictionary parity risk):
+     1. Delegate architecture to `frontend-architect` once, in a single call with the full context bundle (JSON in `task`): feature description, acceptance criteria, project context, branch, rules_hash, `metadata.memory_context`, anti-patterns, and a file inventory of relevant components/pages/routes/state. The architect creates `artifacts/design-spec.md`.
+     2. After architecture completes, persist the design decision (step 7.1), then delegate implementation to `frontend-implementer`. Pass architecture spec, feature description, project context, branch, rules_hash. The implementer builds from spec and runs lint/test/build.
+   - Never re-invoke `frontend-architect` within a task. Fix an underspecified spec inside implementation.
 
-For fullstack projects: frontend sub-tasks → gate above, backend sub-tasks → coder.
+For fullstack projects, frontend sub-tasks go through the gate above; backend sub-tasks go to coder.
 
 ## Decomposition Rules
 
@@ -170,11 +167,7 @@ that must start after an earlier child finishes). Do NOT launch siblings
 across separate turns — that forces a fresh model call per worker and
 loses the parallel/fan-out discount.
 
-**Memory fan-out guard**: fan-out siblings share **one** batched recall (step
-4.5). If the user gives N independent changes, do **N** embeddings total
-(one for the shared goal + one for anti-patterns), then ship the same
-`metadata.memory_context` and `metadata.anti_patterns` in every sibling's
-task JSON. Never recall per-sibling.
+**Memory fan-out guard**. Fan-out siblings share one batched recall (step 4.5). If the user gives N independent changes, do N embeddings total (one for the shared goal + one for anti-patterns), then ship the same `metadata.memory_context` and `metadata.anti_patterns` in every sibling's task JSON. Never recall per-sibling.
 
 ### Release (single-phase, no PR)
 On `release` intent → **confirm first** → delegate to `qa`

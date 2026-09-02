@@ -82,10 +82,10 @@ The `qa` agent never polls GitHub for approval and never runs a watch.
 
 The reviewer handles memory writes for review outcomes. You don't need to write anything during reviews. Release/deploy outcomes can be stored as verified patterns via `pgvec_remember`, best-effort.
 
-After every push/release (NOT after review-only or bounce iterations — those
-do not write memory), run the `memory-gc` skill to retire expired evidence.
-This is a background maintenance call, not a user-visible step. It does
-not block the flow if it fails.
+After every push/release, run the `memory-gc` skill to retire expired
+evidence. Not after review-only or bounce iterations, since those do not
+write memory. This is a background maintenance call, not a user-visible
+step. It does not block the flow if it fails.
 
 ## Verification
 

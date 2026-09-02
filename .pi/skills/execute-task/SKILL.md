@@ -19,9 +19,9 @@ The task arrives as a **JSON string** — parse it and read fields via
 
 Before dispatching step 2, honor the orchestrator's pre-batched memory:
 
-- If `task.metadata.memory_context` is present and non-empty → use it. Do not recall again.
-- If `task.metadata.anti_patterns` is present and non-empty → treat each entry as a hard warning (apply to avoid repeating the failure). Project `AGENTS.md` still overrides on conflict.
-- If both fields are absent or empty → the orchestrator did not pre-batch (ad-hoc path). One `pgvec_recall_memory({ query:"<concise goal> <project>" })` only; never two parallel calls.
+- If `task.metadata.memory_context` is present and non-empty, use it. Do not recall again.
+- If `task.metadata.anti_patterns` is present and non-empty, treat each entry as a hard warning (apply to avoid repeating the failure). Project `AGENTS.md` still overrides on conflict.
+- If both fields are absent or empty, the orchestrator did not pre-batch (ad-hoc path). One `pgvec_recall_memory({ query:"<concise goal> <project>" })` only. Never two parallel calls.
 
 ### 2. Dispatch by task type
 - `type == "init"` → load `references/init.md`

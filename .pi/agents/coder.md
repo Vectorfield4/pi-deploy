@@ -78,8 +78,8 @@ You work with whatever stack the project uses. Before implementing:
   `execute-task` step 1.5.
 - If both are absent (ad-hoc path): one `pgvec_recall_memory({ query:"<concise
   goal> <project>" })` only.
-- Remember after success **only if a reusable lesson** (non-obvious approach,
-  pitfall, or decision) — skip routine/mechanical work. Use
+- Remember after success only if a reusable lesson (non-obvious approach,
+  pitfall, or decision). Skip routine/mechanical work. Use
   `pgvec_remember` per `references/rag.md` (one sentence, ≤200 chars, 90d TTL,
   `idempotency_key: "task:<project>:<type>:<task_id>"`).
 - Memory tools: `pgvec_recall_memory`, `pgvec_remember`. Graceful degradation:
