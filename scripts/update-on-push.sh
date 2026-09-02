@@ -52,6 +52,10 @@ else
   echo "ℹ️ no session files found (fresh install or pi-agent down) — treating as idle"
 fi
 
+# Make any newly pulled scripts executable. Windows commits lose +x through
+# git's filemode handling, so the host always re-applies it post-pull.
+chmod +x scripts/*.sh 2>/dev/null || true
+
 # Classify the batch: rebuild vs. install-packages+restart vs. restart.
 CHANGED=$(git diff --name-only "$(git merge-base "$LOCAL" "$REMOTE")" "$REMOTE")
 
