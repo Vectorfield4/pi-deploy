@@ -4,8 +4,9 @@
 # Ensures exactly this set of jobs in the current user's crontab, replacing
 # any previous pi-deploy blocks (old style included):
 #
-#   update  */2 * * * * <REPO>/scripts/update-on-push.sh >> /var/log/pi-update.log 2>&1
-#   backup  0 2 * * * set -a; . <REPO>/.env; set +a; cd <REPO> && make backup
+#   update       */2 * * * * <REPO>/scripts/update-on-push.sh >> /var/log/pi-update.log 2>&1
+#   backup       0 2 * * * set -a; . <REPO>/.env; set +a; cd <REPO> && make backup
+#   sessions-gc  0 3 * * * <REPO>/scripts/sessions-gc.sh --apply >> /var/log/pi-sessions-gc.log 2>&1
 #
 # Called automatically by `make update`, `make setup` and cloud-init — no
 # manual crontab editing needed. Safe to re-run; unrelated entries are left
@@ -14,6 +15,7 @@ set -eu
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 POLLER="$REPO_DIR/scripts/update-on-push.sh"
+GC="$REPO_DIR/scripts/sessions-gc.sh"
 
 # Make sure cron itself exists (Debian/Ubuntu). Best-effort for non-root.
 if ! command -v crontab >/dev/null 2>&1; then
@@ -40,6 +42,7 @@ fi
 JOBS=(
   "update|*/2 * * * * $POLLER >> /var/log/pi-update.log 2>&1"
   "backup|0 2 * * * set -a; . $REPO_DIR/.env; set +a; cd $REPO_DIR && make backup"
+  "sessions-gc|0 3 * * * $GC --apply >> /var/log/pi-sessions-gc.log 2>&1"
 )
 
 # Rebuild the crontab: keep everything, drop any previous pi-deploy blocks

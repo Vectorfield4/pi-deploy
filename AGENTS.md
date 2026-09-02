@@ -93,25 +93,40 @@ in `orchestrate-task` step 8.5.
 >    (rename the session file under `/root/.pi/agent/sessions/--workspace--/`
 >    and let Pi start a new one).
 
-## Bridge output contract (what the user sees in Telegram)
+## Telegram output contract (what the user sees in chat)
 
-The user sees Telegram, not the agent's stdout. Three independent channels
-feed the chat, and each has its own rules. A line in chat can come from any
-of them, and they are not deduplicated by the bridge.
+The user reads Telegram, not the agent's stdout. Two extensions and the
+Pi runtime itself write to the chat. The chat is not deduplicated. A line
+in chat can come from any of them.
 
-### 1. Bridge auto-ack (extension, not yours)
+### The two extensions
 
-`@bytesbrains/pi-telegram-bridge@1.4.1` (`src/index.ts:101-105`) sends
-`👂 Got it! Working on: <text>` to chat the moment it forwards a user
-message into the session. There is no env flag, skill, or prompt rule that
-turns it off — it is in the extension's source. Design the conversation
-around it: it always lands first, on every user message. Do not try to
-"explain" it, do not re-send a similar message, do not promise the user you
-will suppress it.
+- **`@bytesbrains/pi-telegram-bridge@1.4.1`** — Telegram ↔ Pi transport.
+  Pulls updates from Telegram, forwards them into the pi session, streams
+  pi's stdout back. Lives at `src/index.ts`. The user configures it only
+  via the bot token.
+- **`ping-a-human-pi@0.1.1`** — HITL channel. Runs as an MCP server (see
+  `npm exec ping-a-human` in the container) and exposes `notify_human` /
+  `ask_human` as model-callable tools, plus an approval gate for risky
+  bash. Skills call the `telegram_*` helpers, and the helpers route back
+  to these tools. Registered in `.pi/settings.json:30`.
 
-### 2. Worker `telegram_notify` / `telegram_send` calls (tool calls, not text)
+Bridge moves messages. ping-a-human lets the model `notify_human` /
+`ask_human`, and gates risky bash.
 
-The `telegram-first` skill exposes `telegram_notify(kind="task", status=…)`
+### Channel 1 — bridge auto-ack (transport, not yours)
+
+`pi-telegram-bridge` (`src/index.ts:101-105`) sends
+`👂 Got it! Working on: <text>` the moment it forwards a user message into
+the session. The auto-ack lives in the extension's source, so env flags,
+skills, and prompt rules cannot turn it off. It always lands first, on
+every user message. The right response is to work around it: do not
+explain it, do not re-send a similar message, do not promise suppression.
+
+### Channel 2 — worker `telegram_notify` / `telegram_send` calls (tool calls, not text)
+
+These come from **`ping-a-human`**, not from the bridge. The
+`telegram-first` skill exposes `telegram_notify(kind="task", status=…)`
 and `telegram_send(message=…)`. A worker calling these mid-run is what
 produces the `✅ pi finished a task in /workspace: …` cards. This is the
 spammiest channel. Rules, enforced in every skill that owns a turn:
@@ -123,7 +138,7 @@ spammiest channel. Rules, enforced in every skill that owns a turn:
   human approval" with `telegram_ask`). Not for "передаю оркестратору,
   сообщу результат" — the bridge already acked.
 
-### 3. Final assistant message (text streamed to chat)
+### Channel 3 — final assistant message (text streamed to chat)
 
 The Pi runtime streams the worker's final message text into chat. If the
 final message is 200 lines of raw `[ARCHITECTURE_RESULT]` JSON or
@@ -215,6 +230,7 @@ Tags live in both the content prefix and the flat `tags` array; recall filters o
 - create-github-release — single-phase: build from main + publish artifact to GitHub Releases (no PR, no watch)
 - deploy-vercel, deploy-ftp — staging (auto on push to main) / production (manual HITL)
 - memory-gc — retire evidence with expired `valid_until`
+- sessions-gc — cron-only, **not** a skill. `scripts/sessions-gc.sh` runs at 03:00 via `setup-cron-jobs.sh` and prunes `*.broken` / `*.bak` / `__RETIRED_*_scratch/` plus `*.jsonl` older than 24h + sibling dirs. Do not invoke from agents.
 
 ### Reviewer
 - execute-review — validate, score the branch diff against `main`, decide (merge decision is a push-approval only — QA executes the push, never here)
