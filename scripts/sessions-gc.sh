@@ -55,7 +55,6 @@ CANDIDATES=$(
 
 # Dedupe and drop the protected top-level subagent-artifacts.
 ACTIONS=()
-PROTECT_RE='^('$SESSIONS_DIR'/subagent-artifacts|$SESSIONS_DIR'/+--[^-]+--/subagent-artifacts)$'
 while IFS= read -r line; do
   [ -z "$line" ] && continue
   p="${line#* }"
@@ -63,13 +62,6 @@ while IFS= read -r line; do
     $SESSIONS_DIR/subagent-artifacts) continue ;;
     $SESSIONS_DIR/*/subagent-artifacts) continue ;;
   esac
-  # Keep only paths that still exist.
-  if [ "$IN_CT" = 1 ]; then
-    if [ "$line" = "D $p" ] && ! docker exec "$CT" test -d "$p" 2>/dev/null; then
-      # Missing dir is fine; just skip.
-      :
-    fi
-  fi
   ACTIONS+=("$line")
 done <<< "$CANDIDATES"
 
