@@ -93,6 +93,61 @@ in `orchestrate-task` step 8.5.
 >    (rename the session file under `/root/.pi/agent/sessions/--workspace--/`
 >    and let Pi start a new one).
 
+## Bridge output contract (what the user sees in Telegram)
+
+The user sees Telegram, not the agent's stdout. Three independent channels
+feed the chat, and each has its own rules. A line in chat can come from any
+of them, and they are not deduplicated by the bridge.
+
+### 1. Bridge auto-ack (extension, not yours)
+
+`@bytesbrains/pi-telegram-bridge@1.4.1` (`src/index.ts:101-105`) sends
+`👂 Got it! Working on: <text>` to chat the moment it forwards a user
+message into the session. There is no env flag, skill, or prompt rule that
+turns it off — it is in the extension's source. Design the conversation
+around it: it always lands first, on every user message. Do not try to
+"explain" it, do not re-send a similar message, do not promise the user you
+will suppress it.
+
+### 2. Worker `telegram_notify` / `telegram_send` calls (tool calls, not text)
+
+The `telegram-first` skill exposes `telegram_notify(kind="task", status=…)`
+and `telegram_send(message=…)`. A worker calling these mid-run is what
+produces the `✅ pi finished a task in /workspace: …` cards. This is the
+spammiest channel. Rules, enforced in every skill that owns a turn:
+
+- `telegram_notify(kind="task")` — at most **twice** per worker turn:
+  once at `status="started"`, once at `status="complete"`. Never per
+  sub-step, never per subagent handoff.
+- `telegram_send` — only for genuine one-off status (e.g. "deploy needs
+  human approval" with `telegram_ask`). Not for "передаю оркестратору,
+  сообщу результат" — the bridge already acked.
+
+### 3. Final assistant message (text streamed to chat)
+
+The Pi runtime streams the worker's final message text into chat. If the
+final message is 200 lines of raw `[ARCHITECTURE_RESULT]` JSON or
+`acceptance-report`, the user reads that as "the result".
+
+- **Final message ≤ 4–6 lines**, plain prose, no fenced code, no JSON.
+  Format: `✅ <one-line outcome>. <files/branch + 1-line what changed>.`
+- **Detail to disk.** Specs, criterion matrices, diffs, long findings
+  → `artifacts/<task_id>-*.md`. Reference by path, do not paste.
+- **Enforced per skill.** `execute-task`, `ui-architect`, `ui-implementer`,
+  `execute-qa-task` each carry a "Final-message contract" + "Tool-call
+  discipline" section that restates this for the agent that owns the turn.
+- **Router (main session)** must also obey it: when forwarding a worker
+  result, paraphrase to one line, do not paste the worker's last message
+  verbatim.
+
+### Why the three channels exist
+
+The bridge auto-ack gives the user instant feedback that the message was
+received. `telegram_notify` is a structured status card. The final message
+is the actual deliverable. Each one answers a different question —
+"received?", "where is it?", "what's the answer?" — and only the third is
+under worker control.
+
 ## Project types
 
 | Type | Detection | Primary agent | Primary skills |

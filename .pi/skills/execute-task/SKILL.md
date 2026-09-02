@@ -30,6 +30,21 @@ Work on the branch, commit and push it.
 - Workspace: `/workspace/<project>-<task_id>` (worktree)
 - Comments: short, inline (same line where practical), only "why" (non-obvious intent/ordering/tolerance); never restate the code, no banners/section headers/attribution
 
+## Final-message contract
+
+The final message is the only text the user reads as your result.
+
+- ≤ 6 lines, plain prose, no fenced code, no JSON.
+- Format: `✅ <one-line outcome>. <commit/branch + 1-line what changed>.`
+- Long output → `artifacts/<task_id>-report.md`. Reference by path or omit.
+
+## Tool-call discipline
+
+- `telegram_notify(kind="task", …)` at most twice per turn: once at
+  `status="started"`, once at `status="complete"`.
+- `telegram_send` is for one-off notes only. Status pings between
+  subagent handoffs are not notes.
+
 ## Quality Targets
 
 | Dimension | Weight | Target |

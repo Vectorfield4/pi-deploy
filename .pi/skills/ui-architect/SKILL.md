@@ -29,3 +29,13 @@ Design page architecture using Atomic Design levels. Stack: React + MUI.
    - Data fetching (TanStack Query)
 
 5. Save to `artifacts/design-spec.md`.
+
+## Final-message contract
+
+- ≤ 4 lines: `✅ spec ready at artifacts/design-spec.md. <N> routes, <M>
+  organisms, complexity: <low|med|high>.`
+- Worth-reusing decisions → `remember` with tag `design-decision`.
+
+## Tool-call discipline
+
+- `telegram_notify(kind="task", …)` at most twice per turn.
