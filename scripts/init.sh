@@ -13,6 +13,9 @@ mkdir -p workspace backups
 # .env, .pi/npm/, logs, artifacts) are left alone.
 git checkout -- scripts/ AGENTS.md Makefile docker-compose.yml Dockerfile.pi .pi/ 2>/dev/null || true
 
+# Ignore chmod-only diffs so cron-safe `+x` doesn't block future pulls.
+git config core.fileMode false
+
 # Ensure all scripts are executable; git checkout may leave them 0644
 # when the repo was committed without +x bits, which silently breaks cron.
 chmod +x scripts/*.sh
