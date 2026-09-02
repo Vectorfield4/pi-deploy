@@ -209,7 +209,7 @@ values — never omit the structure. Workers read fields as `task.metadata.*`.
 | backend/infra/content/CLI component | `coder` | `execute-task` |
 | complex component (any non-frontend) | `coder` (`metadata.complex: true`) | `execute-task` |
 | frontend architecture (complex only) | `frontend-architect` | `ui-architect` |
-| frontend implementation | `frontend-architect` or `frontend-implementer` | `ui-architect` / `ui-implementer` |
+| frontend implementation | `frontend-implementer` | `ui-implementer` |
 | finalize: review gate + push to main | `qa` | `execute-qa-task` |
 | release / deploy | `qa` | `execute-qa-task` |
 | branch review (every coding task) | `reviewer` | `execute-review` |

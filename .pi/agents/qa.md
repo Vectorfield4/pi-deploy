@@ -6,7 +6,7 @@ thinking: off
 systemPromptMode: replace
 inheritProjectContext: false
 tools: read, bash, grep, find, ls, edit, write, subagent, mcp
-maxSubagentDepth: 2
+maxSubagentDepth: 1
 skills:
   - execute-qa-task
   - create-github-release
