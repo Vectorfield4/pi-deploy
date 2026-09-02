@@ -3,7 +3,9 @@
 #
 # Always:  *.broken, *.bak (incl. __RETIRED.jsonl.bak), __RETIRED_*_scratch/ dirs.
 # Age:     *.jsonl whose mtime is older than AGE_HOURS (default 24) plus its
-#          sibling directory of the same name if one exists.
+#          sibling directory of the same name if one exists. Same sibling-dir
+#          rule also fires for *.broken and *.bak files (the .jsonl itself
+#          may not exist if the session never opened, but the dir does).
 # Idempotent. Dry-run by default; --apply to actually remove.
 # Cron entry is managed by scripts/setup-cron-jobs.sh.
 set -euo pipefail
@@ -17,7 +19,7 @@ LOG=/var/log/pi-sessions-gc.log
 for arg in "$@"; do
   case "$arg" in
     --apply) APPLY=1 ;;
-    --help|-h) sed -n '2,11p' "$0"; exit 0 ;;
+    --help|-h) sed -n '2,12p' "$0"; exit 0 ;;
     *) echo "unknown arg: $arg" >&2; exit 2 ;;
   esac
 done
@@ -25,33 +27,34 @@ done
 mkdir -p "$(dirname "$LOG")"
 : >> "$LOG"
 
-# Run inside the container if it's up, else on the host path so GC still works
-# during a restart. The named volume mountpoint matches SESSIONS_DIR.
-if docker exec "$CT" true 2>/dev/null; then
-  IN_CT=1
-else
-  IN_CT=1 # host path == container path for the named volume; run shell directly
-  echo "[$(date -Iseconds)] $CT exec probe failed; using host path" >> "$LOG"
-fi
-
-# Collect candidates. Each line: <kind> <path>. kind = F (file) or D (dir).
+# Run inside the container — sessions live on the pi-agent-home volume.
 CANDIDATES=$(
-  if [ "$IN_CT" = 1 ]; then
-    docker exec "$CT" sh -c "
-      set -e
-      # broken + bak: any depth under sessions, but exclude the shared top-level.
-      find '$SESSIONS_DIR' -type f \( -name '*.broken' -o -name '*.bak' \) 2>/dev/null \
-        | grep -v '/subagent-artifacts/' \
-        | awk '{print \"F \" \$0}'
-      # scratch dirs from retired sessions.
-      find '$SESSIONS_DIR' -maxdepth 4 -type d -name '__RETIRED_*_scratch' 2>/dev/null \
-        | awk '{print \"D \" \$0}'
-      # old jsonl + their sibling dirs.
-      find '$SESSIONS_DIR' -maxdepth 2 -type f -name '*.jsonl' -mmin +$((AGE_HOURS * 60)) 2>/dev/null \
-        | awk '{print \"F \" \$0; sub(/\.jsonl\$/, \"\"); print \"D \" \$0}'
-    "
-  fi
+  docker exec "$CT" sh -c "
+    set -e
+    # broken + bak at any depth; per-file rule covers the .jsonl.broken/.jsonl.bak cases.
+    find '$SESSIONS_DIR' -type f \\( -name '*.broken' -o -name '*.bak' \\) 2>/dev/null \
+      | grep -v '/subagent-artifacts/' \
+      | awk '{print \"F \" \$0}'
+    # scratch dirs from retired sessions (literal glob, must be quoted).
+    find '$SESSIONS_DIR' -maxdepth 4 -type d -name '__RETIRED_*_scratch' 2>/dev/null \
+      | awk '{print \"D \" \$0}'
+    # old jsonl + their sibling dirs.
+    find '$SESSIONS_DIR' -maxdepth 2 -type f -name '*.jsonl' -mmin +$((AGE_HOURS * 60)) 2>/dev/null \
+      | awk '{print \"F \" \$0; sub(/\.jsonl\$/, \"\"); print \"D \" \$0}'
+  "
 )
+
+# Resolve sibling dirs for the *.broken/*.bak files (the jsonl may not exist,
+# but the dir usually does). Strip the .broken/.bak suffix and probe.
+CANDIDATES="$CANDIDATES
+$(
+  docker exec "$CT" sh -c "
+    for f in \$(find '$SESSIONS_DIR' -type f \\( -name '*.broken' -o -name '*.bak' \\) 2>/dev/null | grep -v '/subagent-artifacts/'); do
+      base=\"\${f%.broken}\"; base=\"\${base%.bak}\"
+      if [ -d \"\$base\" ]; then echo \"D \$base\"; fi
+    done
+  "
+)"
 
 # Dedupe and drop the protected top-level subagent-artifacts.
 ACTIONS=()
@@ -59,13 +62,12 @@ while IFS= read -r line; do
   [ -z "$line" ] && continue
   p="${line#* }"
   case "$p" in
-    $SESSIONS_DIR/subagent-artifacts) continue ;;
-    $SESSIONS_DIR/*/subagent-artifacts) continue ;;
+    "$SESSIONS_DIR"/subagent-artifacts) continue ;;
+    "$SESSIONS_DIR"/*/subagent-artifacts) continue ;;
   esac
   ACTIONS+=("$line")
 done <<< "$CANDIDATES"
 
-# Dedupe.
 ACTIONS=( $(printf '%s\n' "${ACTIONS[@]}" | sort -u) )
 
 if [ "${#ACTIONS[@]}" -eq 0 ]; then
@@ -77,9 +79,7 @@ fi
 TOTAL=0
 for line in "${ACTIONS[@]}"; do
   p="${line#* }"
-  if [ "$IN_CT" = 1 ]; then
-    sz=$(docker exec "$CT" sh -c "[ -e '$p' ] && du -sb '$p' 2>/dev/null | awk '{print \$1}' || stat -c %s '$p' 2>/dev/null" 2>/dev/null || echo 0)
-  fi
+  sz=$(docker exec "$CT" sh -c "[ -e '$p' ] && ( [ -d '$p' ] && du -sb '$p' | awk '{print \$1}' || stat -c %s '$p' )" 2>/dev/null || echo 0)
   TOTAL=$((TOTAL + ${sz:-0}))
 done
 
