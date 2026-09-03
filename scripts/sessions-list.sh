@@ -61,7 +61,7 @@ ROWS=$(
     for d in */; do
       base="${d%/}"
       case "$base" in
-        __RETIRED_*_scratch)
+        *__RETIRED_scratch)
           mt=$(stat -c %Y "$d"); sz=$(du -sb "$d" 2>/dev/null | awk "{print \$1}")
           printf "retired\t%s\t%s\t%s\n" "$d" "${sz:-0}" "$mt" ;;
       esac
