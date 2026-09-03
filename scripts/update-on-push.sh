@@ -54,14 +54,16 @@ fi
 
 # Make any newly pulled scripts executable. Windows commits lose +x through
 # git's filemode handling, so the host always re-applies it post-pull.
-chmod +x scripts/*.sh 2>/dev/null || true
+# (Runs after git pull below; do not move it up — chmod would only see the
+# pre-pull files, then pull would overwrite update-on-push.sh with a fresh
+# 644 and break the cron entry until the next manual chmod.)
 
 # Classify the batch: rebuild vs. install-packages+restart vs. restart.
 CHANGED=$(git diff --name-only "$(git merge-base "$LOCAL" "$REMOTE")" "$REMOTE")
 
 if printf '%s\n' "$CHANGED" | grep -qE "$NEED_FULL_REBUILD_REGEX"; then
   echo "🔧 image/container-spec changed — full rebuild via make update"
-  if make update; then
+  if make update && chmod +x scripts/*.sh 2>/dev/null; then
     echo "✅ Pi updated to $REMOTE"
   else
     echo "❌ make update failed — will retry next tick (check git state: dirty tree? divergent commits?)"
@@ -73,7 +75,7 @@ elif printf '%s\n' "$CHANGED" | grep -qx '.pi/settings.json'; then
     echo "⚠️ $CT not running — cannot install packages, defer"
     exit 0
   fi
-  if git pull --ff-only && make install-packages && docker compose restart pi; then
+  if git pull --ff-only && make install-packages && docker compose restart pi && chmod +x scripts/*.sh 2>/dev/null; then
     echo "✅ Packages updated to $REMOTE"
   else
     echo "❌ package update failed — next tick will retry (check that services are healthy)"
@@ -81,7 +83,7 @@ elif printf '%s\n' "$CHANGED" | grep -qx '.pi/settings.json'; then
   fi
 else
   echo "♻️ only mounted config changed — pull + restart pi"
-  if git pull --ff-only && docker compose restart pi; then
+  if git pull --ff-only && docker compose restart pi && chmod +x scripts/*.sh 2>/dev/null; then
     echo "✅ Pi restarted to $REMOTE"
   else
     echo "❌ restart failed — next tick will retry"
