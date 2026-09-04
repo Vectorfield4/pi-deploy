@@ -17,7 +17,7 @@ services:
       - ./workspace:/workspace
       - pi-agent-home:/root/.pi/agent
       - ./.pi:/etc/pi-skel:ro
-      - ./extensions:/extensions:ro
+      - ./extensions:/extensions
     depends_on:
       pgvec-memory:
         condition: service_healthy

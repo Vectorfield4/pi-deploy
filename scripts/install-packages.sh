@@ -18,3 +18,12 @@ for pkg in $PACKAGES; do
   echo "  pi install ${pkg}"
   docker compose exec -T pi pi install "$pkg" || exit 1
 done
+
+# Local path extensions need their own npm dependencies.
+# pi install only registers the extension — it doesn't run npm install.
+echo "Installing npm deps for local extensions..."
+for pkg in $PACKAGES; do
+  case "$pkg" in
+    /*) docker compose exec -T pi sh -c "cd $pkg && npm install --omit=dev" || exit 1 ;;
+  esac
+done
