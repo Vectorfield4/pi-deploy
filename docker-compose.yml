@@ -19,6 +19,7 @@ services:
       - ./.pi/settings/pi-image-gen.json:/root/.pi/agent/settings/pi-image-gen.json
       - ./extensions:/extensions:ro
       - ./.pi/models.json:/root/.pi/agent/models.json:ro
+      - ./.pi/agent/extensions/subagent:/root/.pi/agent/extensions/subagent:ro
     depends_on:
       memory-db:
         condition: service_healthy
