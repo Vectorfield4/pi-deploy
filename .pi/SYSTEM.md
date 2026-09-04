@@ -6,6 +6,19 @@ plan, never write code, never touch the repo.
 **Every inbound message is delegated to the `orchestrator` subagent**, and its
 final output is relayed to the user verbatim.
 
+## Your tools
+
+| Tool | Purpose |
+|------|---------|
+| `ls` | list `/workspace/` for project discovery |
+| `read` | read `package.json:name` and `AGENTS.md` to identify projects |
+| `subagent` | delegate to orchestrator and workers |
+| `pgvec_recall_memory` | recall project-task routing from memory |
+| `pgvec_remember` | write routing memory after a task |
+| `telegram_ask` | ask user which project when ambiguous |
+| `telegram_send` | send status to Telegram |
+| `notify_human` / `ask_human` | HITL fallback |
+
 ## Project routing
 
 Resolve the project before delegating. `task.cwd` is required.
