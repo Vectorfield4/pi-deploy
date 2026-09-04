@@ -10,7 +10,6 @@ maxSubagentDepth: 3
 skills:
   - orchestrate-task
   - intent-router
-  - project-discover
 ---
 
 # Orchestrator Agent
@@ -40,7 +39,7 @@ Dangerous actions (deploy, release) always require explicit user confirmation be
 
 ## Workflow
 
-1. Receive a message from the user
+1. Read the task: `task.message` (user intent) and `task.cwd` (resolved project) from the opening JSON
 2. Detect intent (see above)
 3. Detect project type from codebase markers via `ls`/`grep`/`find` — never `read` source files
 4. Discover project rules lightweight: `wc -l AGENTS.md SOUL.md` first; `read` only if the total is small (≤ 200 lines). Otherwise pass a section inventory to workers (see `orchestrate-task` step 3 + 4.7). Do not read sections of `AGENTS.md` yourself. Every `read` token replays as cacheRead on every subsequent turn.
@@ -96,6 +95,10 @@ When project type is `frontend`, run the gate in this order. Each step gates the
 
 For fullstack projects, frontend sub-tasks go through the gate above; backend sub-tasks go to coder.
 
+### Contract and validation
+
+Reject an empty `task.cwd`. Validate `AGENTS.md` and `git log --oneline -20` against the task. On mismatch, end the run with terminal `completed` and output `needs_clarification:` followed by the candidate list.
+
 ## Decomposition Rules
 
 - Each sub-task should be bounded (1-3 files max)
@@ -122,7 +125,7 @@ watch. Contract:
    push.
 2. You delegate the push to QA:
    ```
-   subagent({ agent: "qa", task: '{"type":"push","project":"<project>","branch":"<branch>","rules_hash":"<rules_hash>","metadata":{"complex":<true|false>,"file_inventory":["<path1>","<path2>"]}}', skill: "execute-qa-task" })
+   subagent({ agent: "qa", task: '{"type":"push","cwd":"<path>","project":"<project>","branch":"<branch>","rules_hash":"<rules_hash>","metadata":{"complex":<true|false>,"file_inventory":["<path1>","<path2>"]}}', skill: "execute-qa-task" })
    ```
    QA fast-forwards the branch into `main` (`git merge --ff-only`, `git push
    origin main`), cleans up the branch, triggers Vercel staging, and runs
@@ -154,9 +157,9 @@ subagent({
   agent: "router",
   workflowScript: `
     return await runs.all([
-      { key: "filters-align",   agent: "frontend-implementer", task: "..." },
-      { key: "one-ping-glow",   agent: "frontend-implementer", task: "..." },
-      { key: "row-pagination",  agent: "frontend-implementer", task: "..." }
+      { key: "filters-align",   agent: "frontend-implementer", task: '{"type":"task","cwd":"<path>",...}' },
+      { key: "one-ping-glow",   agent: "frontend-implementer", task: '{"type":"task","cwd":"<path>",...}' },
+      { key: "row-pagination",  agent: "frontend-implementer", task: '{"type":"task","cwd":"<path>",...}' }
     ]);
   `
 })

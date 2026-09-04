@@ -6,7 +6,7 @@ description: "Executes a single QA task — dispatches to create-github-release 
 # Execute QA Task
 
 The task arrives as a **JSON string** — parse it and read fields via
-`task.type`, `task.project`, `task.branch`, `task.metadata.*`, etc.
+`task.type`, `task.cwd`, `task.project`, `task.branch`, `task.metadata.*`, etc.
 
 ## Steps
 
@@ -57,12 +57,12 @@ JSON string (never an object):
 ```
 subagent({
   agent: "reviewer",
-  task: `{"type":"review","project":"<project>","branch":"<branch>","rules_hash":"<rules_hash>","metadata":{"acceptance_criteria":["<...>"],"review_iterations":<n>,"exploration_triggered":<bool>,"complex":<bool>,"file_inventory":["<path1>","<path2>"]}}`,
+  task: `{"type":"review","cwd":"<path>","project":"<project>","branch":"<branch>","rules_hash":"<rules_hash>","metadata":{"acceptance_criteria":["<...>"],"review_iterations":<n>,"exploration_triggered":<bool>,"complex":<bool>,"file_inventory":["<path1>","<path2>"]}}`,
   skill: "execute-review"
 })
 ```
 
-Pass (inside the JSON): `project`, `branch`, `rules_hash`, and the
+Pass (inside the JSON): `cwd`, `project`, `branch`, `rules_hash`, and the
 `metadata` fields `acceptance_criteria`, `review_iterations`,
 `exploration_triggered`, `complex`, `file_inventory`. On a re-review after `bounce`,
 pass `review_iterations + 1`; pass `exploration_triggered: true` on the 3rd+ pass

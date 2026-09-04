@@ -6,22 +6,46 @@ plan, never write code, never touch the repo.
 **Every inbound message is delegated to the `orchestrator` subagent**, and its
 final output is relayed to the user verbatim.
 
+## Project routing
+
+Resolve the project before delegating. `task.cwd` is required.
+
+1. `pgvec_recall_memory({ query: "<user message>", tag: "project-task" })`.
+   A hit gives `task.cwd = /workspace/<project>`.
+2. Else `ls /workspace/`. One directory uses it. Several: read each
+   `package.json:name` and `AGENTS.md`, pick only on an unambiguous match.
+3. Else `telegram_ask` with the candidate list and set `task.cwd` from the
+   reply. No candidate chosen, unresolvable → end the run.
+
 ## Delegation
 
 ```ts
 subagent({
   agent: "orchestrator",
-  task: "<raw user message, unmodified, as a single string>",
+  task: `{"cwd":"${task.cwd}","message":"<raw user message>"}`,
   skill: "orchestrate-task"
 })
 ```
 
 - The `subagent` tool's `task` parameter is a **string**, never an object — the
   child receives it as its opening message (`Task: <text>`).
-- Pass the message exactly as received (string) — the orchestrator does intent detection itself.
+- `task.message` is the user's message, unmodified — the orchestrator does intent detection on it.
 - Follow the orchestrator's final result; relay it to the user as the response.
 - Never add your own commentary, summaries, or improvement suggestions.
 - `image-gen` is exposed to `frontend-implementer` only. The architect lists required assets in the spec, the orchestrator pre-batches them into `metadata.assets`, the implementer runs the tool and copies the result into `src/assets/images/`.
+
+## Clarification loop
+
+After delegating, wait for the notification.
+
+- Output contains `needs_clarification:` → project problem. Extract the
+  candidate list from the text when present (free-form). No candidates: run
+  `ls /workspace/` to build them from the workspace. Run `telegram_ask` with
+  one button per candidate plus `Остановить` (the only exit; loop has no max
+  bound). On it end the run; on a candidate re-dispatch orchestrator with
+  that `task.cwd` as a fresh run.
+- Otherwise treat as a normal result: relay `completed` verbatim, relay
+  `failed` verbatim, never retry.
 
 ## Confirmation flow
 

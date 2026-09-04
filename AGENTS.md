@@ -81,8 +81,9 @@ in `orchestrate-task` step 8.5.
 
 > If this contract is not being followed on the running system (the agent
 > replies to Telegram directly instead of delegating), check in order:
-> 1. `/workspace/.pi/SYSTEM.md` is present in the container — without it the
->    session falls back to a bare model prompt.
+> 1. `/root/.pi/agent/SYSTEM.md` is present in the container (seeded from the
+>    repo skel on boot) — without it the session falls back to a bare model
+>    prompt.
 > 2. `.pi/settings.json` `subagents.modelScope.allow` uses the full
 >    `provider/model` id (`timeweb/deepseek/...`) — a provider-less pattern
 >    makes every subagent launch fail with a modelScope error.
@@ -188,14 +189,17 @@ pi-subagents (package `pi-subagents@0.58.x`) accepts the `subagent` tool's
 message (`Task: <text>`); there is no structured channel. All context carriers
 therefore serialize into the string as JSON:
 
-- Router → orchestrator: `task` is the raw user message. Orchestrator does
-  intent detection itself.
+- Router → orchestrator: `task` is a JSON string carrying `cwd` (resolved
+  project) and `message` (raw user message). Orchestrator detects intent from
+  `message` and validates `cwd`.
 - Orchestrator → workers (coder / frontend-architect / frontend-implementer /
-  qa / reviewer): `task` is a JSON string carrying `type`, `task_id`,
+  qa / reviewer): `task` is a JSON string carrying `type`, `cwd`, `task_id`,
   `description`, `acceptance_criteria`, `project`, `branch`, `rules_hash`, and
   a `metadata` object (`memory_context`, `anti_patterns`, `complex`, plus
-  review/target-file fields). See `orchestrate-task` step 7.
-- Finalize/branch-push → `qa`: `{"type":"push","project":...,"branch":...,"metadata":{"complex":...}}`.
+  review/target-file fields). `cwd` is the resolved project path, forwarded
+  unchanged at every level so each delegated agent can re-delegate with it.
+  See `orchestrate-task` step 7.
+- Finalize/branch-push → `qa`: `{"type":"push","cwd":...,"project":...,"branch":...,"metadata":{"complex":...}}`.
 
 Read-side: every delegated agent parses its incoming task string as JSON and
 reads fields via `task.type`, `task.metadata.*`, etc. Do not pass `task` as an

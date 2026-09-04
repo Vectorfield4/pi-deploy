@@ -13,10 +13,11 @@ agent's job is to make the merge/bounce/explore decision and write the result.
 The review reads the **branch diff against `main`** — there is no PR.
 
 The task arrives as a **JSON string** — parse it as `task` and read fields via
-`task.project`, `task.branch`, `task.metadata.*`, etc.
+`task.project`, `task.cwd`, `task.branch`, `task.metadata.*`, etc.
 
 ## Input
 
+- `task.cwd`: resolved project path (`/workspace/<project>`)
 - `task.project`: project name (workspace dir under `/workspace/<project>`)
 - `task.branch`: feature branch name
 - `task.metadata.acceptance_criteria`: list of strings, may be empty

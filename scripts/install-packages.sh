@@ -4,7 +4,7 @@
 # and runs `pi install` for each entry. Idempotent.
 set -eu
 
-PACKAGES="$(docker compose exec -T pi node -e "console.log((JSON.parse(require('fs').readFileSync('/workspace/.pi/settings.json','utf8')).packages||[]).join('\n'))")"
+PACKAGES="$(docker compose exec -T pi node -e "console.log((JSON.parse(require('fs').readFileSync('/root/.pi/agent/settings.json','utf8')).packages||[]).join('\n'))")"
 
 if [ -z "$PACKAGES" ]; then
   echo "No packages in .pi/settings.json"

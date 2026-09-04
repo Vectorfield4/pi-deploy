@@ -7,11 +7,18 @@ description: "Breaks down complex development tasks into parallel sub-tasks for 
 
 ## Steps
 
-### 1. Determine Project Context
-- Check `/workspace/` for git repos (skip `.pi` directory).
-- If exactly one → set project = that directory name.
-- If multiple → ask which project matches the task.
-- If workspace is empty → report "No project found. Register a project or clone a repository first."
+### 1. Read the task
+
+Main resolves the project and sends `{"cwd","message"}`. Read both from the
+opening JSON. `task.cwd` is required.
+
+On empty or invalid `task.cwd`, or on validation mismatch (project does not
+fit the task), end the run with terminal `completed` and output
+`needs_clarification:`. Include the candidate list when you can infer it;
+`needs_clarification:` alone tells main to re-scan the workspace. Example:
+
+needs_clarification: the resolved project is the backend, the task is about
+UI. Candidates: secret-base-ai, admin-portal.
 
 ### 2. Detect Project Type
 Before decomposing, identify the project type:
@@ -193,13 +200,13 @@ assets).
 ```
 subagent({
   agent: "<agent>",
-  task: `{"type":"...","task_id":"...","description":"...","acceptance_criteria":["..."],"project":"...","branch":"...","rules_hash":"...","metadata":{"memory_context":"...","anti_patterns":["..."],"complex":<bool>,"file_inventory":["<path1>","<path2>"]}}`,
+  task: `{"type":"...","task_id":"...","description":"...","acceptance_criteria":["..."],"cwd":"<path>","project":"...","branch":"...","rules_hash":"...","metadata":{"memory_context":"...","anti_patterns":["..."],"complex":<bool>,"file_inventory":["<path1>","<path2>"]}}`,
   skill: "<skill>"
 })
 ```
 
 Payload fields: top-level `type`/`task_id`/`description`/`acceptance_criteria`/
-`project`/`branch`/`rules_hash`; `metadata` carries `memory_context` (from
+`cwd`/`project`/`branch`/`rules_hash`; `metadata` carries `memory_context` (from
 step 4.5), `anti_patterns`, `complex` (step 5.1b), `file_inventory` (from
 step 4.7), and task-specific fields. Pass `""` / `[]` / `false` for empty
 values — never omit the structure. Workers read fields as `task.metadata.*`.
@@ -240,12 +247,25 @@ lives in `references/persist-design.md`. Read it when you reach this step.
 ### 8. Finalize Task (push to main)
 
 ```
-subagent({ agent: "qa", task: '{"type":"push","project":"<project>","branch":"<branch>","rules_hash":"<rules_hash>","metadata":{"complex":<bool>,"file_inventory":["<path1>","<path2>"]}}', skill: "execute-qa-task" })
+subagent({ agent: "qa", task: '{"type":"push","cwd":"<path>","project":"<project>","branch":"<branch>","rules_hash":"<rules_hash>","metadata":{"complex":<bool>,"file_inventory":["<path1>","<path2>"]}}', skill: "execute-qa-task" })
 ```
 
 QA runs the reviewer on **every** coding task (the quality loop), then pushes
 the branch into `main` on `decision: merge` (or bounces findings back to the
 orchestrator on `decision: bounce`). No PR, no human gate.
+
+### 8.2. Record project-task (after success)
+
+After the push/release/deploy completes, write the routing memory so the next
+message routes without re-discovery:
+
+```
+pgvec_remember({ content: "task pattern: <sig> -> project: <name>", tags: ["project-task", "project:<name>"], source_type: "observation", valid_until: "<today+90d>", idempotency_key: "project-task:<hash>" })
+```
+
+`<sig>` = first line of the task, lowercased, ≤ 80 chars, project names
+redacted. `<hash>` = short hash of `<sig>`. Similar future tasks then match
+the same entry.
 
 ### 8.5. Wait Discipline (notification-based; don't poll)
 

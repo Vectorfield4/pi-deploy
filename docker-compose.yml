@@ -12,10 +12,11 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4318}
       OTEL_SERVICE_NAME: pi-agent
       PI_OTEL_ENABLED: ${PI_OTEL_ENABLED:-true}
+    working_dir: /root/.pi/agent
     volumes:
       - ./workspace:/workspace
       - pi-agent-home:/root/.pi/agent
-      - ./.pi:/workspace/.pi
+      - ./.pi:/etc/pi-skel:ro
       - ./extensions:/extensions:ro
     depends_on:
       memory-db:
@@ -25,7 +26,7 @@ services:
     stdin_open: true
     tty: true
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -f pi-coding-agent >/dev/null || exit 1"]
+      test: ["CMD-SHELL", "pgrep -x pi >/dev/null || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -102,8 +103,8 @@ services:
       METRICS_STORAGE_TYPE: ""
       COLLECTOR_OTLP_HTTP_CORS_ALLOWED_ORIGINS: "*"
     ports:
-      - "127.0.0.1:16686:16686"   # Jaeger UI
-      - "127.0.0.1:4318:4318"     # OTLP/HTTP traces from pi-agent
+      - "127.0.0.1:16686:16686"
+      - "127.0.0.1:4318:4318"
     logging:
       driver: json-file
       options:
