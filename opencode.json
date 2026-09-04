@@ -3,7 +3,7 @@
   "permission": {
     "bash": {
       "*": "allow",
-      "ssh*": "ask",
+      "ssh*": "allow",
       "scp*": "deny",
       "rsync*": "deny",
       "sftp*": "deny",
