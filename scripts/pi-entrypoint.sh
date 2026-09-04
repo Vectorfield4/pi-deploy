@@ -23,6 +23,16 @@ if [ -n "${GITHUB_TOKEN:-}" ]; then
   git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
 fi
 
+# Force-sync declarative config from /workspace/.pi (repo bind) to the
+# agent home volume. cp -f replaces the inode even when the volume already
+# has the file, so a stale leftover cannot mask the repo copy.
+SRC=/workspace/.pi
+DST=/root/.pi/agent
+mkdir -p "$DST/settings" "$DST/extensions/subagent"
+[ -f "$SRC/models.json" ]                           && cp -f "$SRC/models.json"                          "$DST/models.json"
+[ -d "$SRC/settings" ]                              && cp -f "$SRC/settings/"*.json                      "$DST/settings/" 2>/dev/null || true
+[ -f "$SRC/agent/extensions/subagent/config.json" ] && cp -f "$SRC/agent/extensions/subagent/config.json" "$DST/extensions/subagent/config.json"
+
 # Watchdog: restart the pi agent if its process exits (e.g. bridge fetch
 # crashes the process with an uncaughtException). Container stays up, so
 # Docker restart/healthcheck state stays stable and recovery takes ~seconds.
