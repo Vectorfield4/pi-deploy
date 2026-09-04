@@ -2,13 +2,6 @@
 
 Deployment + instruction repo for a Pi-based AI development system. No application code — just Pi skills (Markdown), agent configs, and bash scripts.
 
-## SSH constraint (hard rule, enforced in global opencode config)
-
-Read-only SSH to the Pi server is allowed for diagnosis. Never write, modify,
-or update anything over SSH — change the repo and let auto-deploy pick it up.
-Global opencode config (`~/.config/opencode/opencode.jsonc`) denies
-write-pattern commands; do not try to bypass.
-
 ## Layout
 
 ```
