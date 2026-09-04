@@ -19,8 +19,6 @@ services:
       - ./.pi:/etc/pi-skel:ro
       - ./extensions:/extensions:ro
     depends_on:
-      memory-db:
-        condition: service_healthy
       pgvec-memory:
         condition: service_healthy
     stdin_open: true
