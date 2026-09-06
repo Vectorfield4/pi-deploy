@@ -63,7 +63,7 @@ Versions pinned in `.pi/settings.json`. Makefile reads the list and installs via
 | Extension | Version | Role | Used by | Why it's here |
 |-----------|---------|------|---------|---------------|
 | `pi-subagents` | 0.58.0 | Multi-agent orchestration with strict tool allowlists, async runs, model overrides per role | All agents under `.pi/agents/` | Reads `model` and `tools` from each agent's frontmatter. |
-| `pi-pgvector-memory` | local | Native Pi extension that exposes the pgvec memory tools (`pgvec_*`) directly, without the MCP proxy | All agents (orchestrator, coder, frontend-implementer, reviewer, qa) | Thin proxy to the `pgvec-memory` server. Memory is best-effort, never a hard dependency. |
+| `pi-pgvector-memory` | local | Native Pi extension that exposes the pgvec memory tools (`pgvec_*`) directly | All agents (orchestrator, coder, frontend-implementer, reviewer, qa) | Thin proxy to the `pgvec-memory` server. Memory is best-effort, never a hard dependency. |
 | `@bytesbrains/pi-telegram-bridge` | 1.4.1 | Telegram bot bridge inside the Pi interactive session | Pi container entrypoint | The path from Telegram into Pi. Polls in the background. |
 | `ping-a-human-pi` | 0.1.1 | Generic human-in-the-loop notifications | QA agent for FTP deploy blocks | Used where GitHub polling doesn't apply (FTP deploys, destructive ops). |
 | `pi-memory` | 0.4.2 | Session memory with qmd semantic search across daily logs and scratchpad | Pi main session | Separate from pgvec evidence. Orchestrator scratchpad lives here. |

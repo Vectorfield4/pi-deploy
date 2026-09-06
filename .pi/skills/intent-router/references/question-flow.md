@@ -1,6 +1,6 @@
 # Question Flow (Natural Language)
 
-Triggered when intent = `question`. Answers questions using RAG recall.
+Triggered when intent = `question`. Answers via RAG recall.
 
 ## Input
 - User's natural language question
@@ -9,16 +9,15 @@ Triggered when intent = `question`. Answers questions using RAG recall.
 ## Steps
 
 1. **Recall context (RAG)**
-   - Call `pgvec_recall_memory({ query:"<question>" })`.
-   - If a project is mentioned, also recall project-specific context:
-     `pgvec_recall_memory({ query:"<question> <project>" })`.
-   - Graceful degradation: if MCP fails, answer from general knowledge.
+   - `pgvec_recall_memory({ query:"<question>" })`.
+   - Project mentioned: also `pgvec_recall_memory({ query:"<question> <project>" })`.
+   - `pgvec_*` call fails: answer from general knowledge.
 
 2. **Generate answer**
-   - Use recalled context + original question for a concise answer.
+   - Answer from recalled context + the original question, concise.
    - Reference project rules or past experience if found.
-   - If no relevant context → answer from general knowledge, note that.
+   - No relevant context: answer from general knowledge, note that.
 
 3. **Reply**
-   - Keep concise (under 2000 chars for Telegram).
-   - If longer → summarize and offer to investigate deeper.
+   - Keep under 2000 chars for Telegram.
+   - Longer: summarize and offer to investigate deeper.

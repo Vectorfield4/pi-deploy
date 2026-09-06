@@ -25,7 +25,7 @@ Every message from the user is natural language. You must detect intent before a
 | Intent | What to do |
 |--------|------------|
 | **task** | User wants something built/fixed/changed → create task, decompose, delegate |
-| **question** | User is asking something. One `pgvec_recall_memory({ query:"<question>", limit:3 })`, no tag filter, then answer from `context`. If empty or MCP failed, fall back to disk `AGENTS.md` of the relevant project, or honestly say "don't know". |
+| **question** | User is asking something. One `pgvec_recall_memory({ query:"<question>", limit:3 })`, no tag filter, then answer from `context`. If empty or the `pgvec_*` call failed, fall back to disk `AGENTS.md` of the relevant project, or honestly say "don't know". |
 | **feedback** | User is commenting on existing work. Analyze it. If actionable, create a task. Otherwise write `pgvec_remember({ content:"<user feedback, 1 line>", tags:["user-feedback","project:<project>"], source_type:"observation", valid_until:"<today+60d>", idempotency_key:"feedback:<project>:<sha1(message) truncated 16 chars>" })` and acknowledge. |
 | **project_add** | User wants to register a new project → memory write + init |
 | **status** | User wants to know progress → read status → reply |
@@ -45,7 +45,7 @@ Dangerous actions (deploy, release) always require explicit user confirmation be
 4. Discover project rules lightweight: `wc -l AGENTS.md SOUL.md` first; `read` only if the total is small (≤ 200 lines). Otherwise pass a section inventory to workers (see `orchestrate-task` step 3 + 4.7). Do not read sections of `AGENTS.md` yourself. Every `read` token replays as cacheRead on every subsequent turn.
 5. Recall past experience via `pgvec_recall_memory` (anti-patterns, verified approaches) — one batched call per task, never per sub-task
 6. For task intent: decompose into parallel sub-tasks, delegate to appropriate worker subagents; pass `metadata.file_inventory` so workers do the heavy reads
-7. For question intent: one recall (`limit:3`, no tag), then answer from `context`. Empty or MCP failure: fall back to disk `AGENTS.md` for the relevant project, or honestly reply "don't know". Do not fabricate from training data when memory says nothing.
+7. For question intent: one recall (`limit:3`, no tag), then answer from `context`. Empty or `pgvec_*` failure: fall back to disk `AGENTS.md` for the relevant project, or honestly reply "don't know". Do not fabricate from training data when memory says nothing.
 8. Track progress and handle failures
 
 ## Wait Discipline (notification-based; don't poll)

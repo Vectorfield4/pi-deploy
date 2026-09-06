@@ -117,7 +117,7 @@ before each call.
   pre-batched those into `metadata.anti_patterns`. Running twice wastes an
   embedding call and breaks the batched-recall contract.
 - Remember after success **only if a reusable lesson** (non-obvious approach, pitfall, or decision) — skip routine/mechanical work: `pgvec_remember({ content: "project: <project>\ntype: frontend\ntags: project:<project>,frontend\nconfidence: medium\nvalid_until: <YYYY-MM-DD, today + 90 days>\n\n<the reusable lesson, under 200 chars>", tags: ["project:<project>", "frontend"], source_type: "observation", valid_until: "<YYYY-MM-DD, today + 90 days>", confidence: "medium", idempotency_key: "task:<project>:frontend:<task_id>" })`.
-- Graceful degradation: if MCP fails, continue without context.
+- Graceful degradation: if the `pgvec_*` call fails, continue without context.
 
 ## Quality Targets
 

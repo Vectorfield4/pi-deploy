@@ -54,7 +54,7 @@ Rules live on disk (`AGENTS.md`/`SOUL.md`) and are read by whoever needs them. T
 - Use `pgvec_recall_memory` to find similar past plans, decisions, or patterns.
 - Recall anti-patterns: `pgvec_recall_memory({ query:"<goal> <project>", tag:"anti-pattern" })`.
 - Include as advisory hints — project rules always take precedence.
-- Graceful degradation: if MCP fails, continue without it.
+- Graceful degradation: if the `pgvec_*` call fails, continue without it.
 
 ### 4.5. Batched memory context for sub-tasks
 
