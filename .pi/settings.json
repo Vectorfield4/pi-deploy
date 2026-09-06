@@ -15,7 +15,7 @@
     "baseDelayMs": 2000
   },
   "subagents": {
-    "maxSubagentDepth": 3,
+    "maxSubagentDepth": 4,
     "modelScope": {
       "enforce": true,
       "strict": true,
