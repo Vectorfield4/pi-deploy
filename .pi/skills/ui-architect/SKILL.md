@@ -34,11 +34,11 @@ Design page architecture using Atomic Design levels. Stack: React + MUI.
    ```
    ## Asset Table
 
-   | slug | type | prompt | aspect | source |
-   |------|------|--------|--------|--------|
-   | hero-main | hero | "Wide cinematic shot of..." | 16:9 | generate |
-   | feature-card-1 | illustration | "..." | 4:3 | generate |
-   | arrow-icon | icon | — | 1:1 | stock-mui:<IconName> |
+   | slug | type | prompt | aspect | source | repo_path |
+   |------|------|--------|--------|--------|-----------|
+   | hero-main | hero | "Wide cinematic shot of..." | 16:9 | generate | src/assets/images/hero-main.png |
+   | feature-card-1 | illustration | "..." | 4:3 | generate | src/assets/images/feature-card-1.png |
+   | arrow-icon | icon | — | 1:1 | stock-mui:<IconName> | — |
    ```
 
    `type` is the asset class. The full whitelist is
@@ -47,6 +47,17 @@ Design page architecture using Atomic Design levels. Stack: React + MUI.
    stock-antd, stock-heroicons) or `existing:...`. Icons, logos, favicons,
    screenshots, charts, text-images, QR codes, and photos of real people are
    never `generate`.
+
+   `repo_path` is the on-disk destination the drawer commits to
+   (`src/assets/images/<slug>.<ext>`). Set it for `generate` rows so the
+   drawer and implementer agree on paths without a handshake.
+
+6. Capabilities (assets):
+   - SVG-authorable assets (illustrations, diagrams, charts) → authored
+     `.svg` via `mui-svg-composition` skill (in-repo, `<img>` rendering).
+   - Raster assets (hero, cover, og, background, avatar, thumbnail, concept)
+     → `generate`, delivered by the `drawer` agent (`hf_generate_image`
+     primary, `generate_image` fallback). Drawer commits to `repo_path`.
 
 ## Final-message contract
 

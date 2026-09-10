@@ -5,12 +5,13 @@ model: deepseek/deepseek-v4-flash
 thinking: off
 systemPromptMode: replace
 inheritProjectContext: false
-tools: read, bash, grep, find, ls, edit, write, mcp, image-gen
+tools: read, bash, grep, find, ls, edit, write, mcp
 maxSubagentDepth: 0
 skills:
   - ui-implementer
   - threejs-scene-builder
   - integration-specialist
+  - mui-svg-composition
   - docs-lookup
 ---
 
@@ -95,15 +96,15 @@ React 19, Vite 7, TypeScript 5, MUI 7, Zustand 5, TanStack Query 5, React Router
 
 Use `docs-lookup` skill for up-to-date library docs. Never rely on training data.
 
-## Image generation
+## Assets
 
-`generate_image` is exposed on this agent only. Call shape: `prompt`,
-`aspectRatio` (default `1:1`), `save="custom"`, `saveDir` from
-`pi-image-gen.json`. No `imageSize`, no `quality`. The tool returns
-`details.savedPath`; copy the file to
-`src/assets/images/<slug>.<ext>`. The cache name is the tool's, the repo name
-is yours. Run the gate (whitelist/blacklist in `ui-implementer/SKILL.md`)
-before each call.
+- `repo_path` ending in `.svg` (asset types `illustration`/`diagram`/`chart`)
+  — author via the `mui-svg-composition` skill.
+- Any other `repo_path` (raster) — reference the path as-is, no existence
+  check. Files land during the same run.
+- `stock-*` / `existing` rows — use the referenced asset directly.
+
+No classification, no generation, no waiting.
 
 ## Memory
 

@@ -1,0 +1,6 @@
+{
+  "provider": "image",
+  "model": "black_forest_labs/flux-2-pro",
+  "api": "openai-chat-image",
+  "saveDir": "/root/.pi/agent/generated-images"
+}

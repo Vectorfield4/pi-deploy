@@ -92,9 +92,6 @@ For each row in the array:
 - If `source: generate`:
   - `git -C /workspace/<project> ls-files <row.repo_path>` must return a hit.
   - If missing → `findings[]: missing-asset: <row.slug>`.
-  - Verify the row's `type` is on the whitelist in `ui-implementer/SKILL.md`.
-    If not → `findings[]: blacklisted-asset: <row.slug>`. The architect gate
-    catches this upstream; the reviewer is the second line.
 - If `source: stock-*:...`:
   - `grep -ri "<name>" src/` must return at least one import or use.
   - If not → `findings[]: stock-mismatch: <row.slug>`. Note, not bounce.
@@ -108,7 +105,7 @@ git diff origin/main...origin/<branch> | grep -E '\.(png|jpg|jpeg|webp|gif)'
 ```
 A hit not in `metadata.assets` → `findings[]: untracked-asset: <path>`.
 
-`missing-asset`, `blacklisted-asset`, `untracked-asset`, and
+`missing-asset`, `untracked-asset`, and
 `missing-existing` each trigger `decision: bounce`. `stock-mismatch` is a
 note only.
 

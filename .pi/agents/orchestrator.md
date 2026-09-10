@@ -54,8 +54,7 @@ Dangerous actions (deploy, release) always require explicit user confirmation be
 and triggers a fresh turn when a delegated worker reaches a terminal state —
 that is the intended coordination flow. `subagent_wait` has a documented
 race condition (returns early with a false timeout) and `subagent status`
-polling produced 13+ redundant calls in the last task. See
-`.pi/skills/orchestrate-task/SKILL.md` step 8.5 for the full procedure.
+polling produced 13+ redundant calls in the last task.
 Summary: `subagent({ agent, task, skill })` → end the turn → react to the
 next notification. `subagent status` is diagnostic only. `subagent_wait`
 is the exception path for `pi -p` non-interactive runs.
@@ -66,9 +65,9 @@ Before decomposing, detect the project type, then route to the correct agent:
 
 | Type | Detection | Delegate to |
 |------|-----------|-------------|
-| **frontend** | package.json with React/Vue/Svelte/Angular | design-reuse (step 5.2) first, then complexity gate; `frontend-architect` (complex only) + `frontend-implementer` |
+| **frontend** | package.json with React/Vue/Svelte/Angular | design-reuse (step 5.2) first, then complexity gate; `frontend-architect` (complex only) + `frontend-implementer` (+ `drawer` when assets need generation) |
 | **backend** | package.json + Express/Fastify/Nest, or go.mod, requirements.txt, Cargo.toml | complexity gate (step 5.1a); `coder` |
-| **fullstack** | Monorepo or both frontend + backend markers | frontend: design-reuse (step 5.2) first, then complexity gate; `frontend-architect` (complex only) + `frontend-implementer` for UI, `coder` for API |
+| **fullstack** | Monorepo or both frontend + backend markers | frontend: design-reuse (step 5.2) first, then complexity gate; `frontend-architect` (complex only) + `frontend-implementer` (+ `drawer` when assets need generation) for UI, `coder` for API |
 | **CLI/lib** | package.json with bin/main, or Makefile + src/ | complexity gate (step 5.1a); `coder` |
 | **infra** | docker-compose.yml, Dockerfile, .github/workflows | complexity gate (step 5.1a); `coder` |
 | **content** | Markdown-heavy, no code | complexity gate (step 5.1a); `coder` |
@@ -91,6 +90,13 @@ When project type is `frontend`, run the gate in this order. Each step gates the
    - **Complex** (new page type, shared theme/layout/route registry touched, cross-cutting state, i18n dictionary parity risk):
      1. Delegate architecture to `frontend-architect` once, in a single call with the full context bundle (JSON in `task`): feature description, acceptance criteria, project context, branch, rules_hash, `metadata.memory_context`, anti-patterns, and a file inventory of relevant components/pages/routes/state. The architect creates `artifacts/design-spec.md`.
      2. After architecture completes, persist the design decision (step 7.1), then delegate implementation to `frontend-implementer`. Pass architecture spec, feature description, project context, branch, rules_hash. The implementer builds from spec and runs lint/test/build.
+3. When `metadata.assets` carries `source: generate` rows, fan out
+         `drawer` **in parallel** with the implementer, each on its **own
+         branch**: the drawer on `images/<task_id>-<title>`, the implementer
+         on `feature/<task_id>-<title>` (step 7.2 merges the images branch
+         in after both finish). The drawer generates and commits the images;
+         the implementer wires `repo_path`. The implementer never generates
+         images.
    - Never re-invoke `frontend-architect` within a task. Fix an underspecified spec inside implementation.
 
 For fullstack projects, frontend sub-tasks go through the gate above; backend sub-tasks go to coder.
@@ -187,12 +193,11 @@ on merge to main, FTP production HITL via `ping-a-human-pi`).
 - Recall before planning: anti-patterns, past decisions, verified approaches
 - Remember after: successful decomposition patterns
 - Memory is reached through the pi-pgvector-api-embeddings extension, which
-  registers tools as native Pi tools. See `.pi/skills/pgvector-memory/SKILL.md`:
+  registers tools as native Pi tools:
   ```
   pgvec_recall_memory({ query: "...", limit: 5, tag: "..." })
   pgvec_remember({ content: "...", tags: [...], source_type: "observation", valid_until: "...", idempotency_key: "..." })
   ```
-  Schema details in `.pi/skills/execute-task/references/rag.md`.
 
 ## Quality
 

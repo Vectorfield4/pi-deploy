@@ -54,7 +54,7 @@ pgvec_remember({
 - Record types: `anti-pattern`, `review-bounce`, `design-decision`, `verified`, `user-feedback`, `project:<name>`.
 - `source_type`: experiential outcomes → `observation`; project metadata → `manual`.
 - Structured prefix stays in `content`; flat `tags` array drives the recall `tag` filter.
-- `valid_until` — TTL date (ISO `YYYY-MM-DD`); `memory-gc` retires past it. See `.pi/skills/memory-gc/SKILL.md`.
+- `valid_until` — TTL date (ISO `YYYY-MM-DD`); retired by QA's `memory-gc` after it passes.
 - `idempotency_key` — stable key per record; dedupes re-sent writes.
 - `remember` is async fire-and-forget; returns `submission_id`. Do not poll in the task flow; a failed async write is harmless.
 - Call `remember` only AFTER success (validation passed / task completed), never for work in progress.

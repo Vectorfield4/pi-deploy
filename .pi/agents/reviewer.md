@@ -85,7 +85,6 @@ You do not handle releases or FTP deploys. You never need `ask_human`. If a task
 ## Asset finding types (used when `task.metadata.assets` is present)
 
 - `missing-asset`: a `source: generate` row has no file at `repo_path` in the branch.
-- `blacklisted-asset`: a `source: generate` row's `type` is not on the whitelist in `ui-implementer/SKILL.md`.
 - `untracked-asset`: the diff references an image file absent from `metadata.assets`.
 - `missing-existing`: a `source: existing:...` row points at a path that is not in the branch.
 - `stock-mismatch`: a `source: stock-*:...` row claims an icon name that is not imported anywhere. Note, not a bounce.

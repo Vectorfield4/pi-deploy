@@ -135,29 +135,34 @@ All frontend routing checks memory before the architect. Memory is cheaper than 
 
 Never run more than one recall here. If it returns nothing, proceed to the complexity gate.
 
-### 5.3. Pre-batch asset table (frontend only, after the spec exists)
+### 5.3. Pre-batch asset table (any path, when images are part of the request)
 
-When `artifacts/design-spec.md` contains an `## Asset Table`, build the asset
-list for the implementer before delegation. Skip if the spec has no asset
-table or if it is a design-reuse path (the recalled decision already covers
-assets).
+Build the asset list before delegation. Sources of availability, in order:
 
-1. Parse `## Asset Table`. Each row: `slug`, `type`, `prompt`, `aspect`,
-   `source`.
-2. For each `source: generate` row, run
-   `git -C /workspace/<project> ls-files src/assets/images | grep -i <slug>`.
-   If a match exists, rewrite the row to `source: existing:<path>` and drop
-   it from the generation list.
-3. For each remaining `source: generate` row, validate `type` against the
-   whitelist in `ui-implementer/SKILL.md`. The architect gate should already
-   have caught this; if one slipped through, rewrite to
-   `source: stock-*:...` and attach `findings: blacklisted-asset` (or
-   `unclassified-asset`). Do not bounce the whole task for one row.
-4. Ship the list as
-   `task.metadata.assets: [{slug, type, prompt, aspect, source, repo_path}, ...]`,
-   where `repo_path` is `src/assets/images/<slug>.<ext>` (the `<ext>` is set
-   by the implementer from the first `generate_image` result). The
-   implementer iterates the list and does not re-decide what to generate.
+1. **Spec table.** `artifacts/design-spec.md` contains an `## Asset Table`
+   (complex path). Parse it.
+2. **Direct generation request.** The user's message asks for image
+   asset(s) on existing pages (simple path, no architect). Build the rows
+   yourself from the request: one row per requested image, `type` from
+   `hero | cover | og | illustration | concept | background | avatar |
+   thumbnail | diagram`, `prompt` paraphrased from the request, `aspect`
+   guessed from the context (`16:9` hero/og, `4:3` illustration, `1:1`
+   avatar/thumbnail, default `1:1`), `source: "generate"`, `repo_path`:
+   `src/assets/images/<slug>.<ext>`.
+
+Skip when neither source applies, and on design-reuse path when the recalled
+decision already covers assets.
+
+For each assembled `source: generate` row, run
+`git -C /workspace/<project> ls-files src/assets/images | grep -i <slug>`.
+If a match exists, rewrite the row to `source: existing:<path>` and drop
+it from the generation list. Ship the remaining list as
+`task.metadata.assets: [{slug, type, prompt, aspect, source, repo_path}, ...]`.
+Delegate drawer **only** the `source: "generate"` rows; the implementer gets
+the full list (it handles `stock-*`/`existing` rows itself). The implementer
+iterates the list and does not re-decide what to generate.
+The `<ext>` in `repo_path` is refined by the drawer from the first
+`hf_generate_image` result and corrected back in the asset list.
 
 #### For backend projects (Layered Architecture):
 1. route/endpoint → handler → service → repository → model
@@ -191,6 +196,8 @@ assets).
 
 ### 6. Generate Branch Name
 - `feature/<task_id>-<sanitized_title>`
+- `images/<task_id>-<sanitized_title>` when `metadata.assets` has `source:
+  generate` rows — drawer's own branch (see step 7)
 
 ### 7. Delegate Sub-Tasks
 
@@ -217,6 +224,7 @@ values — never omit the structure. Workers read fields as `task.metadata.*`.
 | complex component (any non-frontend) | `coder` (`metadata.complex: true`) | `execute-task` |
 | frontend architecture (complex only) | `frontend-architect` | `ui-architect` |
 | frontend implementation | `frontend-implementer` | `ui-implementer` |
+| image generation (assets with `source: generate`) | `drawer` | `drawer-image` |
 | finalize: review gate + push to main | `qa` | `execute-qa-task` |
 | release / deploy | `qa` | `execute-qa-task` |
 | branch review (every coding task) | `reviewer` | `execute-review` |
@@ -226,6 +234,17 @@ values — never omit the structure. Workers read fields as `task.metadata.*`.
   it completes, persist the design (step 7.1) and delegate implementation
   to `frontend-implementer`. Both share the same worktree. Never re-invoke
   the architect — an underspecified spec is fixed inside implementation.
+- **Image generation: fan out `drawer` in parallel with the implementer.**
+  When `metadata.assets` has `source: generate` rows, launch both in one
+  pass (`runs.all`), each in its **own worktree and branch**: drawer task
+  carries `cwd: /workspace/<project>-<task_id>-images` +
+  `branch: images/<task_id>-<title>`; implementer task carries
+  `cwd: /workspace/<project>-<task_id>` + `branch: feature/<task_id>-<title>`.
+  Drawer creates its own worktree and pushes images to its own branch;
+  the implementer wires the `repo_path`s into components. The implementer
+  never calls `hf_generate_image`/`generate_image`. After both complete,
+  merge the images branch into the feature branch (step 7.2) before QA
+  (step 8). Split branches make the parallel commits race-free.
 - Frontend simple / design-reuse: delegate to `frontend-implementer`
   directly (no architect).
 - **Multiple independent UI changes in one request (feedback with N points)**
@@ -243,6 +262,23 @@ Record the decision once so the design-reuse step (step 5.2) reuses it
 instead of re-running the architect. Full `remember` shape (v2.6 contract,
 TTL 90d, `supersedes_evidence_ids` for older records, graceful degradation)
 lives in `references/persist-design.md`. Read it when you reach this step.
+
+### 7.2. Merge images branch (orchestrator, after drawer completes)
+
+When `metadata.assets` has `source: generate` rows, fold the images into the
+feature branch after **both** the drawer and the implementer finished (their
+notifications arrived), before QA (step 8). Run inside the implementer's
+worktree — the feature branch is checked out there, so a separate
+`git worktree add` would fail:
+
+```
+git -C /workspace/<project>-<task_id> fetch origin images/<task_id>-<title>
+git -C /workspace/<project>-<task_id> merge --no-ff origin/images/<task_id>-<title> -m "merge(images): <slugs>"
+git -C /workspace/<project>-<task_id> push origin feature/<task_id>-<title>
+```
+
+- Run via `bash`, do not delegate.
+- Merge conflict → keep the images branch content for `src/assets/images`, resolve, push.
 
 ### 8. Finalize Task (push to main)
 
@@ -305,6 +341,8 @@ turns, which forces a fresh model call per worker.
 
 ## Verification
 - All sub-tasks delegated to workers
+- Maybe drawer too: every `source: generate` asset row has a `drawer`
+  delegation; the implementer does not generate images
 - Finalize task (push to main) created and delegated
 - No task remains in intermediate state
 - `frontend-architect` invoked at most once per task (complex path only, never for simple or design-reuse)

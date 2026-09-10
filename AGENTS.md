@@ -10,7 +10,7 @@ Deployment + instruction repo for a Pi-based AI development system. No applicati
 ├── mcp.json          # MCP servers (empty; memory served by the pgvec extension)
 ├── models.json       # Provider + model registry (timeweb)
 ├── agents/           # Agent definitions; skills listed per agent in frontmatter
-└── skills/           # Skill packages (24 skills)
+└── skills/           # Skill packages (25 skills)
 scripts/              # Bash scripts (init, setup, cloud-init, backup, setup-cron-jobs, update-on-push)
 docker-compose.yml    # Pi + memory stack (3 services; embeddings remote)
 Dockerfile.pi         # Pi container image
@@ -104,16 +104,20 @@ in chat can come from any of them.
 
 - **`@bytesbrains/pi-telegram-bridge@1.4.1`** — Telegram ↔ Pi transport.
   Pulls updates from Telegram, forwards them into the pi session, streams
-  pi's stdout back. Lives at `src/index.ts`. The user configures it only
-  via the bot token.
-- **`ping-a-human-pi@0.1.1`** — HITL channel. Runs as an MCP server (see
-  `npm exec ping-a-human` in the container) and exposes `notify_human` /
-  `ask_human` as model-callable tools, plus an approval gate for risky
-  bash. Skills call the `telegram_*` helpers, and the helpers route back
-  to these tools. Registered in `.pi/settings.json:30`.
+  pi's stdout back. Lives at `src/index.ts`. Registers the `telegram_*`
+  tools (`telegram_notify`, `telegram_send`, `telegram_ask`,
+  `telegram_status`, …) via `pi.registerTool` and ships the `telegram-first`
+  skill (its own `skills/telegram-first/SKILL.md`). Configures only via the
+  bot token.
+- **`ping-a-human-pi@0.1.1`** — HITL channel. Pi package embedding a tiny
+  MCP stdio client that wires the `ping-a-human` MCP server into the session
+  (spawned as `npx -y ping-a-human`), registering `notify_human` /
+  `ask_human` as model-callable tools plus an approval gate for risky
+  bash. Registered in `.pi/settings.json:30`. pings via Telegram on
+  `agent_end` (`✅ pi finished a task …`).
 
-Bridge moves messages. ping-a-human lets the model `notify_human` /
-`ask_human`, and gates risky bash.
+Bridge moves messages and owns the `telegram_*` tools. ping-a-human lets the
+model `notify_human` / `ask_human`, and gates risky bash.
 
 ### Channel 1 — bridge auto-ack (transport, not yours)
 
@@ -126,35 +130,22 @@ explain it, do not re-send a similar message, do not promise suppression.
 
 ### Channel 2 — worker `telegram_notify` / `telegram_send` calls (tool calls, not text)
 
-These come from **`ping-a-human`**, not from the bridge. The
-`telegram-first` skill exposes `telegram_notify(kind="task", status=…)`
-and `telegram_send(message=…)`. A worker calling these mid-run is what
-produces the `✅ pi finished a task in /workspace: …` cards. This is the
-spammiest channel. Rules, enforced in every skill that owns a turn:
-
-- `telegram_notify(kind="task")` — at most **twice** per worker turn:
-  once at `status="started"`, once at `status="complete"`. Never per
-  sub-step, never per subagent handoff.
-- `telegram_send` — only for genuine one-off status (e.g. "deploy needs
-  human approval" with `telegram_ask`). Not for "передаю оркестратору,
-  сообщу результат" — the bridge already acked.
+These are the bridge's `telegram_*` tools, invoked by a worker mid-run
+(`telegram-first` skill). The `✅ pi finished a task in /workspace: …`
+cards on `agent_end` are ping-a-human's, not these. Rules live per-skill
+("Final-message contract" + "Tool-call discipline" in each skill that owns a
+turn); this channel is the spammiest one under worker control.
 
 ### Channel 3 — final assistant message (text streamed to chat)
 
 The Pi runtime streams the worker's final message text into chat. If the
 final message is 200 lines of raw `[ARCHITECTURE_RESULT]` JSON or
-`acceptance-report`, the user reads that as "the result".
-
-- **Final message ≤ 4–6 lines**, plain prose, no fenced code, no JSON.
-  Format: `✅ <one-line outcome>. <files/branch + 1-line what changed>.`
-- **Detail to disk.** Specs, criterion matrices, diffs, long findings
-  → `artifacts/<task_id>-*.md`. Reference by path, do not paste.
-- **Enforced per skill.** `execute-task`, `ui-architect`, `ui-implementer`,
-  `execute-qa-task` each carry a "Final-message contract" + "Tool-call
-  discipline" section that restates this for the agent that owns the turn.
-- **Router (main session)** must also obey it: when forwarding a worker
-  result, paraphrase to one line, do not paste the worker's last message
-  verbatim.
+`acceptance-report`, the user reads that as "the result". The final-message
+contract (≤ 4–6 lines, detail to disk) is enforced per-skill — see
+`execute-task`, `ui-architect`, `ui-implementer`, `drawer-image`,
+`execute-qa-task`. The router must also obey it: when forwarding a worker
+result, paraphrase to one line, do not paste the worker's last message
+verbatim.
 
 ### Why the three channels exist
 
@@ -163,82 +154,6 @@ received. `telegram_notify` is a structured status card. The final message
 is the actual deliverable. Each one answers a different question —
 "received?", "where is it?", "what's the answer?" — and only the third is
 under worker control.
-
-## Project types
-
-| Type | Detection | Primary agent | Primary skills |
-|------|-----------|---------------|----------------|
-| **frontend** | package.json + React/Vue/Svelte | frontend-architect + frontend-implementer | ui-architect, ui-implementer, integration-specialist, threejs-scene-builder |
-| **backend** | package.json + Express/Fastify/Nest or go.mod, requirements.txt | coder | execute-task |
-| **fullstack** | Monorepo or both frontend + backend markers | frontend-architect + frontend-implementer + coder | combination |
-| **CLI/lib** | package.json with bin/main, or Makefile + src/ | coder | execute-task |
-| **infra** | docker-compose.yml, Dockerfile, .github/workflows | coder | setup-ci, execute-task |
-| **content** | Markdown-heavy, no code | coder | content-strategist, narrative-designer |
-
-Frontend skills load only when the project is detected as frontend.
-
-## Task flow
-
-Telegram → Orchestrator → workers (frontend-architect, frontend-implementer, coder) on a feature branch → Reviewer on every coding task (score decision / quality loop; `bounce` returns deficient work) → QA (push branch into main + release/deploy)
-
-## Subagent task contract (`task` is a JSON string)
-
-pi-subagents (package `pi-subagents@0.58.x`) accepts the `subagent` tool's
-`task` as a **string only** — an object fails validation with
-`task: must be string`. The child receives the string verbatim as its opening
-message (`Task: <text>`); there is no structured channel. All context carriers
-therefore serialize into the string as JSON:
-
-- Router → orchestrator: `task` is a JSON string carrying `cwd` (resolved
-  project) and `message` (raw user message). Orchestrator detects intent from
-  `message` and validates `cwd`.
-- Orchestrator → workers (coder / frontend-architect / frontend-implementer /
-  qa / reviewer): `task` is a JSON string carrying `type`, `cwd`, `task_id`,
-  `description`, `acceptance_criteria`, `project`, `branch`, `rules_hash`, and
-  a `metadata` object (`memory_context`, `anti_patterns`, `complex`, plus
-  review/target-file fields). `cwd` is the resolved project path, forwarded
-  unchanged at every level so each delegated agent can re-delegate with it.
-  See `orchestrate-task` step 7.
-- Finalize/branch-push → `qa`: `{"type":"push","cwd":...,"project":...,"branch":...,"metadata":{"complex":...}}`.
-
-Read-side: every delegated agent parses its incoming task string as JSON and
-reads fields via `task.type`, `task.metadata.*`, etc. Do not pass `task` as an
-object anywhere.
-
-## Memory layer
-
-**pi-pgvector-api-embeddings** — self-hosted lightweight RAG memory (PostgreSQL + pgvector; embeddings via remote API), reached via the `pgvec` extension. Stores flat records: free-text `content`, `tags` array, `source_type`, `valid_until`, `confidence`, `owner`, and an `idempotency_key` for dedupe. `source_type` enum is `conversation|document|observation|manual`; `content` and `idempotency_key` and `source_type` are required, unknown keys are rejected (`additionalProperties: false`) — no `predicate`/`entity`/`polarity`. Recall is cosine-similarity over the embedding with an optional `tag` filter; returns `{ evidence_id, content, tags, space_kind, valid_until, confidence }` — read `content`, never a partial view.
-
-Usage patterns (tag drives the recall filter; `source_type: observation` for experiential, `manual` for metadata):
-- **Task outcomes** (workers): tag `project:<project>`,`<type>`, `source_type: observation`, TTL 90d.
-- **Design decisions** (orchestrator, after frontend architecture): tag `design-decision`, idempotency `design:<project>:<feature>:<hash>`, TTL 90d. The complex frontend gate recalls it (tag `design-decision`) first — if a matching decision exists, the architect is skipped.
-- **Review verdicts** (reviewer): tag `verified`, `source_type: observation`, TTL 90d.
-- **Bounce findings** (reviewer): tag `review-bounce`, keyed on idempotency `review-bounce:<project>:<task_id>:<n>`, 7-day TTL — lets the re-review check the fix delta instead of re-scoring from scratch.
-- **Exploration anti-patterns** (reviewer): tag `anti-pattern`, TTL 30d.
-- **Memory GC** (QA): `pgvec_gc` retires records whose `valid_until` has passed (meta never, task/verified/design 90d, feedback 60d, exploration 30d).
-
-Tags live in both the content prefix and the flat `tags` array; recall filters on the array via `tag`. Ownership: retract only on own records (coder↔task, reviewer↔reviews). Session memory (orchestrator scratchpad) is separate — `pi-memory`. Rules and docs caches live as plain on-disk files.
-
-## Skills catalog
-
-### Universal
-- intent-router, orchestrate-task, execute-task, setup-ci, project-init, content-strategist, narrative-designer, project-discover
-- docs-lookup — Context7 with 7-day file cache; use instead of `resolve-library-id`/`query-docs` directly
-- image-gen (pi-image-gen) — exposed to `frontend-implementer` only. Provider in `.pi/models.json` (sibling of `timeweb`); default model `black_forest_labs/flux-2-pro` (set in `.pi/settings/pi-image-gen.json`; second registered model is `gemini/gemini-3.1-flash-image-preview`, switch via `/image-model`). Save: cache in `/root/.pi/agent/generated-images/`, copy to project `src/assets/images/`. Whitelist before generation: `hero | cover | og | illustration | concept | background | avatar | thumbnail | diagram`.
-
-### Frontend (loaded only for frontend projects)
-- ui-architect, ui-implementer, integration-specialist, threejs-scene-builder
-
-### QA
-- execute-qa-task — dispatcher; delegates review to `reviewer` on every coding task (quality loop), pushes branches into `main` and bounces deficient work back (no PR), runs `memory-gc` after each push/release
-- create-github-release — single-phase: build from main + publish artifact to GitHub Releases (no PR, no watch)
-- deploy-vercel, deploy-ftp — staging (auto on push to main) / production (manual HITL)
-- memory-gc — retire evidence with expired `valid_until`
-- sessions-gc — cron-only, **not** a skill. `scripts/sessions-gc.sh` runs at 03:00 via `setup-cron-jobs.sh` and prunes `*.broken` / `*.bak` / `__RETIRED_*_scratch/` plus `*.jsonl` older than 24h + sibling dirs. Do not invoke from agents.
-
-### Reviewer
-- execute-review — validate, score the branch diff against `main`, decide (merge decision is a push-approval only — QA executes the push, never here)
-- pr-judge, resolve-merge-conflict, cleanup-branch
 
 ## Code comments
 

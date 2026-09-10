@@ -98,6 +98,8 @@ For contrast, these do not trigger HITL:
 ## Documentation
 
 - [AGENTS.md](AGENTS.md): full system documentation
+- [Skills catalog](docs/skills.md): all skills, grouped by owning agent
+- [Fan-out](docs/fan-out.md): how orchestrate-task dispatches workers in parallel
 
 ## License
 

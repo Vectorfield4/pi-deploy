@@ -102,10 +102,17 @@ organisms: <count>
 molecules: <count>
 state_stores: <count>
 queries: <count>
+images: <count>
 complexity: low | medium | high
 spec_file: artifacts/design-spec.md
 summary: <one sentence>
 ```
+
+## Assets
+
+Capabilities: SVG composition (in-repo authored `.svg` via `mui-svg-composition`)
+and pure raster generation (`drawer`, HF primary). Set `repo_path`
+for each `generate`-asset in `## Asset Table` (see `ui-architect` step 5-6).
 
 ## Tools you do NOT have
 
