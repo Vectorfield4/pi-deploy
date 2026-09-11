@@ -34,6 +34,14 @@ if [ -d "$SKEL" ]; then
     cp -r "$SKEL/." "$DST/"
 fi
 
+# Seed extensions from the baked-in image copy (same pattern as pi-skel).
+EXT_SRC=/etc/pi-ext
+EXT_DST=/extensions
+mkdir -p "$EXT_DST"
+if [ -d "$EXT_SRC" ]; then
+    cp -r "$EXT_SRC/." "$EXT_DST/"
+fi
+
 # Watchdog: restart the pi agent if its process exits (e.g. bridge fetch
 # crashes the process with an uncaughtException). Container stays up, so
 # Docker restart/healthcheck state stays stable and recovery takes ~seconds.

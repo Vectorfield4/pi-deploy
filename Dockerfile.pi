@@ -16,6 +16,13 @@ RUN npm install -g @earendil-works/pi-coding-agent \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
+# --- Extensions (baked into image; no bind-mount needed) ---
+COPY extensions/ /etc/pi-ext/
+RUN for d in /etc/pi-ext/*/; do \
+      [ -f "$d/package.json" ] || continue; \
+      (cd "$d" && npm install --omit=dev --no-fund --no-audit); \
+    done
+
 COPY scripts/pi-entrypoint.sh /usr/local/bin/pi-entrypoint.sh
 RUN chmod +x /usr/local/bin/pi-entrypoint.sh
 
