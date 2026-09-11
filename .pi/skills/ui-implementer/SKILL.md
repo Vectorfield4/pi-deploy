@@ -25,6 +25,14 @@ Frontend developer. Write clean, working code with React + MUI.
 
 6. Return complete component code.
 
+## Code reads (AST tools)
+
+- `list_symbols` to enumerate components; `get_symbol_body` for the component
+  to extend or mirror. `read` only the resolved target.
+- Before changing a shared component's props/types: `find_callers` to
+  enumerate impact, update every call site.
+- `find_definition` when the definition site is unknown.
+
 ## Final-message contract
 
 - ≤ 4 lines: `✅ implemented. <files touched> on <branch>.

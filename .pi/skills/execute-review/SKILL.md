@@ -81,6 +81,9 @@ Use the `pr-judge` skill to score:
   defines (parity — a missing translation in any one is a defect), and new
   global state has
   real consumers (no dead Zustand slices).
+- Verify structural claims with AST tools instead of grep: `find_definition`
+  to confirm a symbol exists, `find_callers` to confirm consumers, `find_callees`
+  to trace dependencies of a changed symbol.
 
 If total added/removed lines exceed 3000, do not run the full diff inline; score from per-file reads.
 

@@ -31,6 +31,15 @@ Before dispatching step 2, honor the orchestrator's pre-batched memory:
 
 Work on the branch, commit and push it.
 
+## Code reads (AST tools)
+
+- `list_symbols` / `get_symbol_body` for structural reads; `read` only the
+  resolved target after locating it.
+- Before changing a signature or shared type: `find_callers` to enumerate
+  impact, update every call site.
+- `find_definition` when the definition site is unknown. `find_callees` to
+  map what a symbol depends on.
+
 ## Conventions
 
 - Failure → report error with details to the orchestrator

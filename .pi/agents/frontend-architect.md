@@ -5,7 +5,7 @@ model: deepseek/deepseek-v4-flash
 thinking: medium
 systemPromptMode: replace
 inheritProjectContext: false
-tools: read, grep, find, ls
+tools: read, grep, find, ls, list_symbols, find_definition, find_callers, find_callees, get_symbol_body
 maxSubagentDepth: 0
 skills:
   - ui-architect

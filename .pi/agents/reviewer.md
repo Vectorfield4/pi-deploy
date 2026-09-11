@@ -5,7 +5,7 @@ model: deepseek/deepseek-v4-flash
 thinking: medium
 systemPromptMode: replace
 inheritProjectContext: false
-tools: read, bash, grep, find, ls, mcp
+tools: read, bash, grep, find, ls, mcp, list_symbols, find_definition, find_callers, find_callees, get_symbol_body
 maxSubagentDepth: 0
 skills:
   - execute-review

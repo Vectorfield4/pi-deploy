@@ -11,6 +11,11 @@ Design page architecture using Atomic Design levels. Stack: React + MUI.
 
 1. Read `artifacts/narrative.md` and `artifacts/content-plan.md`.
 
+1.5. Code reads (AST tools):
+   - `list_symbols` to map existing components/pages/hooks; `get_symbol_body`
+     for a shared element the design touches. `read` only the resolved target.
+   - `find_callers` to check impact on shared types, layout, or route registry.
+
 2. Define the page using Atomic Design:
    - **Template** — page skeleton, section ordering, responsive grid
    - **Organisms** — complex sections (hero, features, social proof, lead capture)
