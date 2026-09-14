@@ -23,7 +23,7 @@ You design frontend architecture. You receive a feature description and produce 
 
 ### 2. Scan the Codebase
 - Read `package.json` to confirm stack (React, MUI, R3F, GSAP, etc.).
-- Scan existing component structure: `src/components/`, `src/pages/`, `src/routes/`.
+- Scan existing component structure: `src/entities/`, `src/features/`, `src/shared/ui/`, `src/app/layouts/`, `src/app/routes/`.
 - Identify existing patterns: routing setup, state management, styling conventions.
 - Never force a stack the project doesn't use.
 
@@ -32,7 +32,7 @@ You design frontend architecture. You receive a feature description and produce 
 - These inform the design direction.
 
 ### 4. Create Architecture Spec
-Using Atomic Design methodology:
+Using Atomic Design levels within FSD folder structure:
 
 #### Page Structure
 - **Template** — page skeleton, section ordering, responsive grid
@@ -83,11 +83,17 @@ Save to `artifacts/design-spec.md` with this structure:
 - /<path> → <Page> (layout: <Template>)
 
 ## File Structure
-- src/pages/<Page>/
-- src/components/organisms/<Name>/
-- src/components/molecules/<Name>/
-- src/stores/<Store>.ts
-- src/hooks/use<Query>.ts
+Atomic levels: atoms/molecules in shared and entities, organisms in shared,
+entities, and pages, templates in shared, app/layouts, and pages.
+
+- src/pages/<name>/ui/          # organisms, molecules, templates
+- src/entities/<name>/ui/       # atoms, molecules, organisms
+- src/features/<name>/ui/       # interaction components
+- src/shared/ui/                # atoms, molecules, organisms, templates
+- src/entities/<name>/model/    # Zustand stores, schemas
+- src/shared/hooks/             # reused hooks
+- src/app/layouts/              # route shells
+- src/app/routes/index.tsx      # route registry
 ```
 
 ## Output Format

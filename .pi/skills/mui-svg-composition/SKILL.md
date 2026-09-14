@@ -11,7 +11,7 @@ Compose vector illustrations and iconography for React + MUI projects. SVGs are
 
 ## Solution illustration template
 
-`src/assets/images/<slug>.svg` — authored illustration for a card/section.
+`shared/assets/images/<slug>.svg` — authored illustration for a card/section.
 
 - `viewBox="0 0 800 500"`, background `<rect width="800" height="500" rx="32">`.
 - Root `<svg>`: `xmlns`, `viewBox`, `aria-hidden="true"`.
@@ -36,7 +36,7 @@ Compose vector illustrations and iconography for React + MUI projects. SVGs are
 
 ## IconCircle wrapper
 
-MUI icon in a translucent tinted circle (from `src/components/IconCircle.tsx`):
+MUI icon in a translucent tinted circle (from `shared/ui/atoms/IconCircle.tsx`):
 
 ```tsx
 const IconCircle = styled(Box, {

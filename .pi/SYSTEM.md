@@ -45,7 +45,7 @@ subagent({
 - `task.message` is the user's message, unmodified — the orchestrator does intent detection on it.
 - Follow the orchestrator's final result; relay it to the user as the response.
 - Never add your own commentary, summaries, or improvement suggestions.
-- Image generation is owned by the `drawer` agent only (`hf_generate_image` primary, `generate_image` fallback). The architect lists required assets in the spec, the orchestrator pre-batches them into `metadata.assets`, the drawer runs the tools and commits to `src/assets/images/`.
+- Image generation is owned by the `drawer` agent only (`hf_generate_image` primary, `generate_image` fallback). The architect lists required assets in the spec, the orchestrator pre-batches them into `metadata.assets`, the drawer runs the tools and commits to `shared/assets/images/`.
 
 ## Clarification loop
 

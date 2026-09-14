@@ -96,7 +96,7 @@ Classify the frontend task as `simple` or `complex` before routing. This step ru
 - Copying an existing component pattern onto a new instance, no new architecture
 
 **Complex** (route through `frontend-architect` first) — at least one of:
-- **Shared architecture touched**: `MainLayout`, the theme/tokens (`theme.ts`), the route registry in `App.tsx`, or shared providers — anything a new page depends on
+- **Shared architecture touched**: `MainLayout`, the theme/tokens (`shared/config/theme.ts`), the route registry in `app/routes/index.tsx`, or shared providers — anything a new page depends on
 - **New page type**: a route that renders through a page, template, or organism that does not exist yet (e.g. list→detail→showcase progression)
 - **Cross-cutting state**: a new or non-trivial Zustand slice with real logic that multiple components share
 - **i18n dictionary parity risk**: the change adds user-facing strings under new keys that must exist in **all** of the project's locale dictionaries — treat as complex when the key structure grows or page-level dictionaries change
@@ -148,13 +148,13 @@ Build the asset list before delegation. Sources of availability, in order:
    thumbnail | diagram`, `prompt` paraphrased from the request, `aspect`
    guessed from the context (`16:9` hero/og, `4:3` illustration, `1:1`
    avatar/thumbnail, default `1:1`), `source: "generate"`, `repo_path`:
-   `src/assets/images/<slug>.<ext>`.
+   `shared/assets/images/<slug>.<ext>`.
 
 Skip when neither source applies, and on design-reuse path when the recalled
 decision already covers assets.
 
 For each assembled `source: generate` row, run
-`git -C /workspace/<project> ls-files src/assets/images | grep -i <slug>`.
+`git -C /workspace/<project> ls-files shared/assets/images | grep -i <slug>`.
 If a match exists, rewrite the row to `source: existing:<path>` and drop
 it from the generation list. Ship the remaining list as
 `task.metadata.assets: [{slug, type, prompt, aspect, source, repo_path}, ...]`.
@@ -278,7 +278,7 @@ git -C /workspace/<project>-<task_id> push origin feature/<task_id>-<title>
 ```
 
 - Run via `bash`, do not delegate.
-- Merge conflict → keep the images branch content for `src/assets/images`, resolve, push.
+- Merge conflict → keep the images branch content for `shared/assets/images`, resolve, push.
 
 ### 8. Finalize Task (push to main)
 

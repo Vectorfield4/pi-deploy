@@ -61,7 +61,7 @@ Entities reference each other in the real world and stay isolated in code. The c
 
 ## Shared
 
-Shared segments: `ui`, `api`, `lib`, `config`, `i18n`, `assets`, `types`, `mocks`. Shared may carry application-aware code: route constants, endpoints, DTOs, branding. It holds business rules owned by entities or features and imports nothing from those layers.
+Shared segments: `ui`, `api`, `lib`, `hooks`, `config`, `i18n`, `assets`, `types`, `mocks`. Shared may carry application-aware code: route constants, endpoints, DTOs, branding. It holds business rules owned by entities or features and imports nothing from those layers.
 
 ## Widgets
 
@@ -121,7 +121,7 @@ src/
 │       ├── model/
 │       ├── api/
 │       └── index.ts
-└── shared/
+└── widgets/                    # existing widget code only; new code → features or app layouts
     ├── ui/
     ├── api/                    # http client, base repository
     ├── lib/                    # store factory, pure helpers
@@ -137,4 +137,6 @@ Every slice carries `index.ts`. Project root keeps `test/` (Vitest setup, `rende
 
 ## Validation
 
-The `steiger` linter with the fsd plugin enforces the import rule, slice structure, and public API presence in CI.
+The `steiger` linter with the fsd plugin and Biome (lint+format) enforce
+the import rule, slice structure, public API presence, and code style in CI —
+CI runs `npm run lint` (Biome) and the steiger fsd check.

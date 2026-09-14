@@ -55,7 +55,7 @@ Frontend developer. Write clean, working code with React + MUI.
 Per `metadata.assets` row:
 
 - `repo_path` ends `.svg` — author it with `mui-svg-composition`, save to
-  `src/assets/images/<slug>.svg`.
+  `shared/assets/images/<slug>.svg`.
 - Any other path — reference `repo_path` as-is, no existence check. Files
   land during the same run.
 - `source: stock-*` or `existing:` — use the referenced asset directly.

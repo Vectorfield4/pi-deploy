@@ -32,7 +32,7 @@ From the task JSON string: `task_id`, `project`, `branch`, `cwd`, and
 | `type` | string | asset class on the whitelist (`hero / cover / og / illustration / concept / background / avatar / thumbnail / diagram`) |
 | `prompt` | string | generation prompt |
 | `aspect` | string | "width:height"; default `1:1` |
-| `repo_path` | string | destination, `src/assets/images/<slug>.<ext>`; `<ext>` provisional |
+| `repo_path` | string | destination, `shared/assets/images/<slug>.<ext>`; `<ext>` provisional |
 
 Your worktree is `/workspace/<project>-<task_id>-images` on branch
 `images/<task_id>-<title>`. This branch is yours alone — never shared with
@@ -45,7 +45,7 @@ the implementer; the orchestrator merges it into the feature branch later.
 1. Load skill `drawer-image`; apply it to each `metadata.assets` row. It owns
    the gate, generation, and placement.
 2. Commit and push the images on your own branch:
-   `git add src/assets/images && git commit -m "feat(images): add <slugs>" && git push origin images/<task_id>-<title>`.
+   `git add shared/assets/images && git commit -m "feat(images): add <slugs>" && git push origin images/<task_id>-<title>`.
    No rebase needed — this branch has no other writers.
 
 ## Tool calls
@@ -54,12 +54,12 @@ the implementer; the orchestrator merges it into the feature branch later.
 |------|------|------|
 | `hf_generate_image` | Primary; first attempt for every row | `hf_generate_image(prompt=<row.prompt>, aspectRatio=<row.aspect>, save="custom", saveDir=<from pi-huggingface-image-gen.json>)` |
 | `generate_image` | Fallback; after the primary throws, returns `details.saveError`, or the error carries `code: "insufficient_balance" \| "rate_limited"` | `generate_image(prompt=<row.prompt>, aspectRatio=<row.aspect>, save="custom", saveDir=<from pi-openai-image-generation.json>)` |
-| `bash` `cp` | After a successful generation; move the file into the worktree | `cp <details.savedPath> src/assets/images/<slug>.<ext>` |
-| `bash` `git` | After all rows; commit and push the images | `git add src/assets/images && git commit -m "feat(images): add <slugs>" && git push origin images/<task_id>-<title>` |
+| `bash` `cp` | After a successful generation; move the file into the worktree | `cp <details.savedPath> shared/assets/images/<slug>.<ext>` |
+| `bash` `git` | After all rows; commit and push the images | `git add shared/assets/images && git commit -m "feat(images): add <slugs>" && git push origin images/<task_id>-<title>` |
 
 ## Final-message contract
 
-- ≤ 4 lines: `✅ images added: <slugs> → src/assets/images/ on
+- ≤ 4 lines: `✅ images added: <slugs> → shared/assets/images/ on
   images/<task_id>-<title>. Fallback used: <none|generate_image>.`
 - Include any findings (blacklist rewrites, failed generations) in the
   message.
@@ -88,5 +88,5 @@ the implementer; the orchestrator merges it into the feature branch later.
 
 ## Verification
 
-- Every row has a committed file at `src/assets/images/`.
+- Every row has a committed file at `shared/assets/images/`.
 - No commit if any `saveError` remains unresolved for a required asset.

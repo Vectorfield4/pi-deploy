@@ -49,7 +49,7 @@ For each organism/molecule in the spec:
 
 #### i18n (all locales)
 - Never hardcode user-facing text. Add keys to **all** locale dictionaries the
-  project defines (e.g. `src/i18n/<locale>.ts`) together — a missing
+  project defines (e.g. `shared/i18n/<locale>.ts`) together — a missing
   translation in any one is a defect.
 
 #### Forms (if spec says so)
@@ -66,7 +66,8 @@ For each organism/molecule in the spec:
 
 ### 3.5. Write Storybook stories
 - For each presentational component (organism/molecule/atom), add a
-  `.stories.tsx` next to it that mirrors the existing story setup — no stories
+  `.stories.tsx` in the root `stories/` directory, mirroring the component
+  path (`stories/shared/ui/atoms/IconCircle.stories.tsx`). No stories
   for route-level pages or data/query wiring.
 
 ### 4. 3D Scenes (if spec says so)

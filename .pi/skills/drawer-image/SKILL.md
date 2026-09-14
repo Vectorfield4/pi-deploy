@@ -50,7 +50,7 @@ For each surviving row:
    ```
 
 3. Copy `details.savedPath` to `repo_path` inside your worktree, overriding
-   the `<ext>`: `src/assets/images/<slug>.<ext>`. The cache name is the
+   the `<ext>`: `shared/assets/images/<slug>.<ext>`. The cache name is the
    tool's; the repo name is yours.
 
 4. If both tools fail for a row, report it in the final message. Do not

@@ -54,6 +54,25 @@ Test: break the component apart and what remains are smaller components (cards, 
 - `features/<name>/ui/organisms/` — a block that owns a single user interaction: CaseFiltersPanel.
 - `pages/<name>/ui/organisms/` — a block used on one page only.
 
+A 3D scene (R3F/Three.js) is an organism — it renders as a component. Put it in
+the same four places by reuse, with no dedicated `scenes/` segment:
+`shared/ui/organisms/` when domain-free and reused, `entities/<name>/ui/organisms/`
+for one domain concept, `features/<name>/ui/organisms/` for one interaction,
+`pages/<name>/ui/organisms/` for one page.
+
+## Behaviour lives with the component
+
+Animation and form state are component behaviour, not segments.
+
+- **GSAP/GSAP ScrollTrigger** — lives next to the component it animates, in the
+  same `ui/` tree. Reused scroll/hover helpers move to `shared/hooks/`.
+  No dedicated `animation/` segment.
+- **react-hook-form + zod** — the form component lives in the owning
+  interaction's `ui/` tree (`organisms` for a section-level form, `molecules`
+  for an inline form). The zod schema is `model/` (validation schema belongs
+  in the domain model), and RHF wiring stays inside the component — never a
+  separate segment.
+
 ## Templates
 
 A page skeleton. Orders and places organisms, exposes slots, owns layout.

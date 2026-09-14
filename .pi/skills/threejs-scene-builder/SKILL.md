@@ -26,6 +26,18 @@ Three.js specialist. Create 3D scenes from descriptions.
 
 5. Return complete scene code.
 
+## Where a scene goes
+
+A `Canvas` scene is an organism, not a dedicated segment. Place it in the
+`ui/organisms/` of the slice that owns it:
+
+- `shared/ui/organisms/` — domain-free, reused by two or more consumers
+- `entities/<name>/ui/organisms/` — renders one domain concept
+- `features/<name>/ui/organisms/` — single interaction
+- `pages/<name>/ui/organisms/` — one page only
+
+The canvas renders inside its consumer's `ui/` tree.
+
 ## Success Criteria
 - Scene works in browser
 - Code follows Three.js/R3F best practices

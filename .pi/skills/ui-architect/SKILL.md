@@ -33,6 +33,10 @@ Design page architecture using Atomic Design levels. Stack: React + MUI.
    - Global state (Zustand)
    - Data fetching (TanStack Query)
 
+4.5. File Structure follows the FSD canonical tree. Shared carries ui, hooks,
+config, assets/images. Entities carry ui, model, api. Features carry ui, model.
+Route registry lives at app/routes/index.tsx.
+
 5. Save to `artifacts/design-spec.md`. Append an `## Asset Table` at the end
    listing every image the page needs:
 
@@ -41,8 +45,8 @@ Design page architecture using Atomic Design levels. Stack: React + MUI.
 
    | slug | type | prompt | aspect | source | repo_path |
    |------|------|--------|--------|--------|-----------|
-   | hero-main | hero | "Wide cinematic shot of..." | 16:9 | generate | src/assets/images/hero-main.png |
-   | feature-card-1 | illustration | "..." | 4:3 | generate | src/assets/images/feature-card-1.png |
+   | hero-main | hero | "Wide cinematic shot of..." | 16:9 | generate | shared/assets/images/hero-main.png |
+   | feature-card-1 | illustration | "..." | 4:3 | generate | shared/assets/images/feature-card-1.png |
    | arrow-icon | icon | — | 1:1 | stock-mui:<IconName> | — |
    ```
 
@@ -54,7 +58,7 @@ Design page architecture using Atomic Design levels. Stack: React + MUI.
    never `generate`.
 
    `repo_path` is the on-disk destination the drawer commits to
-   (`src/assets/images/<slug>.<ext>`). Set it for `generate` rows so the
+   (`shared/assets/images/<slug>.<ext>`). Set it for `generate` rows so the
    drawer and implementer agree on paths without a handshake.
 
 6. Capabilities (assets):
