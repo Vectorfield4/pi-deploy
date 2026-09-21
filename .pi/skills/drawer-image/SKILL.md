@@ -19,9 +19,8 @@ For each row in `metadata.assets`:
 3. Type on neither list. Same rewrite and
    `findings: unclassified-asset`. Do not invent new types.
 
-Substitutes for blacklisted rows: `stock-mui:*` / `stock-lucide:*` /
-`stock-antd:*` / `stock-heroicons:*` for icons; `existing:...` for everything
-else.
+Substitutes for blacklisted rows: `stock-lucide:*` for icons; `existing:...`
+for everything else.
 
 ## Generation
 

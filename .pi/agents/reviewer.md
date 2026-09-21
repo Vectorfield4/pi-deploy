@@ -35,13 +35,13 @@ For every review task:
    `git fetch origin main <branch>` then `git diff --stat origin/main...origin/<branch>`
    and `git diff origin/main...origin/<branch>`. Review what this branch adds
    over `main` — not the whole working tree.
-3. **Pre-push validation**: if `acceptance_criteria` mentions lint/test/build, run it in a worktree checked out on `branch`. If it fails, bounce to coder without scoring.
+3. **Pre-push validation**: if `acceptance_criteria` mentions lint/test/build, run it in a worktree checked out on `branch`. If it fails, bounce to the owning worker without scoring.
 4. **Score the diff**: use the `pr-judge` rubric (code quality / tests / security / docs, each 25%, scale 1-10). Read the file list first via `git diff --name-only origin/main...origin/<branch>`, then read each changed file; prefer `task.metadata.file_inventory` to focus reads on this task. Only fall back to the full diff if total size is small.
 5. **Decide**:
    - Score ≥ 7: `decision: merge` — **do not push**. QA fast-forwards the branch
      into `main` after the decision. Return `merge`; no `pr_number`/`pr_url`.
-   - Score 5-6: bounce to coder with specific findings.
-   - Score ≤ 4: bounce to coder, plus store anti-pattern.
+   - Score 5-6: bounce to the owning worker with specific findings.
+   - Score ≤ 4: bounce to the owning worker, plus store anti-pattern.
 6. **Track iterations**: if `task.metadata.review_iterations >= 3` and the same kind of issue keeps failing, write an exploration anti-pattern and signal `exploration_flag: true` to the orchestrator. Do not bounce a 4th time. This is the only place that triggers exploration.
 7. **Memory writes** (best-effort, at most once per task):
    - Score ≥ 7 and quality holds: store as verified pattern.
@@ -51,7 +51,7 @@ For every review task:
 
 ## Tools you do not have
 
-- `edit` / `write`: you don't fix code, you report. The orchestrator routes fixes back to coder.
+- `edit` / `write`: you don't fix code, you report. The orchestrator routes fixes back to the owning worker.
 - `subagent`: keep the review flat, no nested fanout.
 - The `pgvec_*` native Pi tools reach memory. Use them; fall back to disk `AGENTS.md` if unavailable.
 

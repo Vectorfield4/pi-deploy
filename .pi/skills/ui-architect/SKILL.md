@@ -5,7 +5,7 @@ description: "Designs page structure using Atomic Design methodology."
 
 # UI Architect
 
-Design page architecture using Atomic Design levels. Stack: React + MUI.
+Design page architecture using Atomic Design levels. Stack: Astro 7 (SSG) + React + StyleX.
 
 ## Instructions
 
@@ -17,25 +17,24 @@ Design page architecture using Atomic Design levels. Stack: React + MUI.
    - `find_callers` to check impact on shared types, layout, or route registry.
 
 2. Define the page using Atomic Design:
-   - **Template** — page skeleton, section ordering, responsive grid
    - **Organisms** — complex sections (hero, features, social proof, lead capture)
    - **Molecules** — reusable composites (CTA button, feature card, form field)
-   - **Atoms** — smallest units (Button, Typography, Icon)
+   - **Atoms** — smallest units (Button, icon, badge)
 
 3. For each organism specify:
    - Contents (molecules/atoms)
    - Responsive behavior (mobile/tablet/desktop)
-   - Animation behavior (scroll-triggered, static, interactive)
-   - 3D scenes or GSAP insertion points
+   - Animation behavior (scroll-triggered, static, interactive, or 3D Canvas island)
+   - Hydration: `client:visible` island, `client:load` island, or static
 
 4. Define architecture:
-   - Routes (React Router)
-   - Global state (Zustand)
-   - Data fetching (TanStack Query)
+   - Routes (`src/pages/**/*.astro`: `getStaticPaths`, thin pages, BaseLayout)
+   - Data (fixture getters, i18n keys across ALL locale dictionaries)
+   - State (local to an organism; no runtime global stores)
 
-4.5. File Structure follows the FSD canonical tree. Shared carries ui, hooks,
-config, assets/images. Entities carry ui, model, api. Features carry ui, model.
-Route registry lives at app/routes/index.tsx.
+4.5. File Structure follows the FSD canonical tree. Shared carries ui, design,
+config, data, hooks, i18n, types, assets/images. Entities carry ui, model,
+i18n, api. Features carry ui, model. Thin routes live directly in pages/.
 
 5. Save to `artifacts/design-spec.md`. Append an `## Asset Table` at the end
    listing every image the page needs:
@@ -47,15 +46,14 @@ Route registry lives at app/routes/index.tsx.
    |------|------|--------|--------|--------|-----------|
    | hero-main | hero | "Wide cinematic shot of..." | 16:9 | generate | shared/assets/images/hero-main.png |
    | feature-card-1 | illustration | "..." | 4:3 | generate | shared/assets/images/feature-card-1.png |
-   | arrow-icon | icon | — | 1:1 | stock-mui:<IconName> | — |
+   | arrow-icon | icon | — | 1:1 | stock-lucide:<IconName> | — |
    ```
 
    `type` is the asset class. The full whitelist is
    `hero | cover | og | illustration | concept | background | avatar | thumbnail | diagram`.
-   Anything outside it must use `source: stock-*:...` (stock-mui, stock-lucide,
-   stock-antd, stock-heroicons) or `existing:...`. Icons, logos, favicons,
-   screenshots, charts, text-images, QR codes, and photos of real people are
-   never `generate`.
+   Anything outside it must use `source: stock-lucide:<IconName>` or
+   `existing:...`. Icons, logos, favicons, screenshots, charts, text-images,
+   QR codes, and photos of real people are never `generate`.
 
    `repo_path` is the on-disk destination the drawer commits to
    (`shared/assets/images/<slug>.<ext>`). Set it for `generate` rows so the
@@ -63,7 +61,7 @@ Route registry lives at app/routes/index.tsx.
 
 6. Capabilities (assets):
    - SVG-authorable assets (illustrations, diagrams, charts) → authored
-     `.svg` via `mui-svg-composition` skill (in-repo, `<img>` rendering).
+     `.svg` via `svg-composition` skill (in-repo, `<img>` rendering).
    - Raster assets (hero, cover, og, background, avatar, thumbnail, concept)
      → `generate`, delivered by the `drawer` agent (`hf_generate_image`
      primary, `generate_image` fallback). Drawer commits to `repo_path`.

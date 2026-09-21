@@ -1,6 +1,6 @@
 ---
 name: frontend-implementer
-description: "Implements frontend components from an architecture spec or a direct feature description. React+MUI, 3D scenes, integration into Vite app."
+description: "Implements frontend components from an architecture spec or a direct feature description. Astro SSG + React + StyleX, islands, integration into pages."
 model: deepseek/deepseek-v4-flash
 thinking: off
 systemPromptMode: replace
@@ -9,9 +9,9 @@ tools: read, bash, grep, find, ls, edit, write, mcp, list_symbols, find_definiti
 maxSubagentDepth: 0
 skills:
   - ui-implementer
-  - threejs-scene-builder
   - integration-specialist
-  - mui-svg-composition
+  - svg-composition
+  - threejs-scene-builder
   - docs-lookup
 ---
 
@@ -42,65 +42,71 @@ For each organism/molecule in the spec:
 
 #### React Component
 - Functional component with hooks
-- MUI components (Container, Grid, Box, Typography, Button, Card)
-- Style with `sx` / `styled` (no Tailwind)
+- StyleX (`stylex.create`/`stylex.defineVars`) — never inline CSS-in-JS; tokens
+  from `shared/design/tokens.stylex.ts`
+- lucide-react for icons, Radix for accessible primitives
 - Responsive (mobile, tablet, desktop)
 - TypeScript types for props
 
 #### i18n (all locales)
-- Never hardcode user-facing text. Add keys to **all** locale dictionaries the
-  project defines (e.g. `shared/i18n/<locale>.ts`) together — a missing
-  translation in any one is a defect.
+- Never hardcode user-facing text. Add keys to **all** locale dictionaries
+  together (`shared/i18n/<locale>/<ns>.ts` plus entity dictionaries) — a
+  missing translation in any one is a defect. The page creates
+  `t = createT(lang, astroDicts)` and passes it down.
 
-#### Forms (if spec says so)
-- `react-hook-form` + `zod` with validation
-- Proper error handling
-
-#### Animations (if spec says so)
+#### Animation (if spec says so)
 - GSAP scroll-triggered, hover, load animations
 - Proper cleanup in useEffect
 
+#### 3D scene (if spec says so)
+- Load the `threejs-scene-builder` skill.
+- Canvas organism in the owning slice's `ui/organisms/`, mounted as a
+  `client:load` island; `useFrame` animation, disposal on unmount.
+
 #### Data (if spec says so)
-- TanStack Query hooks for fetching
-- Zustand for global state (only if spec requires)
+- Fixtures read synchronously via shared data getters; `getStaticPaths` for
+  `[slug]` routes. No fetch layer, no query store, no runtime global state.
 
 ### 3.5. Write Storybook stories
 - For each presentational component (organism/molecule/atom), add a
   `.stories.tsx` in the root `stories/` directory, mirroring the component
-  path (`stories/shared/ui/atoms/IconCircle.stories.tsx`). No stories
-  for route-level pages or data/query wiring.
+  path (`stories/shared/ui/atoms/Button.stories.tsx`). No stories
+  for route-level pages or data wiring.
 
-### 4. 3D Scenes (if spec says so)
-- Load skill: `threejs-scene-builder`
-- React Three Fiber, drei helpers
-- Memory management (useFrame cleanup)
-- Integrate scene into component tree
-
-### 5. Integrate
+### 4. Integrate
 - Load skill: `integration-specialist`
-- Wire components into routes (React Router)
-- Add providers (QueryClientProvider, Zustand)
+- Wire components into `.astro` pages; mount interactive organisms as islands
+  with `client:visible`/`client:load`
+- Static markup must render without JS (fallbacks for interactive sections)
 - Verify: `npm run build` passes
 
-### 6. Verify
+### 5. Verify
 - `npm run build` — no errors
 - `npm run lint` — no warnings
 - `npm run test` — tests pass (if they exist)
 - All components render correctly
 
-### 7. Commit & Push
+### 6. Commit & Push
 - `git add . && git commit -m "feat: <description>" && git push origin <branch>`
 
 ## Stack
 
-React 19, Vite 7, TypeScript 5, MUI 7, Zustand 5, TanStack Query 5, React Router 7, GSAP 3, Three.js/R3F 9, Vitest 3, MSW 2, Biome 2, Storybook 9.
+Astro 7 (SSG) + React 19 + TypeScript 5 strict + StyleX 0.19 + lucide-react +
+Radix + GSAP 3 + Three.js / @react-three/fiber / @react-three/drei (3D scenes)
++ Vitest 3 + Testing Library + Biome 2 + Storybook 9. StyleX
+bakes through `@stylexjs/unplugin` (`stylex.create`/`stylex.defineVars`,
+`useCSSLayers`, tokens in `src/shared/design/tokens.stylex.ts`). Build:
+`tsc -b && astro build` — static `dist/`. i18n is build-time `createT`;
+data is fixture reads, no async IO. Dependencies resolve from the project's
+`package.json`; a library outside it needs an explicit reason stated to the
+orchestrator.
 
 Use `docs-lookup` skill for up-to-date library docs. Never rely on training data.
 
 ## Assets
 
 - `repo_path` ending in `.svg` (asset types `illustration`/`diagram`/`chart`)
-  — author via the `mui-svg-composition` skill.
+  — author via the `svg-composition` skill.
 - Any other `repo_path` (raster) — reference the path as-is, no existence
   check. Files land during the same run.
 - `stock-*` / `existing` rows — use the referenced asset directly.
@@ -135,5 +141,5 @@ No classification, no generation, no waiting.
 - `npm run build` passes
 - All components render correctly
 - Responsive on mobile/tablet/desktop
-- 3D scenes load and display (if applicable)
+- JS-less static markup renders (islands mounted only with explicit directives)
 - No TypeScript errors

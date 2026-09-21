@@ -22,12 +22,12 @@ UI. Candidates: secret-base-ai, admin-portal.
 
 ### 2. Detect Project Type
 Before decomposing, identify the project type:
-- **frontend**: package.json with React/Vue/Svelte/Angular → complexity gate (step 5.1): complex → `frontend-architect` + `frontend-implementer`, simple → `frontend-implementer` only
-- **backend**: package.json + Express/Fastify/Nest, or go.mod, requirements.txt, Cargo.toml → complexity gate (step 5.1a): set `metadata.complex` on complex work; `coder`
-- **fullstack**: Monorepo or both frontend + backend markers → frontend: complexity gate (step 5.1) architect (complex) / implementer; backend: complexity gate (step 5.1a) → `coder`
-- **CLI/lib**: package.json with bin/main, or Makefile + src/ → complexity gate (step 5.1a) → `coder`
-- **infra**: docker-compose.yml, Dockerfile, .github/workflows → complexity gate (step 5.1a) → `coder`
-- **content**: Markdown-heavy, no code → complexity gate (step 5.1a) → `coder`
+- **frontend**: `astro.config.*` / `**/*.astro` or package.json with `astro` → complexity gate (step 5.1): complex → `frontend-architect` + `frontend-implementer`, simple → `frontend-implementer` only
+- **backend**: package.json + Express/Fastify/Nest, or go.mod, requirements.txt, Cargo.toml → complexity gate (step 5.1a): set `metadata.complex` on complex work; `backend`
+- **fullstack**: Monorepo or both frontend + backend markers → frontend: complexity gate (step 5.1) architect (complex) / implementer; backend: complexity gate (step 5.1a) → `backend`
+- **CLI/lib**: package.json with bin/main, or Makefile + src/ → complexity gate (step 5.1a) → `backend`
+- **infra**: docker-compose.yml, Dockerfile, .github/workflows → complexity gate (step 5.1a) → `devops`
+- **content**: Markdown-heavy, no code → complexity gate (step 5.1a) → `content`
 
 ### 3. Load Project Rules (lightweight)
 
@@ -84,7 +84,7 @@ in `references/file-inventory.md`. Read it when you reach this step.
    - Output: working code, build passing, tests passing
 - Complex tasks: do NOT split into per-component sub-tasks — the architect creates a single spec, the implementer builds it all.
 - Simple and design-reuse tasks: skip the architect — `frontend-implementer` only, no spec.
-- If fullstack: backend sub-tasks still go to `coder`
+- If fullstack: backend sub-tasks still go to `backend`
 
 ### 5.1. Assess Frontend Complexity
 
@@ -96,9 +96,8 @@ Classify the frontend task as `simple` or `complex` before routing. This step ru
 - Copying an existing component pattern onto a new instance, no new architecture
 
 **Complex** (route through `frontend-architect` first) — at least one of:
-- **Shared architecture touched**: `MainLayout`, the theme/tokens (`shared/config/theme.ts`), the route registry in `app/routes/index.tsx`, or shared providers — anything a new page depends on
-- **New page type**: a route that renders through a page, template, or organism that does not exist yet (e.g. list→detail→showcase progression)
-- **Cross-cutting state**: a new or non-trivial Zustand slice with real logic that multiple components share
+- **Shared architecture touched**: `BaseLayout`, the design tokens (`shared/design/tokens.stylex.ts`), the global styles, or new shared sections — anything a new page depends on
+- **New page type**: a route that renders through a page, section, or organism that does not exist yet (e.g. list→detail→showcase progression)
 - **i18n dictionary parity risk**: the change adds user-facing strings under new keys that must exist in **all** of the project's locale dictionaries — treat as complex when the key structure grows or page-level dictionaries change
 - Vague requirements or open product/design tradeoffs
 - Design-system decisions (Atomic Design) at scale
@@ -107,13 +106,13 @@ Classify the frontend task as `simple` or `complex` before routing. This step ru
 
 The same gate applies to backend/infra/CLI/content: when requirements are
 vague or a wrong choice is expensive, route as complex (set `metadata.complex: true`);
-for backend the `coder` handles planning in its own run, with no separate architect agent.
+for backend the `backend` agent handles planning in its own run, with no separate architect agent.
 
-**Simple** (delegate `coder`):
+**Simple** (delegate straight to the owning worker):
 - Well-scoped, 1-3 files, existing patterns cover the change
 - No schema/API contract changes, no cross-cutting concerns, no new services
 
-**Complex** (delegate `coder`, `metadata.complex: true`):
+**Complex** (delegate the owning worker, `metadata.complex: true`):
 - Vague requirements or open architecture tradeoffs
 - Schema/migration changes, new public APIs or contracts
 - Multi-module or cross-cutting changes (auth flow, shared state across services)
@@ -171,7 +170,7 @@ The `<ext>` in `repo_path` is refined by the drawer from the first
 
 #### For fullstack projects:
 - Frontend features → `frontend-implementer` subagent
-- Backend features → `coder` subagent
+- Backend features → `backend` subagent
 - Link by API contract
 
 #### For CLI/lib projects:
@@ -220,8 +219,10 @@ values — never omit the structure. Workers read fields as `task.metadata.*`.
 
 | Work | `agent` | `skill` |
 |------|---------|---------|
-| backend/infra/content/CLI component | `coder` | `execute-task` |
-| complex component (any non-frontend) | `coder` (`metadata.complex: true`) | `execute-task` |
+| backend/CLI component | `backend` | `execute-task` |
+| infra component | `devops` | `execute-task` |
+| content | `content` | `execute-task` |
+| complex component (any non-frontend) | owning worker (`metadata.complex: true`) | `execute-task` |
 | frontend architecture (complex only) | `frontend-architect` | `ui-architect` |
 | frontend implementation | `frontend-implementer` | `ui-implementer` |
 | image generation (assets with `source: generate`) | `drawer` | `drawer-image` |
@@ -252,9 +253,9 @@ values — never omit the structure. Workers read fields as `task.metadata.*`.
   scope, own file area, own test). Fan out via `runs.all([{key, agent,
   task}, ...])` (see step 8.5). One sibling failing does not block the
   others; bounce findings are routed back per-worker, not to the group.
-- Backend/infra/content: split into per-component sub-tasks; each `coder`
-  in its own worktree. Complex → `metadata.complex: true`. Simple →
-  `complex: false`.
+- Backend/infra/content: split into per-component sub-tasks; each to its owning
+  worker (`backend`/`devops`/`content`) in its own worktree. Complex →
+  `metadata.complex: true`. Simple → `complex: false`.
 
 ### 7.1. Persist Design Decisions (orchestrator, after architecture completes)
 

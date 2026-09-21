@@ -10,7 +10,7 @@ Deployment + instruction repo for a Pi-based AI development system. No applicati
 ├── mcp.json          # MCP servers (empty; memory served by the pgvec extension)
 ├── models.json       # Provider + model registry (timeweb)
 ├── agents/           # Agent definitions; skills listed per agent in frontmatter
-└── skills/           # Skill packages (25 skills)
+└── skills/            # Skill packages (25 skills)
 scripts/              # Bash scripts (init, setup, cloud-init, backup, setup-cron-jobs, update-on-push)
 docker-compose.yml    # Pi + memory stack (3 services; embeddings remote)
 Dockerfile.pi         # Pi container image
@@ -20,7 +20,7 @@ AGENTS.md             # This file — interactive-session instructions
 
 ## How it runs
 
-One Pi process (interactive, PTY, Telegram via `@bytesbrains/pi-telegram-bridge`) + 2 memory containers (PostgreSQL+pgvector, `pi-pgvector-api-embeddings` RAG; embeddings via remote API). No slash commands — users write naturally. The interactive session routes every message to the `orchestrator` subagent (intent: task/question/feedback/deploy/...), which delegates to workers (`frontend-architect`/`frontend-implementer` for frontend, `coder` otherwise). Execution models are flash; tasks that need the architecture gate set `metadata.complex: true`. The `reviewer` (score decision) runs on **every** coding task as the quality loop — it returns deficient work via `bounce` before anything is pushed. Work lands on a feature branch and is pushed to `main` directly — no PR, no human approval gate. Released/deployed by `qa`.
+One Pi process (interactive, PTY, Telegram via `@bytesbrains/pi-telegram-bridge`) + 2 memory containers (PostgreSQL+pgvector, `pi-pgvector-api-embeddings` RAG; embeddings via remote API). No slash commands — users write naturally. The interactive session routes every message to the `orchestrator` subagent (intent: task/question/feedback/deploy/...), which delegates to workers (`frontend-architect`/`frontend-implementer` for frontend, `backend`/`devops`/`content` otherwise). Execution models are flash; tasks that need the architecture gate set `metadata.complex: true`. The `reviewer` (score decision) runs on **every** coding task as the quality loop — it returns deficient work via `bounce` before anything is pushed. Work lands on a feature branch and is pushed to `main` directly — no PR, no human approval gate. Released/deployed by `qa`.
 
 Single responsibility: each agent owns its one job and never narrates another's.
 Skills/agents describe only the actor's own workflow — never "X is done by Y" or

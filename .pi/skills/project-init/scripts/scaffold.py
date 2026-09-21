@@ -15,21 +15,23 @@ GITKEEP_DIRS = [
     "src/entities",
     "src/widgets",
     "src/shared/ui",
-    "src/shared/api",
-    "src/shared/lib",
+    "src/shared/design",
+    "src/shared/config",
+    "src/shared/data",
     "src/shared/hooks",
     "src/shared/i18n",
+    "src/shared/mocks/fixtures",
     "src/shared/types",
+    "src/shared/api",
+    "src/shared/lib",
     "src/shared/assets/images",
     "stories",
 ]
 PLAIN_DIRS = [
-    "src/app/providers",
     "src/app/layouts",
-    "src/app/routes",
-    "src/shared/config",
-    "src/shared/mocks",
+    "src/app/styles",
     "test",
+    "public",
 ]
 
 for rel in GITKEEP_DIRS + PLAIN_DIRS:

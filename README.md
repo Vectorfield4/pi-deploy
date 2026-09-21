@@ -37,7 +37,7 @@ make logs          # Check logs
 
 | Container | Role |
 |---|---|
-| `pi` | Pi agent + subagents (orchestrator/coder/qa) |
+| `pi` | Pi agent + subagents (orchestrator/…/qa — full list in `.pi/agents/`) |
 | `memory-db` | PostgreSQL + pgvector |
 | `pgvec-memory` | RAG memory server (`pi-pgvector-api-embeddings`) |
 
@@ -46,7 +46,7 @@ Embeddings are hosted on a remote OpenAI-compatible endpoint (configured via `AI
 ## Task flow
 
 ```
-Telegram → Orchestrator → Subagents (frontend/coder) on a feature branch →
+Telegram → Orchestrator → Subagents (frontend/backend/devops/content) on a feature branch →
    Reviewer reviews the branch diff vs main first (every coding task, quality loop) → push to main
 ```
 
@@ -63,11 +63,11 @@ Versions pinned in `.pi/settings.json`. Makefile reads the list and installs via
 | Extension | Version | Role | Used by | Why it's here |
 |-----------|---------|------|---------|---------------|
 | `pi-subagents` | 0.58.0 | Multi-agent orchestration with strict tool allowlists, async runs, model overrides per role | All agents under `.pi/agents/` | Reads `model` and `tools` from each agent's frontmatter. |
-| `pi-pgvector-memory` | local | Native Pi extension that exposes the pgvec memory tools (`pgvec_*`) directly | All agents (orchestrator, coder, frontend-implementer, reviewer, qa) | Thin proxy to the `pgvec-memory` server. Memory is best-effort, never a hard dependency. |
+| `pi-pgvector-memory` | local | Native Pi extension that exposes the pgvec memory tools (`pgvec_*`) directly | All agents (orchestrator, backend, devops, content, frontend-implementer, reviewer, qa) | Thin proxy to the `pgvec-memory` server. Memory is best-effort, never a hard dependency. |
 | `@bytesbrains/pi-telegram-bridge` | 1.4.1 | Telegram bot bridge inside the Pi interactive session | Pi container entrypoint | The path from Telegram into Pi. Polls in the background. |
 | `ping-a-human-pi` | 0.1.1 | Generic human-in-the-loop notifications | QA agent for FTP deploy blocks | Used where GitHub polling doesn't apply (FTP deploys, destructive ops). |
 | `pi-memory` | 0.4.2 | Session memory with qmd semantic search across daily logs and scratchpad | Pi main session | Separate from pgvec evidence. Orchestrator scratchpad lives here. |
-| `@upstash/context7-pi` | 0.1.2 | Library docs via Context7 | coder, frontend-implementer, reviewer (via the `docs-lookup` skill) | Workers use `docs-lookup` (Context7 + 7-day file cache) instead of trusting training data; never call `resolve-library-id`/`query-docs` directly. |
+| `@upstash/context7-pi` | 0.1.2 | Library docs via Context7 | backend, devops, content, frontend-implementer, reviewer (via the `docs-lookup` skill) | Workers use `docs-lookup` (Context7 + 7-day file cache) instead of trusting training data; never call `resolve-library-id`/`query-docs` directly. |
 
 ### What is not installed
 
@@ -87,8 +87,8 @@ push is reviewed by the reviewer, then QA fast-forwards into `main`).
 For contrast, these do not trigger HITL:
 
 - Vercel staging deploy. Runs on push to main.
-- CI failures. Coder fixes in place until green. No ping.
-- Bounced branch. QA sent the branch back for fixes. Coder pushes more commits on
+- CI failures. The owning worker fixes in place until green. No ping.
+- Bounced branch. QA sent the branch back for fixes. The owning worker pushes more commits on
   the same branch, reviewer re-evaluates. No new HITL.
 
 ### Recovery

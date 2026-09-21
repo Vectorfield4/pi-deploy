@@ -25,6 +25,7 @@ Before dispatching step 2, honor the orchestrator's pre-batched memory:
 
 ### 2. Dispatch by task type
 - `type == "init"` → load `references/init.md`
+- `type == "content"` → load `references/memory.md` → `references/rag.md` → `references/content.md`
 - `component == true` → load `references/memory.md` → `references/rag.md` → `references/component.md`
 - `type == "review"` → load `references/memory.md` → `references/rag.md` → `references/review-fix.md`
 - Otherwise → report "Unknown task type"

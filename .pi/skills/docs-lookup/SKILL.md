@@ -9,8 +9,8 @@ Single entry point for library documentation. Wraps `resolve-library-id` and `qu
 
 ## When to use
 
-- Coder, frontend-implementer, reviewer agents need library/API documentation.
-- The library is real and current docs matter (React, MUI, TanStack Query, Zustand, three.js, etc.).
+- Backend, devops, content, frontend-implementer, reviewer agents need library/API documentation.
+- The library is real and current docs matter (Astro, StyleX, React, lucide-react, Radix, etc.).
 - Not for general knowledge — only for library-specific lookup.
 
 ## Cache

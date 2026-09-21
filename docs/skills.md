@@ -13,7 +13,7 @@ self-contained.
 
 ## Frontend
 
-- ui-architect, ui-implementer, mui-svg-composition, integration-specialist, threejs-scene-builder
+- ui-architect, ui-implementer, svg-composition, threejs-scene-builder, integration-specialist
 
 ## QA
 

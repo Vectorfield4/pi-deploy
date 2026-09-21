@@ -90,7 +90,7 @@ a structured result. This agent does not call `pr-judge` or
 
 **decision: `explore`**
 - Forward `exploration_flag: true` and the summary. The orchestrator
-  re-decomposes the task. Do NOT bounce to coder a 4th time.
+  re-decomposes the task. Do NOT bounce a 4th time.
 
 ### 5.5. Run memory-gc
 After a successful push/release/deploy, load and run the `memory-gc` skill.

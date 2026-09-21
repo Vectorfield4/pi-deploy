@@ -30,7 +30,7 @@ others; bounce findings route back per-worker.
 
 ## Backend / infra / content
 
-Split into per-component `coder` sub-tasks, each in its own worktree.
+Split into per-component sub-tasks to the owning worker (`backend`/`devops`/`content`), each in its own worktree.
 `metadata.complex: true` routes extra scrutiny; simple tasks run without it.
 
 ## Simple / design-reuse

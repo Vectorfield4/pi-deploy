@@ -30,11 +30,11 @@ languages without a WASM grammar, a delimiter-balance scanner validates.
 
 | Agent | Tools added | Use |
 |-------|-------------|-----|
-| `coder` | all five | `get_symbol_body` for the target function, `find_callers` before a signature change |
+| `backend` | all five | `get_symbol_body` for the target function, `find_callers` before a signature change |
 | `frontend-implementer` | all five | `list_symbols` for existing patterns, `get_symbol_body` for the component to extend |
 | `frontend-architect` | all five | `list_symbols` over raw scans; `find_callers` for shared-type impact |
 | `reviewer` | all five | `find_callers` / `find_callees` to verify impact claims in complex tasks |
-| `orchestrator`, `qa`, `drawer` | none | no code reads; two of them cannot write code |
+| `orchestrator`, `qa`, `drawer`, `devops`, `content` | none | no code reads |
 
 ## Flow effects
 

@@ -65,12 +65,12 @@ Before decomposing, detect the project type, then route to the correct agent:
 
 | Type | Detection | Delegate to |
 |------|-----------|-------------|
-| **frontend** | package.json with React/Vue/Svelte/Angular | design-reuse (step 5.2) first, then complexity gate; `frontend-architect` (complex only) + `frontend-implementer` (+ `drawer` when assets need generation) |
-| **backend** | package.json + Express/Fastify/Nest, or go.mod, requirements.txt, Cargo.toml | complexity gate (step 5.1a); `coder` |
-| **fullstack** | Monorepo or both frontend + backend markers | frontend: design-reuse (step 5.2) first, then complexity gate; `frontend-architect` (complex only) + `frontend-implementer` (+ `drawer` when assets need generation) for UI, `coder` for API |
-| **CLI/lib** | package.json with bin/main, or Makefile + src/ | complexity gate (step 5.1a); `coder` |
-| **infra** | docker-compose.yml, Dockerfile, .github/workflows | complexity gate (step 5.1a); `coder` |
-| **content** | Markdown-heavy, no code | complexity gate (step 5.1a); `coder` |
+| **frontend** | `astro.config.*` / `**/*.astro` or package.json with `astro` | design-reuse (step 5.2) first, then complexity gate; `frontend-architect` (complex only) + `frontend-implementer` (+ `drawer` when assets need generation) |
+| **backend** | package.json + Express/Fastify/Nest, or go.mod, requirements.txt, Cargo.toml | complexity gate (step 5.1a); `backend` |
+| **fullstack** | Monorepo or both frontend + backend markers | frontend: design-reuse (step 5.2) first, then complexity gate; `frontend-architect` (complex only) + `frontend-implementer` (+ `drawer` when assets need generation) for UI, `backend` for API |
+| **CLI/lib** | package.json with bin/main, or Makefile + src/ | complexity gate (step 5.1a); `backend` |
+| **infra** | docker-compose.yml, Dockerfile, .github/workflows | complexity gate (step 5.1a); `devops` |
+| **content** | Markdown-heavy, no code | complexity gate (step 5.1a); `content` |
 
 ### Complexity routing
 
@@ -99,7 +99,7 @@ When project type is `frontend`, run the gate in this order. Each step gates the
          images.
    - Never re-invoke `frontend-architect` within a task. Fix an underspecified spec inside implementation.
 
-For fullstack projects, frontend sub-tasks go through the gate above; backend sub-tasks go to coder.
+For fullstack projects, frontend sub-tasks go through the gate above; backend sub-tasks go to `backend`.
 
 ### Contract and validation
 

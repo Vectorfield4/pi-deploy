@@ -20,7 +20,7 @@ Ad-hoc tasks bypassing `orchestrate-task`: `component.md` falls back to its own 
 
 - Memory is experiential and advisory, never authoritative. `AGENTS.md` on disk is the source of truth.
 - Append-only. Updates via `pgvec_remember` (idempotency_key) or `pgvec_retract_evidence`. Never delete or rewrite.
-- Retract only records your own profile submitted. Coder owns task evidence; reviewer owns review evidence.
+- Retract only records your own profile submitted. The owning worker holds task evidence; reviewer owns review evidence.
 - Never block the task on a memory call; on error, continue without context.
 - Store compressed structured outcomes, never raw full-source dumps.
 - Write only when the outcome is a reusable lesson: non-obvious approach, pitfall, or reusable decision. Skip routine/mechanical tasks and "passed" verdicts; composing trivial evidence wastes cost. Bounce, explore, design-decision, and feedback writes always write. Rules and docs caches are plain on-disk files, not memory.
@@ -28,7 +28,7 @@ Ad-hoc tasks bypassing `orchestrate-task`: `component.md` falls back to its own 
 ## Recall (when batched context is absent)
 
 - `pgvec_recall_memory({ query:"<concise goal of the work>" })`
-- Short goal-oriented query (e.g. `react-hook-form + zod auth form with MUI for <project>`), not a long paste.
+- Short goal-oriented query (e.g. `StyleX tokens + createT i18n pages for <project>`), not a long paste.
 - Filter by record type via `tag`, not tokens in the query: `pgvec_recall_memory({ query:"auth form", tag:"anti-pattern" })`.
 - Response items: `{ evidence_id, context, space_kind }`. Read `context` (≤ 2000 chars); never `content`. The structured prefix is the discriminator: `project:`, `valid_until:`, `type:`.
 - Top results are context hints; high-confidence results still pass validation (lint / test / build) before commit.

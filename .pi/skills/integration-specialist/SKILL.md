@@ -1,32 +1,32 @@
 ---
 name: integration-specialist
-description: "Assembles ready components into a single Vite application (routes, providers)."
+description: "Assembles ready components into Astro SSG pages: thin routes, BaseLayout, hydration directives."
 ---
 
 # Integration Specialist
 
-Assemble ready components and scenes into a single Vite application.
+Assemble ready components into a static Astro application.
 
 ## Instructions
 
-1. Collect all ready components and scenes.
+1. Collect all ready components (organisms, molecules, atoms).
 
-2. Assemble the application:
-   - React Router for routing
-   - QueryClientProvider (TanStack Query)
-   - Global state via Zustand
-   - Correct asset paths
-- MSW is for TESTS only (node server, `test/server.ts`) — there is no
-      browser request worker unless the project actually has an API to mock.
-      Keep handlers in `src/shared/mocks/handlers.ts`; scaffold
-      `src/shared/mocks/browser.ts` or call `worker.start()` only for a project
-      with a real backend.
+2. Assemble the pages:
+   - Thin `.astro` routes in `src/pages/`: `getStaticPaths`, `BaseLayout`,
+     section composition, `t = createT(lang, astroDicts)` passed down
+   - Interactive organisms mount as islands: `client:visible` for the app
+     shell and filterable lists, `client:load` for sliders and previews
+   - Static markup carries the content; JS only enhances
+   - Correct asset paths (public/ or `shared/assets/images/` via import)
 
-3. Verify: 3D scene in right place, all components render, no style conflicts, `npm run build` passes.
+3. Verify: all components render, no style conflicts (StyleX layers), JS-less
+   pages render, `tsc -b` typechecks. The full `astro build` runs in the
+   implementer's final verify step.
 
 4. Return the final application.
 
 ## Success Criteria
-- Application builds (`npm run build`)
+- Typecheck passes (`tsc -b`); the implementer's verify runs the full `astro build`
 - All components visible and working
-- 3D scene embedded correctly
+- Island hydration directives match interaction level
+- 404 and unknown-route behaviour follow Astro conventions

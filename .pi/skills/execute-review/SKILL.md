@@ -76,11 +76,11 @@ Use the `pr-judge` skill to score:
   `name-only` files to catch drift or unrequested edits.
 - Compute score per `pr-judge` rubric.
 - If `task.metadata.complex == true`, add targeted checks for the failure modes
-  of architectural changes: shared layout/theme/route-registry edits are
+  of architectural changes: shared layout/theme/StyleX-token edits are
   consistent, new i18n keys exist in ALL locale dictionaries the project
-  defines (parity — a missing translation in any one is a defect), and new
-  global state has
-  real consumers (no dead Zustand slices).
+  defines (parity — a missing translation in any one is a defect), and
+  dependencies stay on the project's declared stack (`package.json` + project
+  `AGENTS.md`).
 - Verify structural claims with AST tools instead of grep: `find_definition`
   to confirm a symbol exists, `find_callers` to confirm consumers, `find_callees`
   to trace dependencies of a changed symbol.
@@ -120,7 +120,7 @@ note only.
 
 ### 5.5. Persist bounce findings (on any `bounce`)
 Record the exact failure reasons so a re-review checks the fix delta, not a cold
-re-score, and coder can recall them without relying on the transient reply:
+re-score, and the owning worker can recall them without relying on the transient reply:
 ```
 pgvec_remember({
   content: "project: <project>\ntype: bounce\ntags: review-bounce,project:<project>\nvalid_until: <YYYY-MM-DD, today + 7 days>\n\ntask_id: <task_id> review_iterations: <n>\nFindings: <one line per issue>",
@@ -131,7 +131,7 @@ pgvec_remember({
 })
 ```
 Also surface the findings text in the `[REVIEW_RESULT]` `findings:` field — the
-orchestrator forwards it to coder verbatim, so it needs it in the reply, not
+orchestrator forwards it to the owning worker verbatim, so it needs it in the reply, not
 only in memory.
 
 ### 6. Merge decision (do NOT push)
@@ -151,7 +151,7 @@ pgvec_remember({
   idempotency_key: "exploration:<project>:<task_id>"
 })
 ```
-Set `exploration_flag: true` in the result. Do not bounce to coder, do not approve.
+Set `exploration_flag: true` in the result. Do not bounce, do not approve.
 
 ### 8. Memory write (best-effort, at most once per task)
 - `score >= SCORE_PASS` **and** the task documents a reusable approach (a

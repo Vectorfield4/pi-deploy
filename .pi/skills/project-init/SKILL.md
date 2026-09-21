@@ -1,6 +1,6 @@
 ---
 name: project-init
-description: "Initializes a new project on the standardized stack (React + Vite + TypeScript + MUI) and links it to Vercel."
+description: "Initializes a new project on the standardized stack (Astro SSG + React + StyleX + FSD) and links it to Vercel."
 ---
 
 # Project Init
@@ -15,26 +15,29 @@ Clones repo, scaffolds the stack, installs deps, links Vercel, sets up CI.
 
 ### 2. Write project AGENTS.md
 Create `/workspace/<project>/AGENTS.md` listing:
-- Stack: React 19 + Vite 7 + TypeScript 5 + MUI 7 + Zustand 5 + TanStack Query 5 + GSAP 3 + Three.js/R3F 9 + Vitest + MSW + Biome 2 + Storybook 9
+- Stack: Astro 7 (SSG) + React 19 + TypeScript 5 strict + StyleX 0.19 + lucide-react + Radix + GSAP 3 + Three.js/R3F (3D islands) + Vitest + Testing Library + Biome 2 + Storybook 9
 - Commands: `npm run dev`, `npm run build`, `npm run test`, `npm run lint`, `npm run format`, `npm run storybook`
-- No Tailwind, no ESLint/Prettier — Biome instead
+- Tooling: Biome is the sole linter/formatter; style is StyleX via `@stylexjs/unplugin`; i18n is build-time `createT`; data is synchronous fixture reads
+- Point structure to the FSD + Atomic Design standards (see the project's `docs/frontend/` if present)
 
 ### 3. Scaffold
 Run `python3 /etc/pi-skel/skills/project-init/scripts/scaffold.py /workspace/<project> <project>`.
 It creates the FSD dirs (.gitkeep on empty layers) and `package.json` (name substituted).
 Then create the skeleton files the agent writes:
-- `src/main.tsx` — Vite entry: mounts App
-- `src/app/App.tsx` — root: providers + routed pages
-- `src/app/providers/*` — Theme → Query → I18n → Router
-- `src/app/layouts/*` — route shells
-- `src/app/routes/index.tsx` — route registry (single source of truth)
-- `src/shared/config/theme.ts` — MUI theme tokens
-- `src/shared/config/useAppStore.ts` — theme/lang state (Zustand)
-- `src/shared/mocks/handlers.ts` — empty; handlers land when a backend exists
-- `test/server.ts` — MSW node server (test-only)
-- `test/setup.ts` — Vitest setup: jest-dom, renderWithProviders
-- `test/renderWithProviders.tsx` — RTL helper: providers + router
-- Root config: `index.html`, `vite.config.ts`, `tsconfig.json`, `biome.json`, `.storybook/main.ts` (stories glob `../stories/**/*.stories.@(ts|tsx)`), `.storybook/preview.ts`, `.gitignore`, `AGENTS.md`
+- `astro.config.ts` — `site`, `trailingSlash: "never"`, integrations `react()` + `sitemap()`; `vite.plugins` Stylex-unplugin (`useCSSLayers: true`, aliases `@/*`), `vite.resolve.alias` `@` → `src/`; `i18n` with `defaultLocale` and `prefixDefaultLocale: false`
+- `tsconfig.json` (references) + `tsconfig.app.json` + `tsconfig.node.json`
+- `src/app/layouts/BaseLayout.astro` — head (title/description/canonical/hreflang), theme bootstrap, slot
+- `src/app/styles/global.css` — base styles
+- `src/shared/design/tokens.stylex.ts` — StyleX design tokens (vars), `theme.ts`
+- `src/shared/config/breakpoints.ts` + `constants.ts`
+- `src/shared/i18n/t.ts` (`createT`), `dict.ts` (`astroDictRu`/`astroDictEn`), `ru/<ns>.ts` + `en/<ns>.ts`
+- `src/shared/hooks/useT.ts` + `useMatchMedia.ts`
+- `src/shared/data/entities.ts` — fixture getters
+- `src/pages/index.astro` — root page
+- `vitest.config.ts` — Stylex plugin + jsdom via `test/environment.ts`; `test/setup.ts`
+- `biome.json` (space indent = 2, CRLF, double quotes)
+- `.storybook/main.ts` (stories glob `../stories/**/*.stories.@(ts|tsx)`), `.storybook/preview.ts`
+- `.gitignore`, `AGENTS.md`
 
 ### 4. Install dependencies
 Run `npm install`. Retry on network errors.
@@ -46,7 +49,8 @@ Run `npm install`. Retry on network errors.
 - On failure → return error
 
 ### 6. Deploy to Vercel
-- `npx --yes vercel@latest deploy --prebuilt --token "$VERCEL_TOKEN"`
+- `npx --yes vercel@latest build --yes --token "$VERCEL_TOKEN"` — runs the Astro build via the Vercel preset
+- `npx --yes vercel@latest deploy --prebuilt --yes --token "$VERCEL_TOKEN"`
 - Retry on transient errors (timeout, 5xx)
 
 ### 7. Verify Vercel project config

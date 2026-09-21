@@ -43,7 +43,7 @@ result. The reviewer owns:
 - Acceptance criteria validation
 - Scoring via `pr-judge` (local git diff against `main`)
 - The `merge`/`bounce`/`explore` decision (it never pushes — pushing to `main` happens here in QA)
-- Bounce to coder with findings
+- Bounce to the owning worker with findings
 - Exploration anti-pattern on 3+ iterations
 - Memory writes (verified/anti-pattern)
 

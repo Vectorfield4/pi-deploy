@@ -1,11 +1,11 @@
 ---
 name: ui-implementer
-description: "Creates UI components with React + MUI on the standardized stack."
+description: "Creates UI components with React + StyleX on the standardized Astro SSG stack."
 ---
 
 # UI Implementer
 
-Frontend developer. Write clean, working code with React + MUI.
+Frontend developer. Write clean, working code with React + StyleX.
 
 ## Instructions
 
@@ -13,17 +13,24 @@ Frontend developer. Write clean, working code with React + MUI.
 
 2. Write the React component:
    - Modern React (functional components, hooks)
-   - MUI components (Container, Grid, Box, Typography, Button, Card)
-   - Style with `sx` / `styled` (no Tailwind)
+   - StyleX: `stylex.create`/`stylex.createStrict` styles, `style={styles.x}`;
+     tokens from `shared/design/tokens.stylex.ts`; `useCSSLayers` for output
+   - Icons from lucide-react; Radix primitives for dialog/drawer
    - Responsive (mobile, tablet, desktop)
+   - Astro islands where the spec says so (`client:visible`/`client:load`)
+   - Static markup must render without JS
 
-3. For forms: `react-hook-form` + `zod` with validation.
+3. For forms: native HTML form state, validation inline.
 
-4. For animations: GSAP.
+4. For 3D scenes: a `Canvas` organism from the `threejs-scene-builder`
+   skill, mounted as a `client:load` island, `useFrame` animation, disposal
+   on unmount.
 
-5. Data fetching: TanStack Query. State: Zustand.
+5. For animations: GSAP.
 
-6. Return complete component code.
+6. Data: fixtures and i18n keys passed down via props; nothing fetched at runtime.
+
+7. Return complete component code.
 
 ## Code reads (AST tools)
 
@@ -45,16 +52,16 @@ Frontend developer. Write clean, working code with React + MUI.
 
 ## Success Criteria
 - Code works and runs
-- Styling follows MUI conventions
+- Styling follows StyleX conventions (no inline `style`, no CSS-in-JS libs)
 - Component is responsive
-- Validation works (for forms)
+- i18n keys exist in ALL locale dictionaries the project defines
 - Comments: short, inline (same line where practical), only "why" (non-obvious intent/ordering/tolerance); never restate the code, no banners/section headers/attribution
 
 ## Assets
 
 Per `metadata.assets` row:
 
-- `repo_path` ends `.svg` — author it with `mui-svg-composition`, save to
+- `repo_path` ends `.svg` — author it with `svg-composition`, save to
   `shared/assets/images/<slug>.svg`.
 - Any other path — reference `repo_path` as-is, no existence check. Files
   land during the same run.
