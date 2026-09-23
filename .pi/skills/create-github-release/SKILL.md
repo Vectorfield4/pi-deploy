@@ -41,7 +41,6 @@ skill degrades to "push the tag, CI builds and publishes".
 - Report the release URL.
 - Best-effort: store the verified release pattern in memory
   (`pgvec_remember`, tag `release-verified`, TTL 90d).
-- `execute-qa-task` runs `memory-gc` after you return.
 
 ## Verification
 

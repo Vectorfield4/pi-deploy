@@ -9,7 +9,7 @@ Frontend developer. Write clean, working code with React + StyleX.
 
 ## Instructions
 
-1. Receive assignment (goal + context) from the orchestrator — via a spec/decision (complex/design-reuse) or directly (simple task).
+1. Payload: `description`/`acceptance_criteria` carry the design decisions; `metadata.memory_context`/`metadata.anti_patterns` carry the recalled domain memory.
 
 2. Write the React component:
    - Modern React (functional components, hooks)

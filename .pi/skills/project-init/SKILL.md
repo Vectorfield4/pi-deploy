@@ -1,11 +1,11 @@
 ---
 name: project-init
-description: "Initializes a new project on the standardized stack (Astro SSG + React + StyleX + FSD) and links it to Vercel."
+description: "Initializes a new project on the standardized stack (Astro SSG + React + StyleX + FSD)."
 ---
 
 # Project Init
 
-Clones repo, scaffolds the stack, installs deps, links Vercel, sets up CI.
+Clones repo, scaffolds the stack, installs deps, sets up CI.
 
 ## Steps
 
@@ -42,27 +42,11 @@ Then create the skeleton files the agent writes:
 ### 4. Install dependencies
 Run `npm install`. Retry on network errors.
 
-### 5. Link to Vercel
-- Requires `VERCEL_TOKEN` in env.
-- `npx --yes vercel@latest link --yes --token "$VERCEL_TOKEN"`
-- If `VERCEL_ORG_ID` set → append `--scope "$VERCEL_ORG_ID"`
-- On failure → return error
-
-### 6. Deploy to Vercel
-- `npx --yes vercel@latest build --yes --token "$VERCEL_TOKEN"` — runs the Astro build via the Vercel preset
-- `npx --yes vercel@latest deploy --prebuilt --yes --token "$VERCEL_TOKEN"`
-- Retry on transient errors (timeout, 5xx)
-
-### 7. Verify Vercel project config
-- Read `/workspace/<project>/.vercel/project.json`
-- If missing → error: "Vercel not linked for project <project>"
-- Verify `.vercel/project.json` is committed to repo (no secrets stored)
-
-### 8. Commit and push
+### 5. Commit and push
 Commit scaffold to main branch and push.
 
-### 9. Set up CI
+### 6. Set up CI
 Load and follow the `setup-ci` skill in-place (create `.github/workflows/ci.yml`, commit, push). No subagent — it is a deterministic file write.
 
-### 10. Return
-Report: cloned repo, scaffolded files, deps installed, Vercel link status, deploy URL, CI status.
+### 7. Return
+Report: cloned repo, scaffolded files, deps installed, CI status.

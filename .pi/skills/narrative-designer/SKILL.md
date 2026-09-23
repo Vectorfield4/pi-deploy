@@ -25,7 +25,7 @@ Turns a brief into a story clear to the target audience. Every element must be s
 
 6. Self-check: USP has number? Pain point is real moment? Zero banned words?
 
-7. Save to `artifacts/narrative.md`.
+7. Carry the narrative into the copy as it is written — no files saved.
 
 ## Constraints
 - No banned words/phrases from prose-quality.md

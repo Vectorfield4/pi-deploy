@@ -74,6 +74,6 @@ export function IconCircle({ icon: Icon, size = 48, color = tokens.primary }: Pr
   dark themes. Do not reference the StyleX vars object inside SVG files.
 - Never use raster images where an SVG reduces to vectors (icons, diagrams,
   charts, logos).
-- Raster/generated assets (`hero`, `cover`, `og`, `background`, `avatar`,
-  `thumbnail`, `concept`, `illustration` for photos) go through the `drawer`
-  agent; SVG-authorable assets stay inline here.
+- Do not author raster/generated assets (`hero`, `cover`, `og`, `background`,
+  `avatar`, `thumbnail`, `concept`, `illustration` for photos); SVG-authorable
+  assets stay inline here.

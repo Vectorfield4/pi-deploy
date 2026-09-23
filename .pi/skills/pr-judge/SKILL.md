@@ -8,7 +8,8 @@ description: "Evaluates a feature branch diff against main using a quality rubri
 Automated quality evaluation of a feature branch's diff against `main` using a
 fixed rubric. Operates on local git state — there is no PR.
 
-Run from `/workspace/<project>` after `git fetch origin main <branch>`.
+Run from the task worktree (`task.cwd`, branch checked out) against the
+local `origin/main` ref — no fetch needed; the branch is local-only.
 
 ## Rubric (score 1–10)
 
@@ -23,14 +24,14 @@ Run from `/workspace/<project>` after `git fetch origin main <branch>`.
 
 ### 1. List changed files
 ```bash
-git diff --name-only origin/main...origin/<branch>
+git diff --name-only origin/main...HEAD
 ```
 Use the file list to decide which files to read in full. If the diff is over
 3000 lines, read only the changed files, not the raw diff.
 
 ### 2. Get the diff for review
 ```bash
-git diff origin/main...origin/<branch>
+git diff origin/main...HEAD
 ```
 
 ### 3. Evaluate each dimension (1–10)
@@ -52,9 +53,9 @@ overall = round(code_quality * 0.25 + tests * 0.25 + security * 0.25 + docs * 0.
 ## Score Thresholds
 | Score | Action |
 |-------|--------|
-| ≥ 7 | Verified — save as high-confidence template |
-| 5–6 | Neutral — no memory action |
-| ≤ 4 | Anti-pattern — save as anti-pattern |
+| ≥ 7 | Approve band |
+| 5–6 | Fix band |
+| ≤ 4 | Fail band |
 
 ## Content Quality Overlay (for any markdown write)
 If any file changed by the branch is markdown (`*.md`), scan for banned

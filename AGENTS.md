@@ -20,11 +20,24 @@ AGENTS.md             # This file — interactive-session instructions
 
 ## How it runs
 
-One Pi process (interactive, PTY, Telegram via `@bytesbrains/pi-telegram-bridge`) + 2 memory containers (PostgreSQL+pgvector, `pi-pgvector-api-embeddings` RAG; embeddings via remote API). No slash commands — users write naturally. The interactive session routes every message to the `orchestrator` subagent (intent: task/question/feedback/deploy/...), which delegates to workers (`frontend-architect`/`frontend-implementer` for frontend, `backend`/`devops`/`content` otherwise). Execution models are flash; tasks that need the architecture gate set `metadata.complex: true`. The `reviewer` (score decision) runs on **every** coding task as the quality loop — it returns deficient work via `bounce` before anything is pushed. Work lands on a feature branch and is pushed to `main` directly — no PR, no human approval gate. Released/deployed by `qa`.
+One Pi process (interactive, PTY, Telegram via `@bytesbrains/pi-telegram-bridge`) + 2 memory containers (PostgreSQL+pgvector, `pi-pgvector-api-embeddings` RAG; embeddings via remote API). No slash commands — users write naturally. The interactive session splits each message into atomic chunks and dispatches each by substring: queries → `product-owner` (read-only consultant), release/project-init → `devops` (profile skill + confirm gate), everything else → `orchestrator`. Coding tasks land on a Depth-1 architect — `frontend-architect` for frontend, `backend-architect` otherwise — which recalls domain memory and delegates to the owning worker (`frontend-implementer`, `backend`, `devops`, `content`); on heavy copywork the architect fans `content` out in parallel with the coder on the same branch. Execution models are flash; `metadata.complex` is a reviewer signal, never a routing gate. The `reviewer` (score decision) runs on **every** coding task as the quality loop — it returns deficient work via `bounce` before anything is pushed. Work lands on a feature branch and is pushed to `main` directly — no PR, no human approval gate. Releases run by `devops`.
 
 Single responsibility: each agent owns its one job and never narrates another's.
 Skills/agents describe only the actor's own workflow — never "X is done by Y" or
 "when Z happens, Y does Q". Delegate, don't instruct.
+
+Agent/skill files describe only the actor's own workflow — never the router's
+or another agent's job. Restrictions per file:
+- No routing stories
+- No ownership claims
+- No cross-references to other actors
+- No provenance (who created or routed what)
+- No tool announcements — the frontmatter `tools` line is the spec; the body
+  states behavior
+
+Another agent is named only as the actor's delegate (inside a `subagent(...)`
+call) or its caller (in a return line). Cross-actor facts live in `AGENTS.md`
+and `SYSTEM.md`, nowhere else.
 
 No prose: skills/agents state rules as terse, imperative bullets — no narrative
 filler, no context-less meta-commentary ("as noted", "for clarity"), no repeated
@@ -45,8 +58,11 @@ it for the project and replaces the default system prompt, so the router rules
 reach the session even though this file is not mounted in the container.
 
 The contract here is documentation of that prompt. Summary: you (this session)
-are a thin router, not the actor. Every message is routed to the `orchestrator`
-subagent and its output is followed.
+are a thin router, not an actor. Every message is split into atomic chunks;
+each chunk is dispatched to exactly one of three tracks by raw substring —
+`product-owner` (queries), `devops` (release/project-init), or
+`orchestrator` (`orchestrate-task`, changes) — and its output is followed.
+Queries relay verbatim; mixed messages fan out per chunk.
 
 The orchestrator's `systemPromptMode: replace` makes its system prompt the
 cache anchor for the orchestrator's session. Every token the orchestrator

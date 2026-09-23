@@ -1,33 +1,41 @@
 ---
 name: orchestrate-task
-description: "Breaks down complex development tasks into parallel sub-tasks for worker agents, coordinating a single feature branch and final push to main."
+description: "Routes tasks to Depth-1 architects (frontend/backend), coordinates a single feature branch, parallel copy rounds, and final push to main."
 ---
 
 # Orchestrate Task
 
+Depth 1: every frontend
+task maps unconditionally to `frontend-architect`; every non-frontend
+task maps unconditionally to `backend-architect`. Every task closes
+through the quality loop: `reviewer` (scoring) → `qa` (push on
+`decision: merge`); `bounce` routes findings back to the owning worker,
+`explore` re-decomposes.
+
 ## Steps
 
-### 1. Read the task
+### 1. Validate the task contract
 
-Main resolves the project and sends `{"cwd","message"}`. Read both from the
-opening JSON. `task.cwd` is required.
+`task.cwd` is the resolved project. On empty/absent `task.cwd`, or a
+validation mismatch (project does not fit the task), end the run with
+terminal `completed` and output `needs_clarification:` followed by the
+candidate list when inferable. Example:
 
-On empty or invalid `task.cwd`, or on validation mismatch (project does not
-fit the task), end the run with terminal `completed` and output
-`needs_clarification:`. Include the candidate list when you can infer it;
-`needs_clarification:` alone tells main to re-scan the workspace. Example:
+  needs_clarification: the resolved project is the backend, the task is about
+  UI. Candidates: secret-base-ai, admin-portal.
 
-needs_clarification: the resolved project is the backend, the task is about
-UI. Candidates: secret-base-ai, admin-portal.
+Nothing else happens in this step — no triage, no track checks, no intent
+tags.
 
 ### 2. Detect Project Type
-Before decomposing, identify the project type:
-- **frontend**: `astro.config.*` / `**/*.astro` or package.json with `astro` → complexity gate (step 5.1): complex → `frontend-architect` + `frontend-implementer`, simple → `frontend-implementer` only
-- **backend**: package.json + Express/Fastify/Nest, or go.mod, requirements.txt, Cargo.toml → complexity gate (step 5.1a): set `metadata.complex` on complex work; `backend`
-- **fullstack**: Monorepo or both frontend + backend markers → frontend: complexity gate (step 5.1) architect (complex) / implementer; backend: complexity gate (step 5.1a) → `backend`
-- **CLI/lib**: package.json with bin/main, or Makefile + src/ → complexity gate (step 5.1a) → `backend`
-- **infra**: docker-compose.yml, Dockerfile, .github/workflows → complexity gate (step 5.1a) → `devops`
-- **content**: Markdown-heavy, no code → complexity gate (step 5.1a) → `content`
+
+Identify the project type by markers; route per depth-1 rules:
+- **frontend**: `astro.config.*` / `**/*.astro` or package.json with `astro`
+- **backend**: package.json + Express/Fastify/Nest, or go.mod, requirements.txt, Cargo.toml
+- **fullstack**: Monorepo or both frontend + backend markers
+- **CLI/lib**: package.json with bin/main, or Makefile + src/
+- **infra**: docker-compose.yml, Dockerfile, .github/workflows
+- **content**: Markdown-heavy, no code
 
 ### 3. Load Project Rules (lightweight)
 
@@ -37,31 +45,20 @@ turn). Stay light; let workers do the heavy reads.
 
 - Navigate to `/workspace/<project>`.
 - Pull latest: `git pull origin dev` (or `main` if `dev` doesn't exist).
-- Get git hash: `git rev-parse HEAD` → `rules_hash`.
 - Run `wc -l AGENTS.md SOUL.md 2>/dev/null` first. If the total is ≤ 200
   lines, `read` both fully. Otherwise stop. Do not read sections, do not
   `grep` then `head/tail`. Every `read` token replays as cacheRead on every
   subsequent turn. Pass `metadata.file_inventory` (step 4.7) and let the
   worker read what it needs from the inventory.
-- Ensure `artifacts/` directory exists in the project root: `mkdir -p /workspace/<project>/artifacts`. This is where cross-skill design specs, content plans, and implementation plans are stored.
-- Workers will read the full `AGENTS.md`/section they need; the orchestrator passes only `metadata.rules_hash` and `metadata.file_inventory` (see step 4.7).
+- Ensure `artifacts/` directory exists in the project root: `mkdir -p /workspace/<project>/artifacts`. This is where worker reports (task reports) live; architects write nothing.
+- Workers read the rules sections they need; the orchestrator passes only `metadata.file_inventory` (see step 4.7).
 
-### 3.5. Load Rules from Disk (orchestrator-only)
+### 3.5. Rules stay on disk (orchestrator does not load them)
 
-Rules live on disk (`AGENTS.md`/`SOUL.md`) and are read by whoever needs them. The orchestrator passes `metadata.rules_hash` (from `git rev-parse HEAD`) and `metadata.file_inventory` so workers read the sections they need directly. Workers must not write rules anywhere; the orchestrator owns rule discovery. No memory call here — `rules_hash` already signals freshness.
-
-### 4. Recall Past Experience
-- Use `pgvec_recall_memory` to find similar past plans, decisions, or patterns.
-- Recall anti-patterns: `pgvec_recall_memory({ query:"<goal> <project>", tag:"anti-pattern" })`.
-- Include as advisory hints — project rules always take precedence.
-- Graceful degradation: if the `pgvec_*` call fails, continue without it.
-
-### 4.5. Batched memory context for sub-tasks
-
-One batched recall for the whole task; pass the result to each sub-task via
-`metadata.memory_context`. Drops N-1 embedding calls per N-sub-task task.
-Full procedure (queries, fields, graceful degradation) lives in
-`references/memory-batching.md`. Read it when you reach this step.
+Rules live in `/workspace/<project>/AGENTS.md` / `SOUL.md` and are read by the
+workers that need them. The orchestrator ships only `metadata.file_inventory`
+(step 4.7) so workers read the sections they need directly. Workers must not
+write rules anywhere; rule freshness is whatever is on the branch they work.
 
 ### 4.7. Build a file inventory (orchestrator does NOT read)
 
@@ -73,227 +70,114 @@ in `references/file-inventory.md`. Read it when you reach this step.
 
 ### 5. Decompose the Task
 
-#### For frontend projects:
-1. **Check design-reuse first** (step 5.2, mandatory before complexity gate). One `pgvec_recall_memory({ query:"<goal> <project>", tag:"design-decision" })`. Matching record: skip both architect and complexity gate, go to implementation with the recalled decision + spec path.
-2. **No design-reuse: assess complexity** (step 5.1). Classify `complex` vs `simple`.
-3. **Complex (no reuse)**: Architecture phase (Pro). Delegate to `frontend-architect`, exactly one call with the full context bundle (step 7).
-   - Input: full context bundle (steps 4.5, 7)
-   - Output: `artifacts/design-spec.md` (Atomic Design structure, routes, state, data)
-4. **Implementation phase**: delegate to `frontend-implementer`
-   - Input: architecture spec (complex), recalled decision + spec path (design-reuse), or feature description only (simple); acceptance criteria, project context
-   - Output: working code, build passing, tests passing
-- Complex tasks: do NOT split into per-component sub-tasks — the architect creates a single spec, the implementer builds it all.
-- Simple and design-reuse tasks: skip the architect — `frontend-implementer` only, no spec.
-- If fullstack: backend sub-tasks still go to `backend`
+Decomposition is owned by the Depth-1 architect (step 7 row-owner): it recalls
+domain memory, splits composite tasks, and delegates to its worker inside
+its own turn. The orchestrator never re-plans.
 
-### 5.1. Assess Frontend Complexity
+- Forward the task to the row-owner; do not split it here.
+- Patterns: frontend structure lives in `ui-architect`; backend layering,
+  CLI surface, infra, and content structure live in `backend-architect`.
+- `acceptance_criteria`: name concrete verifiable gates (`lint`/`test`/`build`/`typecheck` per `AGENTS.md` Commands) — that reference is the reviewer's trigger to run them (execute-review step 3)
 
-Classify the frontend task as `simple` or `complex` before routing. This step runs after design-reuse (step 5.2). The architect is a **cold path** for well-scoped work: adding a 5th solution/service to an existing `data/*.ts` type that renders through the same page is **simple** and goes straight to the implementer.
+### 5.1. Carry complexity to the review
 
-**Simple** (skip architect, delegate straight to `frontend-implementer`):
-- Single well-scoped change that reuses existing pages/layout/routes/state
-- Adding a new entry to an existing data-driven type already rendered by a page (a 5th service/solution)
-- Copying an existing component pattern onto a new instance, no new architecture
+`metadata.complex: true` in the task JSON signals a high-risk change
+(cross-cutting, schema, new architecture). The reviewer reads it as a cue to
+take extra care; a repeat failure may escalate to `explore`. It is a carry,
+never a branching gate.
 
-**Complex** (route through `frontend-architect` first) — at least one of:
-- **Shared architecture touched**: `BaseLayout`, the design tokens (`shared/design/tokens.stylex.ts`), the global styles, or new shared sections — anything a new page depends on
-- **New page type**: a route that renders through a page, section, or organism that does not exist yet (e.g. list→detail→showcase progression)
-- **i18n dictionary parity risk**: the change adds user-facing strings under new keys that must exist in **all** of the project's locale dictionaries — treat as complex when the key structure grows or page-level dictionaries change
-- Vague requirements or open product/design tradeoffs
-- Design-system decisions (Atomic Design) at scale
+### 5.3. Pre-batch asset table (when images are part of the request)
 
-### 5.1a. Assess Complexity for Non-Frontend
+Build the asset list before delegation from the user's request: one row per
+requested image, `type` from `hero | cover | og | illustration | concept |
+background | avatar | thumbnail | diagram`, `prompt` paraphrased from the
+request, `aspect` guessed from the context (`16:9` hero/og, `4:3`
+illustration, `1:1` avatar/thumbnail, default `1:1`), `source: "generate"`,
+`repo_path`: `shared/assets/images/<slug>.<ext>`.
 
-The same gate applies to backend/infra/CLI/content: when requirements are
-vague or a wrong choice is expensive, route as complex (set `metadata.complex: true`);
-for backend the `backend` agent handles planning in its own run, with no separate architect agent.
-
-**Simple** (delegate straight to the owning worker):
-- Well-scoped, 1-3 files, existing patterns cover the change
-- No schema/API contract changes, no cross-cutting concerns, no new services
-
-**Complex** (delegate the owning worker, `metadata.complex: true`):
-- Vague requirements or open architecture tradeoffs
-- Schema/migration changes, new public APIs or contracts
-- Multi-module or cross-cutting changes (auth flow, shared state across services)
-- Anything where a wrong architectural choice is expensive to undo
-
-### 5.1b. Carry complexity to the review
-
-The `metadata.complex` boolean in the task JSON tells the reviewer a change went
-through the architect path or was classified complex. The reviewer reads it as a
-high-risk signal to take extra care, and a repeat failure may escalate to `explore`.
-
-### 5.2. Reuse Past Design Decisions (mandatory first step)
-
-All frontend routing checks memory before the architect. Memory is cheaper than asking the architect. This step runs always, before any complexity assessment or architect delegation:
-
-1. One recall: `pgvec_recall_memory({ query:"<goal> <project>", tag:"design-decision" })`.
-2. If a matching recent `design:*` record exists (tag `design-decision`), skip the complexity gate and the architect. Route as "design-reuse": delegate to `frontend-implementer` with the recorded decision and spec path parsed from the record's `context`.
-3. Otherwise proceed to the complexity gate (step 5.1). When unsure whether a recalled decision matches the task scope, prefer calling the architect. Reuse only genuinely same-scope decisions.
-
-Never run more than one recall here. If it returns nothing, proceed to the complexity gate.
-
-### 5.3. Pre-batch asset table (any path, when images are part of the request)
-
-Build the asset list before delegation. Sources of availability, in order:
-
-1. **Spec table.** `artifacts/design-spec.md` contains an `## Asset Table`
-   (complex path). Parse it.
-2. **Direct generation request.** The user's message asks for image
-   asset(s) on existing pages (simple path, no architect). Build the rows
-   yourself from the request: one row per requested image, `type` from
-   `hero | cover | og | illustration | concept | background | avatar |
-   thumbnail | diagram`, `prompt` paraphrased from the request, `aspect`
-   guessed from the context (`16:9` hero/og, `4:3` illustration, `1:1`
-   avatar/thumbnail, default `1:1`), `source: "generate"`, `repo_path`:
-   `shared/assets/images/<slug>.<ext>`.
-
-Skip when neither source applies, and on design-reuse path when the recalled
-decision already covers assets.
+Skip when the request asks for no images.
 
 For each assembled `source: generate` row, run
 `git -C /workspace/<project> ls-files shared/assets/images | grep -i <slug>`.
 If a match exists, rewrite the row to `source: existing:<path>` and drop
 it from the generation list. Ship the remaining list as
 `task.metadata.assets: [{slug, type, prompt, aspect, source, repo_path}, ...]`.
-Delegate drawer **only** the `source: "generate"` rows; the implementer gets
-the full list (it handles `stock-*`/`existing` rows itself). The implementer
+Delegate drawer **only** the `source: "generate"` rows; the implementing worker gets
+the full list (it handles `stock-*`/`existing` rows itself). The worker
 iterates the list and does not re-decide what to generate.
 The `<ext>` in `repo_path` is refined by the drawer from the first
 `hf_generate_image` result and corrected back in the asset list.
 
-#### For backend projects (Layered Architecture):
-1. route/endpoint → handler → service → repository → model
-2. Data flow, validation, error handling
-3. Database schema changes, migrations
-
-#### For fullstack projects:
-- Frontend features → `frontend-implementer` subagent
-- Backend features → `backend` subagent
-- Link by API contract
-
-#### For CLI/lib projects:
-1. Module/function decomposition
-2. Public API surface, internal implementation
-3. Tests, documentation
-
-#### For infra projects:
-1. Service configuration changes
-2. CI/CD pipeline modifications
-3. Environment/config management
-
-#### For content projects:
-1. Structure (sections, headings, flow)
-2. Content blocks (prose, code examples, tables)
-3. Cross-references, navigation
-
-#### For refactoring tasks (any type):
-1. Identify target files
-2. Read current code, understand structure
-3. Plan targeted sub-tasks (1-3 files each, edit not rewrite)
-
 ### 6. Generate Branch Name
-- `feature/<task_id>-<sanitized_title>`
-- `images/<task_id>-<sanitized_title>` when `metadata.assets` has `source:
-  generate` rows — drawer's own branch (see step 7)
+- `feature/<task_id>-<sanitized_title>` — the task's only branch
+
+### 6.5. Create the single worktree
+
+Depth 0 is the sole creator of the working directory. Before delegating,
+materialize exactly one worktree under this `task_id`:
+
+- `git -C /workspace/<project> worktree add /workspace/<project>-<task_id> -b feature/<task_id>-<title>`
+- Drop `-b` (reuse the existing branch) when the worktree/branch already
+  exists — a bounce retry works in the same worktree.
+- Delegated payloads carry `task.cwd: /workspace/<project>-<task_id>`; the
+  feature branch is checked out there.
 
 ### 7. Delegate Sub-Tasks
 
 `subagent` accepts `task` as a **string only** (an object fails with
-`task: must be string`). Serialize the context bundle into JSON:
+`task: must be string`). Serialize the output state strictly matching the
+structural layout provided in `./payloads/task.json`. TASK
+payloads carry the full bundle — steps 4.7 (`file_inventory`), 5.1
+(`complex`), 5.3 (`assets`).
 
-```
-subagent({
-  agent: "<agent>",
-  task: `{"type":"...","task_id":"...","description":"...","acceptance_criteria":["..."],"cwd":"<path>","project":"...","branch":"...","rules_hash":"...","metadata":{"memory_context":"...","anti_patterns":["..."],"complex":<bool>,"file_inventory":["<path1>","<path2>"]}}`,
-  skill: "<skill>"
-})
-```
+- Frontend: delegate `frontend-architect` **once** with the
+  full context bundle. It recalls domain memory, binds the i18n keys, splits
+  composite tasks, and delegates to `frontend-implementer` (and `content`
+  in parallel on heavy copywork) inside its own turn. Never pre-plan or
+  re-invoke it; an underspecified scope is fixed by the architect.
+- **Image generation: fan out `drawer` in parallel with the architect pass.**
+  When `metadata.assets` has `source: generate` rows, launch the architect
+  and the `drawer` in one pass (`runs.all`) with the **same `task.cwd`**
+  (the single worktree, step 6.5) and the **same `task.branch`**. Partition:
+  `drawer` touches only `shared/assets/images/`; the implementing worker
+  never calls `hf_generate_image`/`generate_image`. Disjoint paths keep the
+  parallel commits race-free; nothing to merge afterwards.
+- **Multiple independent changes in one request** → **not one task**. Each
+  change is its own task (own scope, own file area, own test), each routed
+  through the scope's architect in its own worktree. Fan out via
+  `runs.all([{key, agent, task}, ...])` (see step 8.5). One sibling failing
+  does not block the others; bounce findings are routed back per-worker, not
+  to the group.
+- Non-frontend (backend/CLI/lib/infra/content): delegate to
+  `backend-architect` — the single authority for non-frontend scopes. It
+  recalls domain memory, routes to `backend`/`devops`/`content`, and splits
+  composite tasks. `complex` is carried for the reviewer, never a gate.
 
-Payload fields: top-level `type`/`task_id`/`description`/`acceptance_criteria`/
-`cwd`/`project`/`branch`/`rules_hash`; `metadata` carries `memory_context` (from
-step 4.5), `anti_patterns`, `complex` (step 5.1b), `file_inventory` (from
-step 4.7), and task-specific fields. Pass `""` / `[]` / `false` for empty
-values — never omit the structure. Workers read fields as `task.metadata.*`.
+### 7.2. Stage assembly — no merge, one branch
 
-| Work | `agent` | `skill` |
-|------|---------|---------|
-| backend/CLI component | `backend` | `execute-task` |
-| infra component | `devops` | `execute-task` |
-| content | `content` | `execute-task` |
-| complex component (any non-frontend) | owning worker (`metadata.complex: true`) | `execute-task` |
-| frontend architecture (complex only) | `frontend-architect` | `ui-architect` |
-| frontend implementation | `frontend-implementer` | `ui-implementer` |
-| image generation (assets with `source: generate`) | `drawer` | `drawer-image` |
-| finalize: review gate + push to main | `qa` | `execute-qa-task` |
-| release / deploy | `qa` | `execute-qa-task` |
-| branch review (every coding task) | `reviewer` | `execute-review` |
-
-- Frontend complex (architect + implementer): delegate `frontend-architect`
-  **once** with full context; it creates `artifacts/design-spec.md`. After
-  it completes, persist the design (step 7.1) and delegate implementation
-  to `frontend-implementer`. Both share the same worktree. Never re-invoke
-  the architect — an underspecified spec is fixed inside implementation.
-- **Image generation: fan out `drawer` in parallel with the implementer.**
-  When `metadata.assets` has `source: generate` rows, launch both in one
-  pass (`runs.all`), each in its **own worktree and branch**: drawer task
-  carries `cwd: /workspace/<project>-<task_id>-images` +
-  `branch: images/<task_id>-<title>`; implementer task carries
-  `cwd: /workspace/<project>-<task_id>` + `branch: feature/<task_id>-<title>`.
-  Drawer creates its own worktree and pushes images to its own branch;
-  the implementer wires the `repo_path`s into components. The implementer
-  never calls `hf_generate_image`/`generate_image`. After both complete,
-  merge the images branch into the feature branch (step 7.2) before QA
-  (step 8). Split branches make the parallel commits race-free.
-- Frontend simple / design-reuse: delegate to `frontend-implementer`
-  directly (no architect).
-- **Multiple independent UI changes in one request (feedback with N points)**
-  → **not one complex task**. Each point is its own simple task (own
-  scope, own file area, own test). Fan out via `runs.all([{key, agent,
-  task}, ...])` (see step 8.5). One sibling failing does not block the
-  others; bounce findings are routed back per-worker, not to the group.
-- Backend/infra/content: split into per-component sub-tasks; each to its owning
-  worker (`backend`/`devops`/`content`) in its own worktree. Complex →
-  `metadata.complex: true`. Simple → `complex: false`.
-
-### 7.1. Persist Design Decisions (orchestrator, after architecture completes)
-
-Record the decision once so the design-reuse step (step 5.2) reuses it
-instead of re-running the architect. Full `remember` shape (v2.6 contract,
-TTL 90d, `supersedes_evidence_ids` for older records, graceful degradation)
-lives in `references/persist-design.md`. Read it when you reach this step.
-
-### 7.2. Merge images branch (orchestrator, after drawer completes)
-
-When `metadata.assets` has `source: generate` rows, fold the images into the
-feature branch after **both** the drawer and the implementer finished (their
-notifications arrived), before QA (step 8). Run inside the implementer's
-worktree — the feature branch is checked out there, so a separate
-`git worktree add` would fail:
-
-```
-git -C /workspace/<project>-<task_id> fetch origin images/<task_id>-<title>
-git -C /workspace/<project>-<task_id> merge --no-ff origin/images/<task_id>-<title> -m "merge(images): <slugs>"
-git -C /workspace/<project>-<task_id> push origin feature/<task_id>-<title>
-```
-
-- Run via `bash`, do not delegate.
-- Merge conflict → keep the images branch content for `shared/assets/images`, resolve, push.
+There is no images branch: every worker (implementer, content, drawer)
+committed locally into the same feature branch in the single worktree; path
+partition kept the parallel commits race-free. Wait for all
+`<subagent_notification>`s (step 8.5), then delegate QA (step 8). The branch
+is local-only — QA sends it upstream and fast-forwards it into `main`
+(execute-qa-task section 3).
 
 ### 8. Finalize Task (push to main)
 
+The push is centralized: workers never ran `git push`.
+
 ```
-subagent({ agent: "qa", task: '{"type":"push","cwd":"<path>","project":"<project>","branch":"<branch>","rules_hash":"<rules_hash>","metadata":{"complex":<bool>,"file_inventory":["<path1>","<path2>"]}}', skill: "execute-qa-task" })
+subagent({ agent: "qa", task: '{"type":"push","cwd":"/workspace/<project>-<task_id>","project":"<project>","branch":"feature/<task_id>-<title>","metadata":{"complex":<bool>,"file_inventory":["<path1>","<path2>"]}}', skill: "execute-qa-task" })
 ```
 
-QA runs the reviewer on **every** coding task (the quality loop), then pushes
-the branch into `main` on `decision: merge` (or bounces findings back to the
-orchestrator on `decision: bounce`). No PR, no human gate.
+`cwd` is the single worktree (step 6.5) where the branch is checked out. QA
+runs the reviewer on **every** coding task (the quality loop), then sends the
+branch upstream and pushes it into `main` on `decision: merge` (or bounces
+findings back to the orchestrator on `decision: bounce`). No PR, no human gate.
 
 ### 8.2. Record project-task (after success)
 
-After the push/release/deploy completes, write the routing memory so the next
+After the push completes, write the routing memory so the next
 message routes without re-discovery:
 
 ```
@@ -335,19 +219,28 @@ turns, which forces a fresh model call per worker.
   notification has not arrived, use **one** `bash sleep 120` then read
   the events log directly.
 
-### 9. Quality Check
-- Every criterion traces to the original task description
-- At least one criterion is verifiable via lint/test/build
-- Behavioral requirements are specific (not "looks good")
+### 9. Execution Checkpoint
+
+Evaluate only the objective execution success flag returned by the downstream
+subagent thread. If the review result is flagged as a failure, trigger an
+immediate loop rollback. Do not evaluate file content, compile logs, or verify
+code quality rules directly.
 
 ## Verification
-- All sub-tasks delegated to workers
-- Maybe drawer too: every `source: generate` asset row has a `drawer`
-  delegation; the implementer does not generate images
-- Finalize task (push to main) created and delegated
-- No task remains in intermediate state
-- `frontend-architect` invoked at most once per task (complex path only, never for simple or design-reuse)
-- Design-reuse (step 5.2) checked before the complexity gate for every frontend task. Matching record skips the architect.
-- `metadata.complex` set to `true` iff the task is architectural/cross-cutting (architect invoked, or complex change)
+
+- `task.cwd` validated at step 1; every delegated payload carries
+  `cwd` = the single worktree
+- Every sub-task delegated to a worker; maybe drawer too: every `source:
+  generate` asset row has a `drawer` delegation; the implementer does not
+  generate images
+- Every frontend task delegated to `frontend-architect`; every
+  non-frontend task to `backend-architect` — each at most once per task
+- Exactly one worktree per `task_id`, created by the orchestrator
+  (step 6.5); every delegated payload carries `cwd` = that worktree
+- No Depth 1/2 subagent runs `worktree add` / `fetch` / `pull` / `rebase` /
+  `push` — local `git add <paths>` + `git commit` only; QA pushes centrally
+- `metadata.complex` is a reviewer signal, not a routing gate
 - Reviewer invoked for every coding task via `qa` (quality loop); `bounce` findings are routed back to the worker
+- Finalize task (push to main) created and delegated; branch sent upstream, merged into `main`, and cleaned up
+- No task remains in intermediate state
 - Wait discipline (step 8.5): workers' results are received via the result-watcher `<subagent_notification>` injection, not via `subagent_wait` or `status` polling loops. `subagent status` only as a one-shot diagnostic, never as a wait primitive.

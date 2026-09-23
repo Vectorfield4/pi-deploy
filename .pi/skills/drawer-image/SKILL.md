@@ -5,7 +5,8 @@ description: "Image generation for the drawer agent: HF primary, generate_image 
 
 # Drawer Image
 
-Generate image assets and place them in the repo on your own images branch.
+Generate image assets and commit them into the single worktree on the feature
+branch.
 
 ## Gate
 
@@ -48,15 +49,14 @@ For each surviving row:
    )
    ```
 
-3. Copy `details.savedPath` to `repo_path` inside your worktree, overriding
-   the `<ext>`: `shared/assets/images/<slug>.<ext>`. The cache name is the
-   tool's; the repo name is yours.
+3. Copy `details.savedPath` to `repo_path` inside the single worktree
+   (`task.cwd`), overriding the `<ext>`: `shared/assets/images/<slug>.<ext>`.
 
 4. If both tools fail for a row, report it in the final message. Do not
    commit a placeholder.
 
 ## Deliverable
 
-- All assets committed and pushed on the images branch:
-  `feat(images): add <slugs>`.
+- All assets committed on the feature branch in the single worktree:
+  `feat(images): add <slugs>`. Never push.
 - `repo_path` corrected in the asset list for `.ext` differences.

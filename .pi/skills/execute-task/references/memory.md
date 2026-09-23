@@ -11,12 +11,12 @@ string). Parse it as `task` and read fields via `task.project`,
 1. Navigate to `/workspace/<project>`.
 2. `read` `/workspace/<project>/AGENTS.md` (and `/workspace/<project>/SOUL.md` if present).
 3. Extract the sections relevant to `task.type` / the work at hand.
-4. `task.metadata.rules_hash` is informational only — it confirms the files you read match the commit the orchestrator based the task on. No memory call verifies it; the disk read is authoritative.
+4. `task.metadata.rules_hash` is informational only; the disk read is
+   authoritative.
 
-## Ownership
+## Scope
 
-Only the orchestrator discovers/reads rules for routing. Workers read the
-specific sections they need. No worker writes rules anywhere.
+Read only the sections relevant to `task.type`; never write rules.
 
 ## Cost
 

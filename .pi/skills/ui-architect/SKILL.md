@@ -1,17 +1,15 @@
 ---
 name: ui-architect
-description: "Designs page structure using Atomic Design methodology."
+description: "Designs payload-contained frontend structure using Atomic Design methodology. No file writes."
 ---
 
 # UI Architect
 
-Design page architecture using Atomic Design levels. Stack: Astro 7 (SSG) + React + StyleX.
+Design page architecture for the delegated task string. Stack: Astro 7 (SSG) + React + StyleX.
 
 ## Instructions
 
-1. Read `artifacts/narrative.md` and `artifacts/content-plan.md`.
-
-1.5. Code reads (AST tools):
+1. Code reads (AST tools):
    - `list_symbols` to map existing components/pages/hooks; `get_symbol_body`
      for a shared element the design touches. `read` only the resolved target.
    - `find_callers` to check impact on shared types, layout, or route registry.
@@ -36,41 +34,24 @@ Design page architecture using Atomic Design levels. Stack: Astro 7 (SSG) + Reac
 config, data, hooks, i18n, types, assets/images. Entities carry ui, model,
 i18n, api. Features carry ui, model. Thin routes live directly in pages/.
 
-5. Save to `artifacts/design-spec.md`. Append an `## Asset Table` at the end
-   listing every image the page needs:
+5. Compose design guidance into the delegated task string:
+   - Encode the component structure in the sub-task's `description` and
+     `acceptance_criteria`: routes, organisms, state, i18n key namespace.
+   - Encode image needs as `metadata.assets` rows (`type`, `prompt`, `aspect`,
+     `source`, `repo_path`) when the payload lacks them.
 
-   ```
-   ## Asset Table
-
-   | slug | type | prompt | aspect | source | repo_path |
-   |------|------|--------|--------|--------|-----------|
-   | hero-main | hero | "Wide cinematic shot of..." | 16:9 | generate | shared/assets/images/hero-main.png |
-   | feature-card-1 | illustration | "..." | 4:3 | generate | shared/assets/images/feature-card-1.png |
-   | arrow-icon | icon | — | 1:1 | stock-lucide:<IconName> | — |
-   ```
-
-   `type` is the asset class. The full whitelist is
-   `hero | cover | og | illustration | concept | background | avatar | thumbnail | diagram`.
-   Anything outside it must use `source: stock-lucide:<IconName>` or
-   `existing:...`. Icons, logos, favicons, screenshots, charts, text-images,
-   QR codes, and photos of real people are never `generate`.
-
-   `repo_path` is the on-disk destination the drawer commits to
-   (`shared/assets/images/<slug>.<ext>`). Set it for `generate` rows so the
-   drawer and implementer agree on paths without a handshake.
-
-6. Capabilities (assets):
+6. Asset capabilities:
    - SVG-authorable assets (illustrations, diagrams, charts) → authored
-     `.svg` via `svg-composition` skill (in-repo, `<img>` rendering).
+     `.svg` via `svg-composition` (in-repo, `<img>` rendering).
    - Raster assets (hero, cover, og, background, avatar, thumbnail, concept)
-     → `generate`, delivered by the `drawer` agent (`hf_generate_image`
-     primary, `generate_image` fallback). Drawer commits to `repo_path`.
+     → `source: generate` (`hf_generate_image` primary, `generate_image`
+     fallback).
 
 ## Final-message contract
 
-- ≤ 4 lines: `✅ spec ready at artifacts/design-spec.md. <N> routes, <M>
-  organisms, complexity: <low|med|high>.`
-- Worth-reusing decisions → `remember` with tag `design-decision`.
+- ≤ 4 lines: `✅ planned. <N> routes, <M> organisms. Design embedded in the
+  implementer payload.`
+- No file writes; the delegated task string is the deliverable.
 
 ## Tool-call discipline
 

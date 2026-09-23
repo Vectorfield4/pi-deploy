@@ -9,7 +9,7 @@ Three.js specialist. Create 3D scenes from descriptions.
 
 ## Instructions
 
-1. Receive the scene assignment from the architect (goal + context) or the feature description.
+1. Receive the scene assignment (goal + context) or the feature description.
 
 2. Write the 3D scene code:
    - React Three Fiber (`Canvas`, `ambientLight`, `directionalLight`, meshes)

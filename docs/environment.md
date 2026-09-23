@@ -25,11 +25,6 @@ Single source: `.env.example`. `make init` creates `.env` from it (merges, never
 | `HTTP_PROXY` / `HTTPS_PROXY` | – | empty | CONNECT proxy for outbound traffic (e.g. gost on a free-tier Oracle VM). Leave empty for direct connection |
 | `NO_PROXY` | – | `localhost,127.0.0.1,memory-db` | Hosts that bypass the proxy (internal compose hosts must stay on this list) |
 | `GITHUB_TOKEN` | – | – | GitHub API token (git push auth, `gh api` lookups, releases and CI status) |
-| `VERCEL_TOKEN` | – | – | Vercel API token (staging deploy) |
-| `VERCEL_ORG_ID` | – | – | Vercel organization ID |
-| `FTP_HOST` | – | – | Production FTP host |
-| `FTP_USER` | – | – | FTP username |
-| `FTP_PASS` | – | – | FTP password |
 | `CONTEXT7_API_KEY` | – | – | Context7 library docs (works without key at IP-based rate limits) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | – | `http://jaeger:4318` | OTLP/HTTP endpoint for trace + metric export |
 | `OTEL_SERVICE_NAME` | – | `pi-agent` | Trace/service name for the Pi agent |

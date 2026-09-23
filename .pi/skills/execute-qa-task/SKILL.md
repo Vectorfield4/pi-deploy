@@ -1,6 +1,6 @@
 ---
 name: execute-qa-task
-description: "Executes a single QA task — dispatches to create-github-release (release), the push-to-main (push), deploy-ftp/deploy-vercel (deploy), or the reviewer subagent (review)."
+description: "Executes a single QA task — orchestrates the reviewer subagent (review) and pushes branches into main (push)."
 ---
 
 # Execute QA Task
@@ -15,10 +15,7 @@ The task arrives as a **JSON string** — parse it and read fields via
   (`project`, `branch`).
 
 ### 2. Dispatch by task type
-- **`type == "release"`** → load and run `create-github-release`
 - **`type == "push"`** → run the push-to-main steps (section 3)
-- **`type == "deploy"`** → load and run `deploy-ftp` (production) or
-  `deploy-vercel` (staging)
 - **Otherwise (review task)** → continue with step 4
 
 ### 3. Push to main (delegated by the orchestrator)
@@ -31,20 +28,25 @@ the reviewer, **end the turn**, and push in the resume turn after the
    - Delegate the reviewer (step 4), end the turn.
    - Resume on its notification. `decision: merge` → continue. `bounce` /
      `explore` → do NOT push; return the reviewer result to the orchestrator.
-2. Fast-forward the branch into `main`:
+2. Send the branch upstream, then fast-forward it into `main`:
    ```
+   cd <cwd>                     # the single worktree; branch checked out
+   git push origin <branch>     # workers committed locally — this is the upstream send
    cd /workspace/<project>
-   git fetch origin main <branch>
+   git fetch origin main
    git switch main && git merge --ff-only origin/<branch>
    git push origin main
    ```
+   - The branch is local-only when you receive it (workers never pushed). If
+     it was already upstream (bounce retry), `git push origin <branch>` is a
+     no-op fast-forward.
    - Not fast-forwardable → load `resolve-merge-conflict` (rebase the branch on
      `main` first), then retry once.
    - Push rejected → `git pull --ff-only` then retry once.
 3. Post-push: load and run `cleanup-branch` for `branch` (drop feature branch
-   and worktrees). Trigger Vercel staging per `deploy-vercel` (main branch build).
+   and worktrees).
 4. Run `memory-gc`.
-5. Report: push commit + staging URL (if any).
+5. Report: push commit.
 
 ### 4. Review task — delegate to the reviewer subagent
 
@@ -57,18 +59,17 @@ JSON string (never an object):
 ```
 subagent({
   agent: "reviewer",
-  task: `{"type":"review","cwd":"<path>","project":"<project>","branch":"<branch>","rules_hash":"<rules_hash>","metadata":{"acceptance_criteria":["<...>"],"review_iterations":<n>,"exploration_triggered":<bool>,"complex":<bool>,"file_inventory":["<path1>","<path2>"]}}`,
+  task: `{"type":"review","cwd":"<path>","project":"<project>","branch":"<branch>","metadata":{"acceptance_criteria":["<...>"],"review_iterations":<n>,"exploration_triggered":<bool>,"complex":<bool>,"file_inventory":["<path1>","<path2>"]}}`,
   skill: "execute-review"
 })
 ```
 
-Pass (inside the JSON): `cwd`, `project`, `branch`, `rules_hash`, and the
+Pass `cwd`, `project`, `branch`, and the
 `metadata` fields `acceptance_criteria`, `review_iterations`,
-`exploration_triggered`, `complex`, `file_inventory`. On a re-review after `bounce`,
-pass `review_iterations + 1`; pass `exploration_triggered: true` on the 3rd+ pass
-so the reviewer can escalate to `explore` instead of bouncing a 4th time.
-`rules_hash` and `file_inventory` come from the orchestrator's push task; forward
-them unchanged.
+`exploration_triggered`, `complex`, `file_inventory` from the push task
+through unchanged. On a re-review after `bounce`, pass `review_iterations + 1`;
+pass `exploration_triggered: true` on the 3rd+ pass so the reviewer
+escalates to `explore` instead of bouncing a 4th time.
 
 The reviewer reviews the **branch diff against `main`** (local git) and returns
 a structured result. This agent does not call `pr-judge` or
@@ -79,7 +80,7 @@ a structured result. This agent does not call `pr-judge` or
 **decision: `merge`** (reviewer passed)
 - The reviewer validated the branch but did NOT push. For a `push` task, push
   it to `main` (section 3). Do NOT push for a task that was review-only — return
-  `decision: merge` to the orchestrator, which delegates the push.
+  `decision: merge` for the push.
 
 **decision: `bounce`**
 - Call `telegram_ask(question="QA блок: <one-line>. Автофикс?", options=["Автофикс","Отменяю"], expects_answer=true)` (via `ping-a-human-pi`).
@@ -93,20 +94,19 @@ a structured result. This agent does not call `pr-judge` or
   re-decomposes the task. Do NOT bounce a 4th time.
 
 ### 5.5. Run memory-gc
-After a successful push/release/deploy, load and run the `memory-gc` skill.
+After a successful push, load and run the `memory-gc` skill.
 Not after a bounce or review-only iteration, since those write no memory.
 The skill retires memory evidence whose `valid_until` has passed. Best-effort,
 never blocks the flow. If it fails, the next push iteration retries.
 
 ### 6. Complete
 - Forward the result. No memory writes from this skill (reviewer owns review
-  memory; release/push outcomes can be stored as verified patterns best-effort).
+  memory; push outcomes can be stored as verified patterns best-effort).
 - This skill is the dispatcher. It does not write rules, scores, or anti-patterns.
 
 ## Final-message contract
 
-- `push` → `✅ <project>@<sha> on main. reviewer: <merge|bounce|explore>. staging: <url|n/a>.` (≤4 lines)
-- `release` / `deploy` → `✅ <action> complete: <url|artifact>.`
+- `push` → `✅ <project>@<sha> on main. reviewer: <merge|bounce|explore>.` (≤4 lines)
 - `review` + `bounce` → `telegram_ask` is the message. No prose above it.
 - `review` + `merge` / `explore` → one-line decision + why. No JSON, no fenced code, no verbatim report. Detail → `artifacts/<task_id>-review.md`.
 
@@ -122,6 +122,5 @@ never blocks the flow. If it fails, the next push iteration retries.
 - `type == "push"` runs only after the reviewer's `decision: merge`; the branch
   is fast-forwarded into `main`; branch cleaned up; `memory-gc` attempted.
 - `decision: bounce` / `explore` → the branch is NOT pushed; findings are
-  forwarded to the orchestrator for routing back to the worker.
-- Release and deploy tasks still work via their own skills.
+  forwarded for routing back to the worker.
 - No memory writes happen here (except best-effort verified outcomes).

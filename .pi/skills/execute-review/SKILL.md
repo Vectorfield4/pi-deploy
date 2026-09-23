@@ -5,12 +5,9 @@ description: "Runs the full branch-review pipeline inside the reviewer agent: lo
 
 # Execute Review
 
-The full review pipeline for a single feature branch. Loaded by the `reviewer`
-agent when a review task arrives — which happens for **every** coding task as
-part of the quality loop (`execute-qa-task` always delegates the reviewer; a
-`bounce` returns deficient work to the orchestrator for a fix iteration). The
-agent's job is to make the merge/bounce/explore decision and write the result.
-The review reads the **branch diff against `main`** — there is no PR.
+The full review pipeline for a single feature branch. Make the
+merge/bounce/explore decision on the **branch diff against `main`** and write
+the result. There is no PR.
 
 The task arrives as a **JSON string** — parse it as `task` and read fields via
 `task.project`, `task.cwd`, `task.branch`, `task.metadata.*`, etc.
@@ -52,27 +49,24 @@ resolved in the new diff, then score only what changed.
 If `exploration_triggered == true` in `task.metadata`, also recall exploration anti-patterns:
 `pgvec_recall_memory({ query:"<feature summary> <project>", tag:"anti-pattern" })` and avoid repeating the same approach.
 
-### 2. Wait for CI
-- `gh run list --branch <branch> --limit 3 --json status` (the branch is pushed; CI may run on it).
-- If a run is in progress → wait and retry every `${CI_POLL_INTERVAL_S}s` (max `${CI_TIMEOUT_S}s`).
-- If a run failed → `decision: bounce`, findings = CI error log tail.
-- If no runs exist (no CI on the repo) → skip to step 3; local validation is the gate.
-- Re-review (this branch was bounced before): reuse the prior passed CI result and
-  only re-run validation on the fix delta — do not re-poll the whole branch's CI.
+### 2. (No CI wait needed)
+The branch is local-only, so no CI runs on it. Skip `gh run` polling; local
+validation (step 3) is the gate. On re-review, check only the fix delta
+against the recalled bounce findings.
 
 ### 3. Pre-push validation
 If `task.metadata.acceptance_criteria` contains any of: `lint`, `test`, `build`, `typecheck`:
 - Read validation commands from `/workspace/<project>/AGENTS.md` (look for `## Commands` or similar)
-- Run each in a worktree checked out on the branch
+- Run each inside `task.cwd` — the single worktree (branch checked out there)
 - If any fails → `decision: bounce`, findings = the failing command and its output
 
 Skip this step if no validation commands are mentioned. The skill must not invent commands that aren't in `AGENTS.md`.
 
 ### 4. Score the diff
 Use the `pr-judge` skill to score:
-- Get the file list first: `git diff --name-only origin/main...origin/<branch>`.
-- Prefer `task.metadata.file_inventory` (if present, from the orchestrator) to
-  focus reads on the files that changed for this task; read the remaining
+- Get the file list first: `git diff --name-only origin/main...HEAD`.
+- Prefer `task.metadata.file_inventory` (if present) to focus reads on the
+  files that changed for this task; read the remaining
   `name-only` files to catch drift or unrequested edits.
 - Compute score per `pr-judge` rubric.
 - If `task.metadata.complex == true`, add targeted checks for the failure modes
@@ -104,7 +98,7 @@ For each row in the array:
 
 Then scan the diff for image references outside `metadata.assets`:
 ```
-git diff origin/main...origin/<branch> | grep -E '\.(png|jpg|jpeg|webp|gif)'
+git diff origin/main...HEAD | grep -E '\.(png|jpg|jpeg|webp|gif)'
 ```
 A hit not in `metadata.assets` → `findings[]: untracked-asset: <path>`.
 
@@ -119,8 +113,8 @@ note only.
 - `task.metadata.review_iterations >= 3` and the same kind of issue keeps appearing → `decision: explore` (see step 7)
 
 ### 5.5. Persist bounce findings (on any `bounce`)
-Record the exact failure reasons so a re-review checks the fix delta, not a cold
-re-score, and the owning worker can recall them without relying on the transient reply:
+Record the exact failure reasons so a re-review checks the fix delta, not a
+cold re-score:
 ```
 pgvec_remember({
   content: "project: <project>\ntype: bounce\ntags: review-bounce,project:<project>\nvalid_until: <YYYY-MM-DD, today + 7 days>\n\ntask_id: <task_id> review_iterations: <n>\nFindings: <one line per issue>",
@@ -130,20 +124,18 @@ pgvec_remember({
   idempotency_key: "review-bounce:<project>:<task_id>:<n>"
 })
 ```
-Also surface the findings text in the `[REVIEW_RESULT]` `findings:` field — the
-orchestrator forwards it to the owning worker verbatim, so it needs it in the reply, not
-only in memory.
+Also surface the findings text in the `[REVIEW_RESULT]` `findings:` field —
+the fix round gets it in the reply, not only in memory.
 
 ### 6. Merge decision (do NOT push)
-The reviewer does not push and does not deploy. `decision: merge` means
-"ready to push": QA fast-forwards the branch into `main`. No `git push origin
-main`, no `gh pr merge`, no `deploy-vercel` here.
+`decision: merge` means the branch is approved for push. No `git push origin
+main`, no `gh pr merge`, no deploy.
 
 ### 7. Exploration escalation (only on `decision: explore`)
 Write an anti-pattern (best-effort):
 ```
 pgvec_remember({
-  content: "project: <project>\ntype: exploration\ntags: anti-pattern,exploration,project:<project>\nconfidence: high\nvalid_until: <YYYY-MM-DD, today + 30 days>\n\nTask '<title>' failed <N> iterations. Recurring: <pattern>. Orchestrator must re-decompose.",
+  content: "project: <project>\ntype: exploration\ntags: anti-pattern,exploration,project:<project>\nconfidence: high\nvalid_until: <YYYY-MM-DD, today + 30 days>\n\nTask '<title>' failed <N> iterations. Recurring: <pattern>. Task must be re-decomposed.",
   tags: ["anti-pattern", "exploration", "project:<project>"],
   source_type: "observation",
   valid_until: "<YYYY-MM-DD, today + 30 days>",
@@ -189,9 +181,7 @@ exploration_flag: <true|false>
 summary: <one sentence>
 ```
 
-For `decision: merge`, no URL is needed — QA pushes the branch to `main`. The
-orchestrator reads this output and routes accordingly. Do not call the
-orchestrator from inside this skill.
+For `decision: merge`, no URL is needed.
 
 ## Verification
 
@@ -200,5 +190,4 @@ orchestrator from inside this skill.
 - `findings` is non-empty for `bounce` and `explore`, empty/`none` for `merge`.
 - Memory write attempted at most once.
 - If `explore`: `exploration_flag: true`, no bounce, no approve.
-- If `merge`: NO `git push origin main` / `gh pr merge` ran — the push is
-  delegated to QA.
+- If `merge`: no `git push origin main` / `gh pr merge` ran.

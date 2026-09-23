@@ -3,9 +3,8 @@
 Loaded by `execute-task` after project rules are loaded (see `references/memory.md`).
 
 The task arrives as a **JSON string** — parse it as `task` and read fields
-via `task.type`, `task.description`, `task.metadata.*`, etc. (The
-`subagent` tool only accepts `task` as a string; the orchestrator serializes
-the context bundle into it.)
+via `task.type`, `task.description`, `task.metadata.*`, etc. (the `subagent`
+tool accepts `task` only as a string).
 
 ## Steps
 
@@ -25,26 +24,23 @@ the context bundle into it.)
 2. **Identify component type** — from `task.type` / `task.metadata.type`,
    else infer from `title`/`description`.
 
-3. **Recall experience (RAG)** — load `references/rag.md` if not loaded.
-   - If `task.metadata.memory_context` is present and non-empty (orchestrator pre-batched): use it as context. Skip the recall call. Also read `task.metadata.anti_patterns` if present and apply as warnings.
-   - If `task.metadata.memory_context` is absent or empty: call `pgvec_recall_memory({ query:"<concise goal> <project>" })`. On failure → continue without context.
+3. **Consume memory (architect-supplied)** — load `references/rag.md` if not
+   loaded. Use `task.metadata.memory_context` as your only memory context and
+   treat each `task.metadata.anti_patterns` entry as a warning. Never recall. If
+   context is absent or the call fails, continue without it.
 
-4. **Fetch latest and rebase**
-   ```
-   cd /workspace/<project>-<task_id>
-   git fetch origin <branch> && git rebase origin/<branch>
-   ```
-   If conflict → resolve via `resolve-merge-conflict` or abort and report.
+4. **Place** — work inside `task.cwd`, the single worktree. If the index lock
+   is busy (a sibling worker committing), wait briefly and retry.
 
 5. **Implement the component**
-   - Follow the skill instructions provided by the orchestrator for this task type.
-   - For library docs: load the `docs-lookup` skill (Context7 with a 7-day file cache) — do not call `resolve-library-id`/`query-docs` directly.
-   - Note: frontend tasks (UI components, 3D scenes, page assembly) are delegated to the `frontend-implementer` agent (complex ones also use `frontend-architect`) by the orchestrator. If you receive a frontend task, report it back.
+   - Follow the delegated skill for this task type.
+   - For library docs: load `docs-lookup` (Context7 + 7-day cache), not
+     Context7 tools directly.
 
 6. **Quality check and commit**
    - Verify against judge rubric (see `execute-task` → Quality Targets). Fix deficient dimensions.
-   - `git add . && git commit -m "Task #<task_id>: <description>" && git push origin <branch>`
-   - Push conflict → fetch → rebase → push. On persistent failure, apply the retry protocol.
+   - `git add <changed files> && git commit -m "Task #<task_id>: <description>" -- <same files>`
+   - Commit incrementally on long runs.
 
 7. **Complete**
    - Success: store experience in memory **only if the task produced a
@@ -61,8 +57,7 @@ the context bundle into it.)
         idempotency_key: "task:<project>:<type>:<task_id>"
       })
      ```
-   - Failure: return error details to the orchestrator.
-   - Cleanup: `cd /workspace/<project> && git worktree remove --force /workspace/<project>-<task_id> 2>/dev/null || true`
+   - Failure: return error details.
 
 ## Refactoring path (`task.metadata.type == "refactoring"`)
 
@@ -70,9 +65,9 @@ Applies targeted edits to existing code instead of generating new components.
 
 1. **Validate criteria** — same as standard step 1. Also read `task.metadata.target_files`.
 
-2. **Fetch and rebase** — same as standard step 4.
+2. **Place** — work inside `task.cwd`, same as standard step 4.
 
-3. **Read current code** — navigate to worktree, read each file in `task.metadata.target_files`. Understand current structure.
+3. **Read current code** — read each file in `task.metadata.target_files`. Understand current structure.
 
 4. **Apply targeted edits**
    - Use `edit` tool per `change_description`. Preserve external behavior.
@@ -81,6 +76,6 @@ Applies targeted edits to existing code instead of generating new components.
 
 5. **Validate** — run `npm run lint`, `npm run test`, `npm run build`. Verify existing tests pass, no API changes.
 
-6. **Commit and push** — `git commit -m "Task #<task_id>: <description>" && git push origin <branch>`
+6. **Commit** — `git commit -m "Task #<task_id>: <description>" -- <changed files>`
 
 7. **Complete** — same as standard step 7.

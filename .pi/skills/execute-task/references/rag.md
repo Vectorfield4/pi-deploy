@@ -2,19 +2,22 @@
 
 Loaded by `execute-task` for `component` and `review` flows. Native Pi tools registered under `pgvec_`; call directly.
 
-## Batched recall (orchestrator → workers)
+## Architect-ingested memory (architect → workers)
 
-One batched recall per task; pass results to workers via `task.metadata.memory_context` (task JSON string). Workers read given context; do not recall again (`component.md` step 3 enforces).
+The owning architect (frontend-architect / backend-architect) recalls domain
+memory once per task and embeds it in the payload before delegating.
+Workers consume it; they never recall (`component.md` step 3 enforces).
 
 ```
-// orchestrate-task step 4.5:
+// Depth-1 architect, before delegating:
 results = pgvec_recall_memory({ query:"<main goal> <project>", limit:10 })
-// step 7, inside the task JSON string:
 metadata.memory_context = summarize(results)
 metadata.anti_patterns = pgvec_recall_memory({ query:"<main goal> <project>", tag:"anti-pattern", limit:3 })
 ```
 
-Ad-hoc tasks bypassing `orchestrate-task`: `component.md` falls back to its own recall.
+Workers read `task.metadata.memory_context` and `task.metadata.anti_patterns`
+verbatim; a missing field means no context was available — proceed without
+memory.
 
 ## Principles
 

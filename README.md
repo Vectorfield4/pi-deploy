@@ -46,7 +46,9 @@ Embeddings are hosted on a remote OpenAI-compatible endpoint (configured via `AI
 ## Task flow
 
 ```
-Telegram → Orchestrator → Subagents (frontend/backend/devops/content) on a feature branch →
+Telegram → Router (3 tracks) → orchestrator → Depth-1 architect → workers (frontend/backend/devops/content) on a feature branch
+   product-owner ← read-only queries (relay verbatim)
+   devops ← release / project-init (profile skill + confirm gate)
    Reviewer reviews the branch diff vs main first (every coding task, quality loop) → push to main
 ```
 
@@ -63,9 +65,9 @@ Versions pinned in `.pi/settings.json`. Makefile reads the list and installs via
 | Extension | Version | Role | Used by | Why it's here |
 |-----------|---------|------|---------|---------------|
 | `pi-subagents` | 0.58.0 | Multi-agent orchestration with strict tool allowlists, async runs, model overrides per role | All agents under `.pi/agents/` | Reads `model` and `tools` from each agent's frontmatter. |
-| `pi-pgvector-memory` | local | Native Pi extension that exposes the pgvec memory tools (`pgvec_*`) directly | All agents (orchestrator, backend, devops, content, frontend-implementer, reviewer, qa) | Thin proxy to the `pgvec-memory` server. Memory is best-effort, never a hard dependency. |
+| `pi-pgvector-memory` | local | Native Pi extension that exposes the pgvec memory tools (`pgvec_*`) directly | All agents (orchestrator, product-owner, backend, devops, content, frontend-implementer, reviewer, qa) | Thin proxy to the `pgvec-memory` server. Memory is best-effort, never a hard dependency. |
 | `@bytesbrains/pi-telegram-bridge` | 1.4.1 | Telegram bot bridge inside the Pi interactive session | Pi container entrypoint | The path from Telegram into Pi. Polls in the background. |
-| `ping-a-human-pi` | 0.1.1 | Generic human-in-the-loop notifications | QA agent for FTP deploy blocks | Used where GitHub polling doesn't apply (FTP deploys, destructive ops). |
+| `ping-a-human-pi` | 0.1.1 | Generic human-in-the-loop notifications | devops (release confirm), QA (bounce HITL) | Used where GitHub polling doesn't apply (destructive ops). |
 | `pi-memory` | 0.4.2 | Session memory with qmd semantic search across daily logs and scratchpad | Pi main session | Separate from pgvec evidence. Orchestrator scratchpad lives here. |
 | `@upstash/context7-pi` | 0.1.2 | Library docs via Context7 | backend, devops, content, frontend-implementer, reviewer (via the `docs-lookup` skill) | Workers use `docs-lookup` (Context7 + 7-day file cache) instead of trusting training data; never call `resolve-library-id`/`query-docs` directly. |
 
@@ -75,25 +77,23 @@ Versions pinned in `.pi/settings.json`. Makefile reads the list and installs via
 
 ## Human-in-the-loop
 
-Two scenarios block the flow and wait for you. Vercel staging deploys are
-automatic and not on this list; pushes to `main` are not HITL either (every
+One scenario blocks the flow and waits for you. Deploys are manual — the
+operator runs them outside this system. Pushes to `main` are not HITL (every
 push is reviewed by the reviewer, then QA fast-forwards into `main`).
 
 | Block | When it triggers | What's blocked | What you do | Timeout | Progress |
 |-------|------------------|----------------|-------------|---------|----------|
-| **FTP deploy (production)** | QA got `type=deploy` with a production target | The whole QA task | Reply in Telegram after you check the release zip | None, waits for reply | `ping-a-human-pi` in Telegram |
 | **Destructive op** | Any operation with irreversible side effects (drop DB, force-push, etc.) | The specific step | Reply in Telegram | None, waits for reply | `ping-a-human-pi` in Telegram |
 
 For contrast, these do not trigger HITL:
 
-- Vercel staging deploy. Runs on push to main.
 - CI failures. The owning worker fixes in place until green. No ping.
 - Bounced branch. QA sent the branch back for fixes. The owning worker pushes more commits on
   the same branch, reviewer re-evaluates. No new HITL.
 
 ### Recovery
 
-- Telegram bot crashed during HITL: `make restart`. The flow resumes from the last `ask_human` block (FTP/deploy). If state is lost, resend the command ("deploy" / "release") in Telegram and the orchestrator picks it up.
+- Telegram bot crashed during HITL: `make restart`. The flow resumes from the last `ask_human` block. If state is lost, resend the command ("release" / "init") in Telegram and the router picks it up.
 
 ## Documentation
 

@@ -11,7 +11,7 @@ For each planned sub-task, produce a `file_inventory` array. Keep it short
 ```
 file_inventory = [
   "AGENTS.md",                      # rules — worker reads its own section
-  "artifacts/design-spec.md",       # if architect already produced one
+  "src/shared/i18n/<locale>/<ns>.ts",     # locale dicts — parallel content writes copy
   "src/entities/<thing>/api/<thing>.ts",    # the file(s) the sub-task will touch
   "src/entities/<thing>/api/<thing>.test.ts",
   "src/entities/<thing>/api/<svc>.ts",      # adjacent service(s) the sub-task reads

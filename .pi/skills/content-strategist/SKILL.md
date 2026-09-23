@@ -10,7 +10,7 @@ Writes a structured content plan based on the narrative. Every block must pass a
 ## Instructions
 
 1. Load prose quality rules from `execute-task/references/prose-quality.md`.
-2. Read `artifacts/narrative.md`. Extract voice profile.
+2. Use the established voice profile (from the narrative).
 3. Create content plan with blocks:
    - **H1**: Specific outcome + clear audience
    - **Subheadline**: What the product does in one sentence
@@ -23,4 +23,4 @@ Writes a structured content plan based on the narrative. Every block must pass a
 
 4. Self-check: zero banned words, every paragraph adds NEW information, read aloud test.
 
-5. Save to `artifacts/content-plan.md`.
+5. Carry the plan into the copy as it is written — no files saved.

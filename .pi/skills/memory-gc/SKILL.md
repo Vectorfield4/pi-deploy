@@ -14,7 +14,7 @@ Decay for pi-pgvector-api-embeddings. Every `remember` call writes `valid_until`
 | user feedback | 60 days | user feedback |
 | exploration anti-pattern | 30 days | decay fast as practices evolve |
 
-Callers write `valid_until` per the policy. This skill never invents TTLs; it enforces what callers wrote.
+Callers write `valid_until` per this policy; this skill never invents TTLs.
 
 ## Algorithm
 
@@ -24,7 +24,8 @@ Callers write `valid_until` per the policy. This skill never invents TTLs; it en
    ```
    Backend compares each `valid_until` to today (UTC), retracts expired records, capped at 20 per call.
 
-2. **Graceful degradation.** On `pgvec_gc` failure or error, do nothing. Memory grows slightly; system stays up. Never block the calling QA flow.
+2. **Graceful degradation.** On `pgvec_gc` failure, do nothing; never block
+   the flow.
 
 3. **Return summary.**
    ```
@@ -37,11 +38,9 @@ Callers write `valid_until` per the policy. This skill never invents TTLs; it en
 
 ## Caller contract
 
-Called by QA after every successful review/release/deploy. Caller does not check the return value; the next call retries.
-
-Cost: 1 `pgvec_gc` call per iteration — no per-record embedding or recall work. On a healthy system, expired records are rare; most calls do 0 work.
+Run after every push. Do not check the return value; the next call retries.
 
 ## Verification
 
 - `retracted + errors == expired`.
-- `release` / `deploy` tasks with no memory writes skip GC. QA decides when to invoke.
+- Tasks with no memory writes skip GC.

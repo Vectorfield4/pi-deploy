@@ -20,13 +20,11 @@ Assemble ready components into a static Astro application.
    - Correct asset paths (public/ or `shared/assets/images/` via import)
 
 3. Verify: all components render, no style conflicts (StyleX layers), JS-less
-   pages render, `tsc -b` typechecks. The full `astro build` runs in the
-   implementer's final verify step.
-
-4. Return the final application.
+   pages render, `tsc -b` typechecks; the full `astro build` runs in the
+   final verify step.
 
 ## Success Criteria
-- Typecheck passes (`tsc -b`); the implementer's verify runs the full `astro build`
+- Typecheck passes (`tsc -b`); the full `astro build` runs in final verify
 - All components visible and working
 - Island hydration directives match interaction level
 - 404 and unknown-route behaviour follow Astro conventions
