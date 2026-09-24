@@ -75,9 +75,9 @@ Use the `pr-judge` skill to score:
   defines (parity — a missing translation in any one is a defect), and
   dependencies stay on the project's declared stack (`package.json` + project
   `AGENTS.md`).
-- Verify structural claims with AST tools instead of grep: `find_definition`
-  to confirm a symbol exists, `find_callers` to confirm consumers, `find_callees`
-  to trace dependencies of a changed symbol.
+- Verify structural claims and run the overwrite check per the `# tools`
+  contracts (`find_definition`, `find_callers`, `find_callees`,
+  `list_symbols`).
 
 If total added/removed lines exceed 3000, do not run the full diff inline; score from per-file reads.
 
@@ -191,3 +191,41 @@ For `decision: merge`, no URL is needed.
 - Memory write attempted at most once.
 - If `explore`: `exploration_flag: true`, no bounce, no approve.
 - If `merge`: no `git push origin main` / `gh pr merge` ran.
+
+# tools
+
+## read
+
+- when: pr-judge scoring — task criteria, file states, raw logs
+- how: never parse change sets; analyze only the `git diff` delta
+
+## bash (git)
+
+- when: diff extraction, asset scans, validation commands in the worktree
+- how: `git diff`, `--stat`, `--name-only` within the task worktree only
+
+## list_symbols
+
+- when: integrity check of executor-updated files before merge
+- how: fail the gate on full overwrite of an existing tracked file →
+  `findings[]: full-overwrite: <path>` → `decision: bounce`
+
+## find_definition
+
+- when: confirming a changed symbol exists
+- how: named entities only
+
+## find_callers
+
+- when: impact verification of changed shared components
+- how: scan consumers within the active git diff window
+
+## find_callees
+
+- when: verifying references inside a modified function
+- how: mutated node scopes only
+
+## get_symbol_body
+
+- when: analyzing a modified symbol for execution defects
+- how: target the mutated symbol directly

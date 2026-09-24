@@ -35,15 +35,6 @@ Before step 2, consume the memory payload:
 Work in the worktree: `git add <changed files>` and
 `git commit -m "..." -- <same files>`.
 
-## Code reads (AST tools)
-
-- `list_symbols` / `get_symbol_body` for structural reads; `read` only the
-  resolved target after locating it.
-- Before changing a signature or shared type: `find_callers` to enumerate
-  impact, update every call site.
-- `find_definition` when the definition site is unknown. `find_callees` to
-  map what a symbol depends on.
-
 ## Conventions
 
 - Failure → report error with details
@@ -62,13 +53,6 @@ The final message is the only text the user reads as your result.
 - ≤ 6 lines, plain prose, no fenced code, no JSON.
 - Format: `✅ <one-line outcome>. <commit/branch + 1-line what changed>.`
 - Long output → `artifacts/<task_id>-report.md`. Reference by path or omit.
-
-## Tool-call discipline
-
-- `telegram_notify(kind="task", …)` at most twice per turn: once at
-  `status="started"`, once at `status="complete"`.
-- `telegram_send` is for one-off notes only. Status pings between
-  subagent handoffs are not notes.
 
 ## Quality Targets
 
@@ -91,3 +75,56 @@ Load `references/prose-quality.md`. Apply AFTER standard quality check:
 - TASK (`type: "task"` / `component` / `content` / `review`): the single
   worktree at `task.cwd` holds the branch; task completed or blocked; no task
   remains in intermediate state
+
+# tools
+
+## read
+
+- when: discovery on unstructured legacy targets or non-code config profiles,
+  or context the planner left unread
+- how: only when the target lacks an AST symbol signature; resolved target only
+
+## list_symbols
+
+- when: local exploration of blocks left unmapped by the planner
+- how: structural index mapping; not string-matching loops
+
+## find_definition
+
+- when: unresolved local types, properties, endpoints, dependency origins
+- how: named entities only; verify location before opening
+
+## find_callers
+
+- when: changing a signature or shared type — regression on consumers
+- how: local scan; enumerate and update every call site
+
+## find_callees
+
+- when: mapping what a symbol depends on before touching it
+- how: confine to the mutated node scope
+
+## get_symbol_body
+
+- when: immediately before a modification step on the target
+- how: the specific function block or node only; body not already in context
+
+## edit
+
+- when: mutating existing code or logic profiles
+- how: focused `oldText`/`newText` pairs; full-file overwrites blocked
+
+## write
+
+- when: instantiating a net-new file or test asset
+- how: paths absent on disk only
+
+## telegram_notify
+
+- when: at task start and completion
+- how: `kind="task"`, at most twice per turn (`started`, `complete`)
+
+## telegram_send
+
+- when: one-off notes
+- how: never status pings between subagent handoffs

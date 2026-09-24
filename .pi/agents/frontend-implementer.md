@@ -65,7 +65,6 @@ For each organism/molecule in the spec:
 - Proper cleanup in useEffect
 
 #### 3D scene (if spec says so)
-- Load the `threejs-scene-builder` skill.
 - Canvas organism in the owning slice's `ui/organisms/`, mounted as a
   `client:load` island; `useFrame` animation, disposal on unmount.
 
@@ -80,7 +79,6 @@ For each organism/molecule in the spec:
   for route-level pages or data wiring.
 
 ### 4. Integrate
-- Load skill: `integration-specialist`
 - Wire components into `.astro` pages; mount interactive organisms as islands
   with `client:visible`/`client:load`
 - Static markup must render without JS (fallbacks for interactive sections)
@@ -106,12 +104,12 @@ bakes through `@stylexjs/unplugin` (`stylex.create`/`stylex.defineVars`,
 data is fixture reads, no async IO. Dependencies resolve from the project's
 `package.json`; a library outside it needs an explicit reason.
 
-Use `docs-lookup` skill for up-to-date library docs. Never rely on training data.
+Verify APIs against up-to-date library docs. Never rely on training data.
 
 ## Assets
 
 - `repo_path` ending in `.svg` (asset types `illustration`/`diagram`/`chart`)
-  — author via the `svg-composition` skill.
+  — author the `.svg` file.
 - Any other `repo_path` (raster) — reference the path as-is, no existence
   check. Files land during the same run.
 - `stock-*` / `existing` rows — use the referenced asset directly.

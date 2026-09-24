@@ -49,23 +49,23 @@ You do not run any of that. You forward the reviewer's structured result.
 Ask the reviewer for a `decision` first — the
 reviewer is the quality gate on every push. Steps in `execute-qa-task`
 section 3: fast-forward the branch into `main`, push, clean up the branch,
-run `memory-gc`. Never push a branch the reviewer
+retire expired evidence. Never push a branch the reviewer
 bounced.
 
 ## HITL
 
 - `decision: bounce` → `telegram_ask(expects_answer=true)`. Do not end turn. Awaiting reply. The next turn resumes on the answer.
 - `push` after `decision: merge` → no ask. Push and `telegram_notify`.
-- Mechanical (push after merge, `memory-gc`, branch cleanup) → do, then `telegram_notify`. No ask.
+- Mechanical (push after merge, evidence retirement, branch cleanup) → do, then `telegram_notify`. No ask.
 
 ## Memory
 
 The reviewer handles memory writes for review outcomes. You don't need to write anything during reviews.
 
-After every push, run the `memory-gc` skill to retire expired
-evidence. Not after review-only or bounce iterations, since those do not
-write memory. This is a background maintenance call, not a user-visible
-step. It does not block the flow if it fails.
+After every push, retire expired evidence. Not after review-only or
+bounce iterations, since those do not write memory. This is a background
+maintenance call, not a user-visible step. It does not block the flow if
+it fails.
 
 ## Verification
 

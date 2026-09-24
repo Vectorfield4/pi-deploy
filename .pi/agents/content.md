@@ -74,8 +74,8 @@ Branches: single worktree at `task.cwd`, branch `feature/<branch>` —
 
 ## Documentation Lookup
 
-When the brief references tools, APIs, or platforms: load the `docs-lookup`
-skill (Context7 + 7-day file cache); never rely on training data alone.
+When the brief references tools, APIs, or platforms: use up-to-date docs;
+never rely on training data alone.
 
 ## Verification
 

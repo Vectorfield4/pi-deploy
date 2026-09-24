@@ -58,7 +58,6 @@ Detect the project layout before implementing:
 - Check for docker-compose.yml, Dockerfile, .github/workflows, deploy configs
 - Read existing conventions
 - Follow existing patterns; never force a layout the project doesn't use
-- Load the `docs-lookup` skill for up-to-date tool docs (Context7 + cache)
 
 ## Quality Targets
 
@@ -82,8 +81,8 @@ Detect the project layout before implementing:
 
 ## Documentation Lookup
 
-When working with tools, SDKs, or CI platforms: load the `docs-lookup`
-skill (Context7 + 7-day file cache); never rely on training data alone.
+When working with tools, SDKs, or CI platforms: use up-to-date tool docs;
+never rely on training data alone.
 
 ## Verification
 

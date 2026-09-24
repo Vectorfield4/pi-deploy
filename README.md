@@ -1,6 +1,6 @@
 # pi-deploy
 
-Natural-language dev system on [Pi](https://pi.dev). Detects project type (frontend, backend, fullstack, CLI, infra, content) from the codebase and routes to the right skill. No slash commands, no menus, just text in, merged to main out.
+Natural-language dev system on [Pi](https://pi.dev). Detects project type (frontend, backend, fullstack, CLI, infra, content) from the codebase and routes to the right skill. No slash commands, no menus.
 
 ## Features
 

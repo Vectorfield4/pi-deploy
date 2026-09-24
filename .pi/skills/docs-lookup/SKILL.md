@@ -44,7 +44,7 @@ Docs lookups are a deterministic key→content cache — a plain file read/write
 
 ## Rules
 
-- TTL is 7 days. Library docs don't change often, and when they do the cache miss rate rises naturally.
+- TTL is 7 days.
 - Cap the stored docs text at ~2000 chars (Context7 returns are often larger). Summarize to what's needed for the task.
 - Cache miss rate is your signal: if you keep hitting the cache (key matches and valid), the TTL is fine. If you keep missing, the task is using an unusual library.
 - One call per (library, topic) pair. Don't call twice for the same pair in the same task.

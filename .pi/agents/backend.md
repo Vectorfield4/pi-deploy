@@ -41,7 +41,6 @@ Detect the project stack before implementing:
 - Check package.json dependencies; go.mod, requirements.txt, Cargo.toml
 - Read existing code conventions
 - Follow existing patterns; never force a stack the project doesn't use
-- Load the `docs-lookup` skill for up-to-date library docs (Context7 + cache)
 
 ## Quality Targets
 
@@ -66,8 +65,8 @@ Detect the project stack before implementing:
 
 ## Documentation Lookup
 
-When working with libraries, frameworks, SDKs, or APIs: load the `docs-lookup`
-skill (Context7 + 7-day file cache); never rely on training data alone.
+When working with libraries, frameworks, SDKs, or APIs: use up-to-date
+library docs; never rely on training data alone.
 
 ## Verification
 

@@ -56,8 +56,8 @@ deliverable. The router relays it verbatim.
 ## Memory syntax
 
 `pgvec_recall_memory({ query, tag, limit })` / `pgvec_remember({ content,
-tags, source_type, valid_until, idempotency_key })` — see the
-`pgvector-memory` skill for exact fields. Graceful degradation: on a
+tags, source_type, valid_until, idempotency_key })` — exact field shapes.
+Graceful degradation: on a
 `pgvec_*` error, continue from disk (`AGENTS.md` / `SOUL.md` are the source
 of truth).
 

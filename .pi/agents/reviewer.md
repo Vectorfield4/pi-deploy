@@ -48,7 +48,7 @@ For every review task:
    - Score ≥ 7 and quality holds: store as verified pattern.
    - Score ≤ 4: store as anti-pattern.
    - Use the `pgvec_*` native Pi tools, never write through any other path.
-   - If scoring requires verifying current API usage of a library, load the `docs-lookup` skill (Context7 with file cache) instead of training knowledge.
+   - If scoring requires verifying current API usage of a library, check up-to-date docs instead of training knowledge.
 
 ## Tools you do not have
 

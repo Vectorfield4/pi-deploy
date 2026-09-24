@@ -70,8 +70,7 @@ Applies targeted edits to existing code instead of generating new components.
 3. **Read current code** — read each file in `task.metadata.target_files`. Understand current structure.
 
 4. **Apply targeted edits**
-   - Use `edit` tool per `change_description`. Preserve external behavior.
-   - Do NOT regenerate from scratch. Edit only what needs to change.
+   - Use `edit` per `change_description`; preserve external behavior.
    - Complex changes (>3 files or >100 lines diff) → split into smaller edits, commit incrementally.
 
 5. **Validate** — run `npm run lint`, `npm run test`, `npm run build`. Verify existing tests pass, no API changes.

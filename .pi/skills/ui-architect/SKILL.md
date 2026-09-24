@@ -9,28 +9,23 @@ Design page architecture for the delegated task string. Stack: Astro 7 (SSG) + R
 
 ## Instructions
 
-1. Code reads (AST tools):
-   - `list_symbols` to map existing components/pages/hooks; `get_symbol_body`
-     for a shared element the design touches. `read` only the resolved target.
-   - `find_callers` to check impact on shared types, layout, or route registry.
-
-2. Define the page using Atomic Design:
+1. Define the page using Atomic Design:
    - **Organisms** — complex sections (hero, features, social proof, lead capture)
    - **Molecules** — reusable composites (CTA button, feature card, form field)
    - **Atoms** — smallest units (Button, icon, badge)
 
-3. For each organism specify:
+2. For each organism specify:
    - Contents (molecules/atoms)
    - Responsive behavior (mobile/tablet/desktop)
    - Animation behavior (scroll-triggered, static, interactive, or 3D Canvas island)
    - Hydration: `client:visible` island, `client:load` island, or static
 
-4. Define architecture:
+3. Define architecture:
    - Routes (`src/pages/**/*.astro`: `getStaticPaths`, thin pages, BaseLayout)
    - Data (fixture getters, i18n keys across ALL locale dictionaries)
    - State (local to an organism; no runtime global stores)
 
-4.5. File Structure follows the FSD canonical tree. Shared carries ui, design,
+4. File Structure follows the FSD canonical tree. Shared carries ui, design,
 config, data, hooks, i18n, types, assets/images. Entities carry ui, model,
 i18n, api. Features carry ui, model. Thin routes live directly in pages/.
 
@@ -53,6 +48,33 @@ i18n, api. Features carry ui, model. Thin routes live directly in pages/.
   implementer payload.`
 - No file writes; the delegated task string is the deliverable.
 
-## Tool-call discipline
+# tools
 
-- `telegram_notify(kind="task", …)` at most twice per turn.
+Anything past these structural reads delegates.
+
+## list_symbols
+
+- when: composite-task split, routing triage, matching `metadata.locale_keys`,
+  verifying module exports
+- how: never module internals or private expressions
+
+## find_definition
+
+- when: cross-module endpoint mapping, structural entity init sites
+- how: named entities only; not a keyword or file-name search
+
+## find_callers / find_callees
+
+- when: interface evaluation of public shared components for payload
+  construction
+- how: top-level props/types only
+
+## get_symbol_body
+
+- when: public interface extraction for parallel sibling fan-out contracts
+- how: public declarations only; never internal logic bodies
+
+## telegram_notify
+
+- when: at task start and completion
+- how: `kind="task"`, at most twice per turn

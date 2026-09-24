@@ -6,8 +6,7 @@ description: "Author and compose SVG illustrations: layered gradient scenes, Ico
 # SVG Composition
 
 Compose vector illustrations and iconography. SVGs are **assets, not
-components**: render them via `<img>`, never inline `<svg>` in JSX (or a page
-that needs a bigger illustration loses readability on both themes).
+components**: render via `<img>`, never inline `<svg>` in JSX.
 
 ## Solution illustration template
 

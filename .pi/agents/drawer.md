@@ -39,7 +39,7 @@ Your work directory is `task.cwd`, on `feature/<task_id>-<title>`. Partition:
 ## Workflow
 
 0. Place: work inside `task.cwd`.
-1. Load skill `drawer-image`; apply it to each `metadata.assets` row (gate,
+1. Apply the asset pipeline to each `metadata.assets` row (gate,
    generation, placement).
 2. Commit:
    `git add shared/assets/images && git commit -m "feat(images): add <slugs>" -- shared/assets/images`.
