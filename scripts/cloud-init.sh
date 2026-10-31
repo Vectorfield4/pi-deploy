@@ -22,9 +22,10 @@ REPO_URL="${REPO_URL:-https://github.com/Vectorfield4/pi-deploy.git}"
 cd /root
 if [ -d pi-deploy/.git ]; then
   echo "[cloud-init] pi-deploy already exists — pulling latest"
-  git -C pi-deploy pull
+  git -C pi-deploy pull --ff-only
+  git -C pi-deploy submodule update --init --recursive
 else
-  git clone "$REPO_URL" pi-deploy
+  git clone --recursive "$REPO_URL" pi-deploy
 fi
 cd /root/pi-deploy
 

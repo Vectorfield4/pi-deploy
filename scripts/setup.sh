@@ -6,6 +6,7 @@ set -eu
 echo "🔄 Syncing repo with origin..."
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   git pull --ff-only
+  git submodule update --init --recursive
 else
   echo "⚠️  Not a git checkout (no .git) — skipping git pull"
 fi

@@ -21,6 +21,7 @@ update-skills:
 
 update:
 	@git pull --ff-only
+	@git submodule update --init --remote --recursive
 	@chmod +x scripts/*.sh # pull may reset to 100644 in index; cron needs +x
 	@docker compose build pi
 	@docker compose up -d --force-recreate pi

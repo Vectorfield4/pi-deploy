@@ -1,0 +1,3 @@
+[submodule ".pi/skills"]
+	path = .pi/skills
+	url = https://github.com/Vectorfield4/skills.git

@@ -20,6 +20,9 @@ git config core.fileMode false
 # when the repo was committed without +x bits, which silently breaks cron.
 chmod +x scripts/*.sh
 
+# Sync the extracted skills submodule (if present).
+git submodule update --init --recursive 2>/dev/null || true
+
 # Create or merge .env
 if [ ! -f .env ]; then
   cp .env.example .env

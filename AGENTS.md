@@ -70,7 +70,7 @@ reads is replayed as cacheRead on every subsequent turn, so the orchestrator
 stays thin: it inventories (`grep`/`find`/`ls`/`wc`) rather than reads, and
 ships a `metadata.file_inventory` to workers so they do the heavy file reads.
 See `.pi/agents/orchestrator.md` (Context Discipline) and
-`.pi/skills/orchestrate-task/SKILL.md` (step 4.7).
+`.pi/skills/skills/devops/orchestrate-task/SKILL.md` (step 4.7).
 
 One thing you do yourself, without delegating:
 

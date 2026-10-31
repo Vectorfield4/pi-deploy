@@ -1,8 +1,9 @@
 # Skills catalog
 
 Pi loads all project skills into the session; agent `frontmatter.skills` gates
-which ones are usable. Each skill lives in `.pi/skills/<name>/SKILL.md` and is
-self-contained.
+which ones are usable. Skills are vendored via the `skills` submodule at
+`.pi/skills` (https://github.com/Vectorfield4/skills); each skill lives at
+`.pi/skills/skills/<category>/<name>/SKILL.md` and is self-contained.
 
 ## Universal
 

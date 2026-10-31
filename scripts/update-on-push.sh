@@ -30,7 +30,12 @@ if [ -z "$REMOTE" ]; then
   exit 0
 fi
 
-if [ "$LOCAL" = "$REMOTE" ]; then
+# Also track the extracted skills submodule so skill updates trigger an update.
+git -C .pi/skills fetch --quiet 2>/dev/null || true
+SUB_LOCAL=$(git -C .pi/skills rev-parse HEAD 2>/dev/null || true)
+SUB_REMOTE=$(git -C .pi/skills rev-parse origin/main 2>/dev/null || git -C .pi/skills rev-parse origin/master 2>/dev/null || true)
+
+if [ "$LOCAL" = "$REMOTE" ] && { [ -z "$SUB_REMOTE" ] || [ "$SUB_LOCAL" = "$SUB_REMOTE" ]; }; then
   exit 0
 fi
 
@@ -63,6 +68,7 @@ CHANGED=$(git diff --name-only "$(git merge-base "$LOCAL" "$REMOTE")" "$REMOTE")
 
 if printf '%s\n' "$CHANGED" | grep -qE "$NEED_FULL_REBUILD_REGEX"; then
   echo "🔧 image/container-spec changed — full rebuild via make update"
+  git submodule update --init --remote --recursive
   if make update && chmod +x scripts/*.sh 2>/dev/null; then
     echo "✅ Pi updated to $REMOTE"
   else
@@ -75,7 +81,7 @@ elif printf '%s\n' "$CHANGED" | grep -qx '.pi/settings.json'; then
     echo "⚠️ $CT not running — cannot install packages, defer"
     exit 0
   fi
-  if git pull --ff-only && make install-packages && docker compose restart pi && chmod +x scripts/*.sh 2>/dev/null; then
+  if git pull --ff-only && git submodule update --init --remote --recursive && make install-packages && docker compose restart pi && chmod +x scripts/*.sh 2>/dev/null; then
     echo "✅ Packages updated to $REMOTE"
   else
     echo "❌ package update failed — next tick will retry (check that services are healthy)"
@@ -83,7 +89,7 @@ elif printf '%s\n' "$CHANGED" | grep -qx '.pi/settings.json'; then
   fi
 else
   echo "♻️ only mounted config changed — pull + restart pi"
-  if git pull --ff-only && docker compose restart pi && chmod +x scripts/*.sh 2>/dev/null; then
+  if git pull --ff-only && git submodule update --init --remote --recursive && docker compose restart pi && chmod +x scripts/*.sh 2>/dev/null; then
     echo "✅ Pi restarted to $REMOTE"
   else
     echo "❌ restart failed — next tick will retry"
